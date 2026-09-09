@@ -1,0 +1,65 @@
+# Local development and test services.
+#
+# `postgres`      — the development database, persisted in a named volume.
+# `postgres-test` — the database the integration suite runs against. It lives on
+#                   tmpfs and is wiped on every restart: no fsync, no durability,
+#                   nothing worth keeping. `pnpm test` starts it on its own.
+#
+# Both images must match the production major version (docs/adr/0002).
+
+name: ppfq
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ppfq
+      POSTGRES_PASSWORD: ppfq
+      POSTGRES_DB: ppfq
+      # Deterministic collation: index order must not depend on the host locale.
+      POSTGRES_INITDB_ARGS: '--locale=C --encoding=UTF8'
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      # Postgres 18+ images want the mount at /var/lib/postgresql, not at
+      # /var/lib/postgresql/data: the data lives in a version-named subdirectory
+      # so that `pg_upgrade --link` does not cross a mount boundary.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ppfq -d ppfq']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  postgres-test:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ppfq
+      POSTGRES_PASSWORD: ppfq
+      POSTGRES_DB: ppfq_test
+      POSTGRES_INITDB_ARGS: '--locale=C --encoding=UTF8'
+    ports:
+      - '${POSTGRES_TEST_PORT:-5433}:5432'
+    # Throwaway data: keep it in RAM and turn off the durability machinery.
+    tmpfs:
+      - /var/lib/postgresql
+    command:
+      - postgres
+      - -c
+      - fsync=off
+      - -c
+      - full_page_writes=off
+      - -c
+      - synchronous_commit=off
+      - -c
+      - max_connections=200
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ppfq -d ppfq_test']
+      interval: 1s
+      timeout: 3s
+      retries: 60
+
+volumes:
+  postgres-data:

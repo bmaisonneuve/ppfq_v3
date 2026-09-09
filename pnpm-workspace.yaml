@@ -1,0 +1,4 @@
+# Build scripts are denied by default; each entry is a deliberate approval.
+allowBuilds:
+  esbuild: true # vitest + drizzle-kit bundler
+  unrs-resolver: true # eslint-import-resolver-typescript native binding

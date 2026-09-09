@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: ppfq
+          POSTGRES_PASSWORD: ppfq
+          POSTGRES_DB: ppfq_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U ppfq -d ppfq_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      TEST_DATABASE_URL: postgres://ppfq:ppfq@localhost:5433/ppfq_test
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The layering rule lives here: a shortcut from app/ to db/ or domain/
+      # fails this step.
+      - run: pnpm lint
+
+      - run: pnpm typecheck
+
+      # Postgres is a service container, so the suite runs vitest directly
+      # rather than through `pnpm test`, which would start the compose service.
+      - run: pnpm exec vitest run
+
+      - run: pnpm build

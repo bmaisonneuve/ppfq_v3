@@ -1,1 +1,18 @@
+# Wikidata extracts: large, regenerable via scripts/extract_footballers.py
 .data
+
+# Dependencies
+node_modules
+
+# Next.js
+.next
+next-env.d.ts
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Test and tooling output
+coverage
