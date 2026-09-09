@@ -70,17 +70,45 @@ describe('the layering rule', () => {
     expect(messages).toEqual([])
   })
 
-  it('rejects routing that imports a server directory nobody has created yet', async () => {
-    // The whitelist is the point: `server/ingest` (#4) and `server/auth` (#8)
-    // must be guarded the day they appear, not the day someone remembers.
-    // Resolution has to succeed for the rule to fire, so this stands in for
-    // them with a directory that exists.
+  it('rejects routing that imports the Wikidata pipeline', async () => {
+    // The whitelist working as intended: `server/ingest` was guarded before it
+    // existed, and it needed nobody to remember on the day it appeared.
+    // `server/auth` (#8) is next.
     const messages = await violations(
       'src/app/(game)/forbidden.ts',
-      `import { footballers } from '@/server/db/schema'\nexport const x = footballers\n`,
+      `import { readSeniorCareer } from '@/server/ingest/career-statements'\nexport const x = readSeniorCareer\n`,
     )
 
     expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatch(/only reach the server through a service/)
+  })
+
+  it('rejects a pipeline module that reaches for the database', async () => {
+    // The reading of a statement has to stay pure: it is tested as a matrix in
+    // milliseconds, and a query in here would end that.
+    const messages = await violations(
+      'src/server/ingest/forbidden.ts',
+      `import { db } from '@/server/db/client'\nexport const x = db\n`,
+    )
+
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatch(/writing them is a service/)
+  })
+
+  it('lets the pipeline import the isomorphic layer, and a service import the pipeline', async () => {
+    expect(
+      await violations(
+        'src/server/ingest/allowed.ts',
+        `import { normalizeSearchTerm } from '@/shared/search'\nexport const x = normalizeSearchTerm\n`,
+      ),
+    ).toEqual([])
+
+    expect(
+      await violations(
+        'src/server/services/allowed.ts',
+        `import { readSeniorCareer } from '@/server/ingest/career-statements'\nexport const x = readSeniorCareer\n`,
+      ),
+    ).toEqual([])
   })
 
   it('rejects a domain module that reaches for the database', async () => {

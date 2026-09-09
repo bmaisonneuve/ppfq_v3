@@ -38,6 +38,8 @@ Référentiel de recherche **et** catalogue curé. « Curé » n'est pas un stat
 
 Les homonymes sont dédupliqués **à l'import** : sur les 382 703 footballeurs de l'extract, seul celui qui a le plus de `sitelinks` est inséré pour un nom donné. Les 13 042 autres n'entrent pas en base. Récupérer un homonyme notable est une insertion manuelle. À `sitelinks` égal, c'est le plus petit numéro Wikidata qui gagne — un départage arbitraire mais **déterministe**, sans lequel relancer l'import pourrait échanger deux footballeurs qui partagent un nom et une notoriété.
 
+Cette insertion manuelle, c'est l'**import de parcours par Q-id** : si le footballeur n'est pas en base, l'ingest crée sa ligne — et ses termes de recherche dans la même transaction, faute de quoi il serait un footballeur que personne ne peut taper, donc que personne ne peut proposer. Il faut alors que la source le nomme : sans libellé français ni anglais, l'import refuse plutôt que d'insérer une ligne anonyme. `name` et `sitelinks` d'une ligne existante appartiennent en revanche à l'import du référentiel, et l'ingest n'y touche pas.
+
 | Colonne | Type | Description |
 |---|---|---|
 | `id` | uuid | Clé primaire |
@@ -55,10 +57,19 @@ Les homonymes sont dédupliqués **à l'import** : sur les 382 703 footballeurs 
 | Colonne | Type | Description |
 |---|---|---|
 | `id` | uuid | Clé primaire |
-| `code` | text | Unique. ISO 3166-1 alpha-2 |
+| `code` | text | Unique. ISO 3166-1 alpha-2 quand le pays en a un, sinon voir ci-dessous |
 | `fr_name` | text | Nom affiché par le jeu |
 | `en_name` | text | Nullable |
 | `flag_s3_key` | text | Nullable. **Clé** de l'objet S3, pas une URL complète |
+
+**Le code n'est pas toujours un alpha-2**, et c'est le football qui l'impose. La chaîne est `P297` (alpha-2), puis `P300` (subdivision ISO 3166-2), puis `P298` (alpha-3) :
+
+- les **quatre nations britanniques** n'ont aucun alpha-2 et sont précisément la raison pour laquelle la nationalité sportive prime sur la citoyenneté — Beckham est `P27` Royaume-Uni et `P1532` Angleterre. Elles entrent en `GB-ENG`, `GB-SCT`, `GB-WLS`, `GB-NIR` ;
+- les **pays disparus**, dont les joueurs sont exactement ceux qu'une grille rétro veut, ne gardent qu'un alpha-3 : `YUG`, `CSK`, `SUN`.
+
+Un pays qui n'a aucun des trois codes n'entre pas en base : le footballeur reste sans nationalité, donc non programmable, et l'import le signale. La colonne reste une clé naturelle unique ; ce qu'elle n'est plus, c'est strictement de l'alpha-2.
+
+**La nationalité est choisie, jamais devinée** : `P1532` (« pays pour le sport ») s'il y en a un seul, sinon `P27` s'il y en a une seule, sinon rien. Un binational sans `P1532` est exactement le cas qu'aucune règle ne tranche, et l'indice 3 tombe au milieu d'une partie : un footballeur qu'il reste à curer est un footballeur non programmable, un mauvais drapeau est une énigme fausse. Une ligne existante n'est **jamais réécrite** par un import — son nom français et son drapeau sont curés — et la nationalité d'un footballeur n'est jamais effacée, seulement renseignée.
 
 ### `footballer_names`
 
@@ -237,10 +248,14 @@ Reprise de progression quand le lien magique s'ouvre dans un autre navigateur qu
 |---|---|---|
 | `id` | uuid | Clé primaire |
 | `job` | text | |
+| `target` | text | Nullable. Ce que la course a traité : le Q-id du footballeur pour un import de parcours |
 | `started_at` | timestamptz | |
-| `finished_at` | timestamptz | Nullable |
-| `items` | integer | Nullable |
+| `finished_at` | timestamptz | Nullable — la course n'a jamais rendu compte |
+| `items` | integer | Nullable. Volume traité : passages écrits, pour un import |
 | `errors` | integer | Nullable |
+| `last_error` | text | Nullable. Le message rendu à l'appelant, tronqué — jamais une pile |
+
+`target` et `last_error` s'ajoutent au premier jet du modèle. `target` parce que l'import tourne pour **un** footballeur à la fois : une ligne « career_import, 7 items » ne dit rien à l'écran de diagnostic. `last_error` parce que `errors = 1` dit qu'une course a échoué et laisse l'écran sans rien à montrer, alors qu'un import refusé — mauvais Q-id, carrière sans club — est justement la course qu'on vient lire. La ligne est écrite **hors** de la transaction qu'elle décrit, et à la sortie comme à l'entrée : une course qui a échoué et n'a rien laissé derrière elle est justement celle qu'on vient lire, un rollback ne doit pas emporter sa trace.
 
 ---
 
@@ -323,6 +338,9 @@ Le **résumé partagé n'est pas stocké** : il se dérive des trois `player_pro
 | `sitelinks` conservé | Sans classement par notoriété, `Zidane` place Zinedine en 15ᵉ position et `Henry` noie Thierry parmi 502 lignes |
 | Homonymes dédupliqués à l'import, perdants non insérés | Une liste de suggestions sans ambiguïté. Récupérer un homonyme notable est une insertion manuelle |
 | `footballer_names` unifiée, deux index | Une requête au lieu d'une union ; les trigrammes sont mauvais sur les préfixes courts |
+| L'import d'un parcours **remplace** tous les passages du footballeur | Un parcours est ce que la source en dit, pas un empilement de deux imports. Contrepartie assumée : une réserve retirée à la main revient, et c'est la raison pour laquelle l'import est un acte volontaire sur un footballeur et jamais un job nocturne |
+| Trois refus à l'import, et rien d'autre | Pas un footballeur (`P106`), aucun passage en club, footballeur inconnu du référentiel et sans libellé. Chacun protège de la donnée curée contre une réponse maigre — un snapshot en cours d'édition ne doit pas vider un parcours |
+| Nationalité sportive : `P1532`, sinon une citoyenneté unique, sinon rien | L'indice 3 tombe au milieu d'une partie : un mauvais drapeau est une énigme fausse, un footballeur non curé est seulement non programmable |
 | Dédoublonnage `(footballer, club, start_year)` à l'import | 6 721 groupes de doublons dans la source. Un doublon fait apparaître deux fois le même club dans un parcours, ce qui **ressemble exactement à un vrai double passage** et devient indétectable à l'œil : c'est le seul nettoyage que la curation ne peut pas rattraper. La déclaration la mieux qualifiée est conservée |
 | Incohérences de la source bloquées à la programmation, pas à l'import |  `goals <= matches`, `end_year >= start_year`, `start_year >= 1880`. Trois prédicats SQL, aucun rejet à l'entrée |
 | Matchs et buts = championnat seulement | C'est ce que comptent `P1350`/`P1351`. L'énoncé des paliers 4 et 5 le dit explicitement au joueur (specs §3) |

@@ -1,0 +1,108 @@
+{
+  "qid": "Q102035",
+  "what": "A footballer of median notoriety — half his passages carry no statistics",
+  "capturedAt": "2026-09-09",
+  "identity": [
+    {
+      "isFootballer": "true",
+      "nameFr": "Robert Leipertz",
+      "nameEn": "Robert Leipertz",
+      "sitelinks": "10",
+      "frwiki": "https://fr.wikipedia.org/wiki/Robert_Leipertz",
+      "enwiki": "https://en.wikipedia.org/wiki/Robert_Leipertz",
+      "country": "http://www.wikidata.org/entity/Q183",
+      "countryKind": "citizenship",
+      "alpha2": "DE",
+      "alpha3": "DEU",
+      "countryFr": "Allemagne",
+      "countryEn": "Germany"
+    },
+    {
+      "isFootballer": "true",
+      "nameFr": "Robert Leipertz",
+      "nameEn": "Robert Leipertz",
+      "sitelinks": "10",
+      "frwiki": "https://fr.wikipedia.org/wiki/Robert_Leipertz",
+      "enwiki": "https://en.wikipedia.org/wiki/Robert_Leipertz",
+      "country": "http://www.wikidata.org/entity/Q183",
+      "countryKind": "sport",
+      "alpha2": "DE",
+      "alpha3": "DEU",
+      "countryFr": "Allemagne",
+      "countryEn": "Germany"
+    }
+  ],
+  "career": [
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q102035-F77B60AD-9232-4818-BFE3-E8680054CD85",
+      "club": "http://www.wikidata.org/entity/Q153535",
+      "clubFr": "Alemannia Aix-la-Chapelle",
+      "clubEn": "Alemannia Aachen",
+      "start": "2012",
+      "end": "2013",
+      "matches": "8.0",
+      "goals": "7.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q102035-0B17E155-59B5-4AFE-A27D-04698F23B972",
+      "club": "http://www.wikidata.org/entity/Q162251",
+      "clubFr": "1. FC Heidenheim 1846",
+      "clubEn": "1. FC Heidenheim 1846",
+      "start": "2014",
+      "end": "2016",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q102035-84c2514e-470a-9ccb-f3d1-36a3ae24f427",
+      "club": "http://www.wikidata.org/entity/Q162251",
+      "clubFr": "1. FC Heidenheim 1846",
+      "clubEn": "1. FC Heidenheim 1846",
+      "start": "2019",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q102035-e49b4a8b-4927-a65d-35f2-34d45886dcee",
+      "club": "http://www.wikidata.org/entity/Q170117",
+      "clubFr": "FC Ingolstadt 04",
+      "clubEn": "FC Ingolstadt 04",
+      "start": "2016",
+      "end": "2019",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q102035-22018A09-4278-4DAB-9198-CA4AEFA8C75F",
+      "club": "http://www.wikidata.org/entity/Q32494",
+      "clubFr": "FC Schalke 04",
+      "clubEn": "Schalke 04",
+      "start": "2013",
+      "end": "2013",
+      "matches": "0.0",
+      "goals": "0.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q102035-AFAD173F-3D20-41E6-B4B9-D0EA9570551E",
+      "club": "http://www.wikidata.org/entity/Q3736767",
+      "clubFr": "FC Schalke 04 II",
+      "clubEn": "FC Schalke 04 II",
+      "start": "2013",
+      "end": "2014",
+      "matches": "35.0",
+      "goals": "20.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    }
+  ]
+}

@@ -10,8 +10,9 @@
  * barrier is not lost — the ESLint boundary rule forbids `app/** -> server/db/**`
  * (see `eslint.config.mjs`), and nothing outside `server/` may import it.
  *
- * Scope: the catalogue only. Grid, enigma, player and operations tables arrive
- * with the tickets that need them (#6, #8, #13, #15).
+ * Scope: the catalogue, plus `job_runs` — the career import has to leave a
+ * trace somewhere (#4). Grid, enigma and player tables arrive with the tickets
+ * that need them (#6, #8, #13).
  */
 import {
   boolean,
@@ -177,4 +178,41 @@ export const playerClubs = pgTable(
   (t) => [
     index('player_clubs_career_idx').on(t.footballerId, t.startYear, t.endYear),
   ],
+)
+
+/**
+ * One line per run of something the admin may later have to explain: an import,
+ * a periodic job (#14). `docs/modele-donnees.md` §6.
+ *
+ * It is written outside the transaction it describes, and on the way out as
+ * well as on the way in: a run that failed and left nothing behind is exactly
+ * the run worth reading, so a rollback must not take its trace with it.
+ *
+ * `target` is not in the model document's first draft: the career import runs
+ * for one footballer at a time, and a row saying "career_import, 7 items" tells
+ * the diagnostic screen nothing about *whom* it ran for. It holds the Wikidata
+ * id, and is null for a job that has no single subject.
+ */
+export const jobRuns = pgTable(
+  'job_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    job: text('job').notNull(),
+    /** What the run was about — a footballer's Wikidata id for an import. */
+    target: text('target'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Null while the run is in flight. Set even when it failed. */
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    /** Volume handled — passages written, for a career import. */
+    items: integer('items'),
+    errors: integer('errors'),
+    /**
+     * What went wrong, in the words the caller got. Also not in the model
+     * document's first draft: `errors = 1` says a run failed and a diagnostic
+     * screen then has nothing to show. The message is truncated, and it is the
+     * message only — never a stack.
+     */
+    lastError: text('last_error'),
+  },
+  (t) => [index('job_runs_job_started_at_idx').on(t.job, t.startedAt.desc())],
 )

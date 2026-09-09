@@ -17,10 +17,13 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:import-referential": "tsx scripts/import-referential.ts",
-    "test": "docker compose up -d --wait postgres-test && vitest run",
-    "test:watch": "docker compose up -d --wait postgres-test && vitest",
+    "ingest:career": "tsx --conditions=react-server scripts/import-career.ts",
+    "fixtures:wikidata": "tsx --conditions=react-server scripts/capture-wikidata-fixtures.ts",
+    "test": "docker compose up -d --wait postgres-test && vitest run --project '!live'",
+    "test:watch": "docker compose up -d --wait postgres-test && vitest --project '!live'",
     "test:fast": "vitest run --project domain --project architecture",
-    "test:db": "docker compose up -d --wait postgres-test && vitest run --project postgres"
+    "test:db": "docker compose up -d --wait postgres-test && vitest run --project postgres",
+    "test:live": "docker compose up -d --wait postgres-test && vitest run --project live"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",

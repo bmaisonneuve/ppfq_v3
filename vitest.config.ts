@@ -21,10 +21,13 @@ export default defineConfig({
       {
         // The pure seam: no I/O, nothing to start, milliseconds. Reserved for
         // wide case matrices — the reveal ladder, the Europe/Paris calendar,
-        // the order of a career, the normalisation of a search term.
+        // the order of a career, the normalisation of a search term, the
+        // reading of a Wikidata statement.
         //
         // `test/shared/` sits here rather than in a project of its own: the
-        // isomorphic layer is pure too, and it is the same seam.
+        // isomorphic layer is pure too, and it is the same seam. So is the
+        // reading half of `server/ingest/`: it takes statements and gives back
+        // passages, and the endpoint is handed to it.
         resolve: { alias },
         test: {
           name: 'domain',
@@ -43,11 +46,37 @@ export default defineConfig({
         },
       },
       {
+        // The one suite that leaves the machine: the real Wikidata endpoint and
+        // the real database. Excluded from `pnpm test` — a suite that fails
+        // when a third-party endpoint is slow is a suite people stop believing
+        // — and run on demand with `pnpm test:live`.
+        //
+        // It shares the test database with the `postgres` project rather than
+        // owning one, which is safe precisely because the two never run
+        // together: `pnpm test` filters this project out, `pnpm test:live` runs
+        // nothing else.
+        resolve: { alias },
+        test: {
+          name: 'live',
+          include: ['test/live/**/*.test.ts'],
+          environment: 'node',
+          globalSetup: ['test/setup/global-setup.ts'],
+          setupFiles: ['test/setup/integration.ts'],
+          fileParallelism: false,
+          env: { DATABASE_URL: TEST_DATABASE_URL },
+          // Two SPARQL queries per footballer, against a free service.
+          testTimeout: 60_000,
+          hookTimeout: 60_000,
+        },
+      },
+      {
         // Everything that needs a real Postgres. One project, because the global
         // setup drops and re-migrates the schema and must run exactly once.
         //
         // `test/services/` is the main seam — services called the way the
-        // application calls them, no doubles, no query counting.
+        // application calls them, no doubles, no query counting. The one double
+        // anywhere is the SPARQL runner of the career import: the endpoint is
+        // replayed from recordings, and `test/live/` is what calls it for real.
         // `test/database/` holds schema-level checks that call no service.
         resolve: { alias },
         test: {

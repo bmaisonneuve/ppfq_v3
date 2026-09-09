@@ -37,6 +37,17 @@ export const LAYERING_ZONES = [
       'A task is an adapter: parse, call a service, nothing else. Go through src/server/services.',
   },
   {
+    // The Wikidata pipeline reads the source and hands back plain values. It is
+    // what makes the rules of `docs/research/wikidata-coverage.md` testable in
+    // milliseconds, and it stays that way only if nothing in here can reach a
+    // table: the writing belongs to `services/ingest.service.ts`.
+    target: './src/server/ingest',
+    from: './src/server',
+    except: ['./ingest'],
+    message:
+      'The Wikidata pipeline returns values; writing them is a service’s job. Go through src/server/services.',
+  },
+  {
     target: './src/server/domain',
     from: './src/server',
     except: ['./domain'],

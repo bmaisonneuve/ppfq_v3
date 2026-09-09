@@ -80,19 +80,25 @@ const NATIONALITY_ROWS = [
   { id: NATIONALITY_IDS.es, code: 'ES', frName: 'Espagne', enName: 'Spain', flagS3Key: 'flags/es.svg' },
 ]
 
+/**
+ * The Wikidata ids are the real ones — checked against the source, player
+ * counts and all. They have to be: the career import matches a club on
+ * `wikidata_qid`, so an invented id would make it create a second "AS Cannes"
+ * beside this one and the test would pass while the catalogue doubled.
+ */
 const CLUB_ROWS = [
-  { id: CLUB_IDS.cannes, wikidataQid: 'Q189421', frName: 'AS Cannes', enName: 'AS Cannes' },
-  { id: CLUB_IDS.bordeaux, wikidataQid: 'Q170264', frName: 'Girondins de Bordeaux', enName: 'FC Girondins de Bordeaux' },
+  { id: CLUB_IDS.cannes, wikidataQid: 'Q298267', frName: 'AS Cannes', enName: 'AS Cannes' },
+  { id: CLUB_IDS.bordeaux, wikidataQid: 'Q172476', frName: 'Girondins de Bordeaux', enName: 'FC Girondins de Bordeaux' },
   { id: CLUB_IDS.juventus, wikidataQid: 'Q1422', frName: 'Juventus', enName: 'Juventus FC' },
   { id: CLUB_IDS.realMadrid, wikidataQid: 'Q8682', frName: 'Real Madrid', enName: 'Real Madrid CF' },
-  { id: CLUB_IDS.rennes, wikidataQid: 'Q170318', frName: 'Stade rennais', enName: 'Stade Rennais FC' },
-  { id: CLUB_IDS.lyon, wikidataQid: 'Q18656', frName: 'Olympique lyonnais', enName: 'Olympique Lyonnais' },
-  { id: CLUB_IDS.reims, wikidataQid: 'Q170314', frName: 'Stade de Reims', enName: 'Stade de Reims' },
+  { id: CLUB_IDS.rennes, wikidataQid: 'Q19509', frName: 'Stade rennais', enName: 'Stade Rennais FC' },
+  { id: CLUB_IDS.lyon, wikidataQid: 'Q704', frName: 'Olympique lyonnais', enName: 'Olympique Lyonnais' },
+  { id: CLUB_IDS.reims, wikidataQid: 'Q208228', frName: 'Stade de Reims', enName: 'Stade de Reims' },
   // Not typed as a reserve team in the source, and the label heuristic is the
   // only signal: it enters the catalogue and an admin removes it by hand.
-  { id: CLUB_IDS.barcelonaC, wikidataQid: 'Q1163137', frName: 'FC Barcelone C', enName: 'FC Barcelona C' },
-  { id: CLUB_IDS.levante, wikidataQid: 'Q184590', frName: 'Levante UD', enName: 'Levante UD' },
-  { id: CLUB_IDS.nantes, wikidataQid: 'Q170298', frName: 'FC Nantes', enName: 'FC Nantes' },
+  { id: CLUB_IDS.barcelonaC, wikidataQid: 'Q2346842', frName: 'FC Barcelone C', enName: 'FC Barcelona C' },
+  { id: CLUB_IDS.levante, wikidataQid: 'Q8823', frName: 'Levante UD', enName: 'Levante UD' },
+  { id: CLUB_IDS.nantes, wikidataQid: 'Q192071', frName: 'FC Nantes', enName: 'FC Nantes' },
 ]
 
 const FOOTBALLER_ROWS = [

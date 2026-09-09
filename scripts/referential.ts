@@ -12,9 +12,10 @@
  * `scripts/` beside the migration runner, and the app never imports it.
  *
  * What it does share with the application is the definition of a term:
- * `normalizeSearchTerm` from `src/shared/search.ts`, the same function the query
- * path calls. That is the whole contract between the two halves — a term
- * normalised any other way is a footballer nobody can find.
+ * `nameSearchTerms` and `normalizeSearchTerm` from `src/shared/search.ts`, the
+ * same functions the query path and the career import call. That is the whole
+ * contract between the halves — a term normalised any other way is a footballer
+ * nobody can find.
  *
  * ## Shape of the run
  *
@@ -30,7 +31,7 @@ import { createReadStream } from 'node:fs'
 
 import type { PoolClient } from 'pg'
 
-import { normalizeSearchTerm } from '../src/shared/search.ts'
+import { nameSearchTerms } from '../src/shared/search.ts'
 
 import { withPool } from './db.ts'
 
@@ -186,20 +187,14 @@ async function stage(
 /**
  * Stages a name, and then each of its words after the first.
  *
- * Without the word terms a surname is not typeable on its own: the prefix index
- * is anchored at the start of a term, so `papin` reaches "Jean-Pierre Papin"
- * only if Wikidata happens to ship "Papin" as an alias. Measured on the real
- * extract, it does so for 28 % of the multi-word footballers notorious enough
- * to be scheduled (802 of 2 890) — and the trigram rescue does not cover the
- * gap, because it fires only when the prefix found *nothing*, while `papin`
- * finds three obscure namesakes and stops there.
+ * `nameSearchTerms` is the rule, and it lives in `shared/` because the career
+ * import (#4) applies the same one to the footballers this import drops as
+ * homonyms: measured on the real extract, Wikidata ships a "Papin" alias for
+ * only 28 % of the multi-word footballers notorious enough to be scheduled
+ * (802 of 2 890), so without the word terms a surname is not typeable at all.
  *
- * The first word is skipped: a prefix of the whole term already matches it.
  * Duplicates — a word that is also an alias, "Zidane" — collapse on the unique
  * index, so nothing here has to know what already exists.
- *
- * A word term is not a name: it is never displayed, like an alias, and it is
- * not canonical.
  */
 async function pushTerm(
   batch: Batch,
@@ -207,14 +202,10 @@ async function pushTerm(
   value: string | undefined,
   isCanonical: boolean,
 ): Promise<void> {
-  const term = normalizeSearchTerm(value ?? '')
-  if (!qid || term === '') return
+  if (!qid) return
 
-  await batch.push([qid, term, isCanonical])
-
-  const [, ...tail] = term.split(' ')
-  for (const word of tail) {
-    await batch.push([qid, word, false])
+  for (const { term, isCanonical: canonical } of nameSearchTerms(value ?? '', isCanonical)) {
+    await batch.push([qid, term, canonical])
   }
 }
 

@@ -34,11 +34,14 @@ cp .env.example .env.local
 pnpm db:up          # lève Postgres et attend qu'il réponde
 pnpm db:migrate     # applique les migrations de drizzle/
 pnpm db:import-referential   # charge les 382 703 footballeurs de .data/ (~50 s)
+pnpm ingest:career Q1835 Q170328   # deux parcours, depuis Wikidata
 pnpm dev            # http://localhost:3000
 ```
 
-Sans l'import, la barre de recherche répond correctement — elle ne trouve
-simplement personne.
+Sans l'import du référentiel, la barre de recherche répond correctement — elle
+ne trouve simplement personne. Sans import de parcours, le catalogue n'a aucun
+footballeur curé : « curé » n'est pas un statut, c'est le fait d'avoir des
+passages.
 
 ## Commandes
 
@@ -52,8 +55,11 @@ simplement personne.
 | `pnpm test:fast` | `domain` + `architecture` — pas de Docker, ~1,5 s |
 | `pnpm test:db` | Ce qui a besoin d'un vrai Postgres |
 | `pnpm test:watch` | La suite en watch |
+| `pnpm test:live` | **Le vrai Wikidata**, hors de `pnpm test`. Ce que les enregistrements ne peuvent pas vérifier : que les requêtes sont toujours du SPARQL valide et que l'endpoint répond |
 | `pnpm db:generate` | Génère le SQL depuis le schéma Drizzle, à relire et committer |
 | `pnpm db:import-referential` | Charge le référentiel de recherche depuis `.data/`. Idempotent : le relancer ne duplique rien |
+| `pnpm ingest:career Q1835 …` | Importe le parcours d'un ou plusieurs footballeurs depuis Wikidata. Le déclencheur à la main, sans worker |
+| `pnpm fixtures:wikidata` | Ré-enregistre les réponses Wikidata sur lesquelles la suite tourne. Le `git diff` est la revue |
 
 Il n'y a **pas** de `db:push`. Les migrations sont générées, relues par un humain
 et committées (`docs/stack-technique.md` §11).
@@ -77,26 +83,33 @@ src/
   server/     le back. Chaque fichier : import 'server-only'.
     db/       schéma Drizzle + client. Personne d'autre n'y touche.
     domain/   règles pures. Zéro DB, zéro service, zéro import Next.
+    ingest/   le pipeline Wikidata : il lit la source et rend des valeurs.
     services/ cas d'usage + transactions. LA SEULE PORTE D'ENTRÉE.
   ui/         composants présentationnels
   shared/     isomorphe : types, schémas Zod, formatters
-scripts/      outillage Node : migrations, import et extraction du référentiel
+scripts/      outillage Node : migrations, référentiel, import d'un parcours
 test/
-  domain/       le seam pur
+  domain/       le seam pur — y compris la lecture d'une déclaration Wikidata
   shared/       le seam pur aussi : la couche isomorphe
   architecture/ les garde-fous : layering, marqueur server-only
   services/     le seam principal, contre un vrai Postgres
   database/     schéma, index et outillage — rien qui appelle un service
-  fixtures/     les jeux de données partagés
+  live/         le vrai Wikidata. Hors de `pnpm test`
+  fixtures/     les jeux de données partagés, et les réponses enregistrées
   setup/        harnais de base de test
 ```
 
 **La règle** : `app/` et `server/jobs/` ne peuvent importer que `services/` et
 `shared/`. Jamais `db/`, jamais `domain/`.
 
-Elle est écrite comme une **liste blanche** et non comme une liste noire : un
-`server/ingest` (#4) ou un `server/auth` (#8) sera gardé le jour où il est créé,
-sans que personne ait à revenir dans `eslint.config.mjs`.
+Elle est écrite comme une **liste blanche** et non comme une liste noire :
+`server/ingest` était gardé avant d'exister, et personne n'a eu à revenir dans
+`eslint.config.mjs` le jour où il est apparu. `server/auth` (#8) est le suivant.
+
+Une zone de plus depuis l'ingest : `server/ingest` ne peut voir ni `db/`, ni
+`domain/`, ni `services/`. Le pipeline lit Wikidata et rend des valeurs ; les
+écrire est le travail d'un service. C'est ce qui garde ses règles testables en
+millisecondes.
 
 Deux barrières, pas une :
 
@@ -119,7 +132,7 @@ observable. Aucun test ne compte les requêtes SQL, aucun ne remplace Postgres
 par un double — la moitié des décisions du projet vivent dans le schéma, les
 contraintes d'unicité et les index.
 
-Trois projets Vitest :
+Quatre projets Vitest :
 
 - **`domain`** — fonctions pures, rien à démarrer, quelques millisecondes.
   Réservé aux matrices de cas larges : échelle de dévoilement, calendrier
@@ -132,6 +145,20 @@ Trois projets Vitest :
   partagée par la suite, vidée entre chaque test, fichiers exécutés
   séquentiellement. Le jour où c'est lent, on donne une base à chaque worker :
   le changement tient dans `test/setup/`.
+- **`live`** — le seul qui quitte la machine, et le seul absent de `pnpm test` :
+  une suite qui échoue parce qu'un service tiers est lent est une suite qu'on
+  cesse de croire. `pnpm test:live`. Il n'affirme que des **invariants** — le FC
+  Barcelone est un club, l'Argentine n'en est pas un, un prêt est reconnu par la
+  valeur de son qualificateur — jamais des chiffres, qui bougent dès que
+  quelqu'un édite Wikidata.
+
+Le seul double de tout le dépôt est l'exécuteur SPARQL de l'import : l'endpoint
+est rejoué depuis les enregistrements de `test/fixtures/wikidata/`, capturés par
+`pnpm fixtures:wikidata` avec les requêtes du code lui-même. Des réponses
+inventées à la main ne prouveraient que notre accord avec nos propres croyances ;
+celles-là contiennent ce que la source contient — un nombre de matchs sérialisé
+`"28.0"`, un Messi sans libellé français, l'équipe de France typée « club de
+football ».
 
 ### Le jeu de données
 
@@ -184,3 +211,46 @@ les mesures qui ont tranché sont dans `src/server/services/search.service.ts`.
 Anti-rebond de 250 ms et minimum deux caractères côté client, tenus aussi côté
 serveur : ce sont des leviers de charge, pas du confort — le typeahead est
 l'endpoint le plus sollicité du site (`docs/stack-technique.md` §10).
+
+## Le catalogue curé : l'import d'un parcours
+
+`pnpm ingest:career Q1835` lit Wikidata et écrit le parcours senior d'**un**
+footballeur : ses passages, les clubs qui manquaient, sa nationalité. C'est un
+service (`src/server/services/ingest.service.ts`), pas de l'outillage — l'admin
+le déclenchera depuis le back-office, et il n'y a **aucun job d'ingest** : un
+footballeur, c'est deux requêtes SPARQL en attente d'I/O.
+
+Quatre règles, toutes **mesurées** et non devinées (`docs/research/wikidata-coverage.md`) :
+
+- **On lit les déclarations complètes**, `p:P54 / ps:P54`, jamais `wdt:P54` — qui
+  ne rend que le rang préféré et masque donc toute la carrière d'un joueur en
+  activité : Messi n'y a qu'un club.
+- **Un club est `P31/P279* Q476028` moins les sélections nationales.** Le type
+  exact est précis et perd le FC Barcelone ; la remontée des sous-classes seule
+  avale 54 010 sélections, « équipe nationale masculine » étant sur Wikidata une
+  sous-classe de « club de football ». Seule la soustraction est juste.
+- **Un prêt est la *valeur* du qualificateur `pq:P1642`, `Q2914547`.** Sa
+  présence ne dit rien : 1 804 déclarations le portent avec « transfert », dont
+  le passage de Messi au PSG.
+- **Un doublon est `(footballeur, club, année de début)`** — 6 721 groupes dans
+  la source, et le seul nettoyage que la curation ne peut pas rattraper, puisque
+  deux lignes pour un club ressemblent exactement à un vrai double passage. La
+  déclaration la mieux documentée est conservée, les autres ne comblent que ses
+  trous : deux nombres de matchs qui se contredisent ne s'additionnent pas.
+
+Ce que l'import **ne fait pas** : il ne chasse pas les équipes réserve (elles
+sont typées comme des clubs seniors — « FC Barcelone C » n'est rien d'autre — et
+sont retirées à la main à la curation), et il ne répare pas une carrière. Les
+années de Cantona à l'OM sont absentes de la source : ses trois prêts ne se
+rattachent à rien et le trou 1988-1991 reste visible. Un parcours peut être
+complet **et faux**, et le seul garde-fou est le coup d'œil de l'admin — ce que
+l'affichage de `pnpm ingest:career` est fait pour permettre.
+
+Il **remplace** le parcours et **refuse** trois choses : un item qui n'est pas un
+footballeur, une carrière sans aucun passage en club, un footballeur inconnu du
+référentiel que la source ne nomme pas. Le détail et les raisons sont dans
+[ADR-0005](./docs/adr/0005-l-import-d-un-parcours-remplace-et-refuse.md).
+
+Chaque exécution laisse une ligne dans `job_runs` — le footballeur, le volume,
+les erreurs — écrite **hors** de la transaction qu'elle décrit : une course qui a
+échoué et n'a rien laissé derrière elle est justement celle qu'on vient lire.

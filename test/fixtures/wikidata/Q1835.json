@@ -1,0 +1,152 @@
+{
+  "qid": "Q1835",
+  "what": "Zinedine Zidane — four clubs, five selections, nothing missing",
+  "capturedAt": "2026-09-09",
+  "identity": [
+    {
+      "isFootballer": "true",
+      "nameFr": "Zinedine Zidane",
+      "nameEn": "Zinedine Zidane",
+      "sitelinks": "145",
+      "frwiki": "https://fr.wikipedia.org/wiki/Zin%C3%A9dine_Zidane",
+      "enwiki": "https://en.wikipedia.org/wiki/Zinedine_Zidane",
+      "country": "http://www.wikidata.org/entity/Q142",
+      "countryKind": "citizenship",
+      "alpha2": "FR",
+      "alpha3": "FRA",
+      "countryFr": "France",
+      "countryEn": "France"
+    },
+    {
+      "isFootballer": "true",
+      "nameFr": "Zinedine Zidane",
+      "nameEn": "Zinedine Zidane",
+      "sitelinks": "145",
+      "frwiki": "https://fr.wikipedia.org/wiki/Zin%C3%A9dine_Zidane",
+      "enwiki": "https://en.wikipedia.org/wiki/Zinedine_Zidane",
+      "country": "http://www.wikidata.org/entity/Q142",
+      "countryKind": "sport",
+      "alpha2": "FR",
+      "alpha3": "FRA",
+      "countryFr": "France",
+      "countryEn": "France"
+    }
+  ],
+  "career": [
+    {
+      "statement": "http://www.wikidata.org/entity/statement/q1835-9CF6F225-C633-40DB-BAE3-CC16B0945DB6",
+      "club": "http://www.wikidata.org/entity/Q1277549",
+      "clubFr": "équipe de France espoirs de football",
+      "clubEn": "France national under-21 association football team",
+      "start": "1990",
+      "end": "1994",
+      "matches": "20.0",
+      "goals": "3.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "false",
+      "isNational": "true"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q1835-55FCDAC5-B9FB-46C7-BF45-DF773FD3C7E5",
+      "club": "http://www.wikidata.org/entity/Q1422",
+      "clubFr": "Juventus FC",
+      "clubEn": "Juventus FC",
+      "start": "1996",
+      "end": "2001",
+      "matches": "151.0",
+      "goals": "24.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/q1835-C0FF75E2-13BA-4B14-85EB-2BE87A902A85",
+      "club": "http://www.wikidata.org/entity/Q1450557",
+      "clubFr": "équipe de France de football des moins de 18 ans",
+      "clubEn": "France national under-18 association football team",
+      "start": "1989",
+      "end": "1990",
+      "matches": "6.0",
+      "goals": "0.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "false",
+      "isNational": "true"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/q1835-DC35484D-F4C1-46E6-99C0-2CA74C26EFE3",
+      "club": "http://www.wikidata.org/entity/Q1450568",
+      "clubFr": "équipe de France de football des moins de 17 ans",
+      "clubEn": "France national under-17 association football team",
+      "start": "1988",
+      "end": "1989",
+      "matches": "4.0",
+      "goals": "1.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "false",
+      "isNational": "true"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q1835-80A166A9-9B40-44B5-9A19-547A7E351DC9",
+      "club": "http://www.wikidata.org/entity/Q172476",
+      "clubFr": "Girondins de Bordeaux",
+      "clubEn": "FC Girondins de Bordeaux",
+      "start": "1992",
+      "end": "1996",
+      "matches": "139.0",
+      "goals": "28.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/q1835-BB326279-FB4D-40F5-A855-1AD96324A3B9",
+      "club": "http://www.wikidata.org/entity/Q298267",
+      "clubFr": "AS Cannes",
+      "clubEn": "AS Cannes",
+      "start": "1989",
+      "end": "1992",
+      "matches": "61.0",
+      "goals": "6.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/q1835-7BB0B61F-992E-4C0F-BC0A-B66ECCF4ECC5",
+      "club": "http://www.wikidata.org/entity/Q3590024",
+      "clubFr": "équipe de France de football A'",
+      "clubEn": "France B national football team",
+      "start": "1995",
+      "end": "1995",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "false",
+      "isNational": "true"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q1835-B2483937-57C8-4B9E-842D-2CACE01F217B",
+      "club": "http://www.wikidata.org/entity/Q47774",
+      "clubFr": "équipe de France de football",
+      "clubEn": "France men's national association football team",
+      "start": "1994",
+      "end": "2006",
+      "matches": "108.0",
+      "goals": "31.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "true"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q1835-7AA13EAD-A319-4E71-8E51-651F017E00CD",
+      "club": "http://www.wikidata.org/entity/Q8682",
+      "clubFr": "Real Madrid CF",
+      "clubEn": "Real Madrid Club de Fútbol",
+      "start": "2001",
+      "end": "2006",
+      "matches": "155.0",
+      "goals": "37.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    }
+  ]
+}

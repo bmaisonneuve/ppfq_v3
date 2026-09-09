@@ -1,0 +1,161 @@
+{
+  "qid": "Q615",
+  "what": "Lionel Messi — two untyped reserve teams, a transfer that is not a loan, no fr/en label",
+  "capturedAt": "2026-09-09",
+  "identity": [
+    {
+      "isFootballer": "true",
+      "sitelinks": "225",
+      "frwiki": "https://fr.wikipedia.org/wiki/Lionel_Messi",
+      "enwiki": "https://en.wikipedia.org/wiki/Lionel_Messi",
+      "country": "http://www.wikidata.org/entity/Q29",
+      "countryKind": "citizenship",
+      "alpha2": "ES",
+      "alpha3": "ESP",
+      "countryFr": "Espagne",
+      "countryEn": "Spain"
+    },
+    {
+      "isFootballer": "true",
+      "sitelinks": "225",
+      "frwiki": "https://fr.wikipedia.org/wiki/Lionel_Messi",
+      "enwiki": "https://en.wikipedia.org/wiki/Lionel_Messi",
+      "country": "http://www.wikidata.org/entity/Q38",
+      "countryKind": "citizenship",
+      "alpha2": "IT",
+      "alpha3": "ITA",
+      "countryFr": "Italie",
+      "countryEn": "Italy"
+    },
+    {
+      "isFootballer": "true",
+      "sitelinks": "225",
+      "frwiki": "https://fr.wikipedia.org/wiki/Lionel_Messi",
+      "enwiki": "https://en.wikipedia.org/wiki/Lionel_Messi",
+      "country": "http://www.wikidata.org/entity/Q414",
+      "countryKind": "citizenship",
+      "alpha2": "AR",
+      "alpha3": "ARG",
+      "countryFr": "Argentine",
+      "countryEn": "Argentina"
+    },
+    {
+      "isFootballer": "true",
+      "sitelinks": "225",
+      "frwiki": "https://fr.wikipedia.org/wiki/Lionel_Messi",
+      "enwiki": "https://en.wikipedia.org/wiki/Lionel_Messi",
+      "country": "http://www.wikidata.org/entity/Q414",
+      "countryKind": "sport",
+      "alpha2": "AR",
+      "alpha3": "ARG",
+      "countryFr": "Argentine",
+      "countryEn": "Argentina"
+    }
+  ],
+  "career": [
+    {
+      "statement": "http://www.wikidata.org/entity/statement/q615-1C2ACC11-5029-49B2-815A-1B64CFEAE433",
+      "club": "http://www.wikidata.org/entity/Q10467",
+      "clubFr": "FC Barcelone B",
+      "clubEn": "FC Barcelona Atlètic",
+      "start": "2004",
+      "end": "2005",
+      "matches": "22.0",
+      "goals": "6.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/q615-F78A4F6A-0C54-4465-8E26-FC54070662F6",
+      "club": "http://www.wikidata.org/entity/Q1187790",
+      "clubFr": "équipe d'Argentine des moins de 20 ans de football",
+      "clubEn": "Argentina national under-20 football team",
+      "start": "2004",
+      "end": "2005",
+      "matches": "18.0",
+      "goals": "14.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "false",
+      "isNational": "true"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q615-431cdee6-4351-6766-9f89-6f7ad5853dc8",
+      "club": "http://www.wikidata.org/entity/Q16844931",
+      "clubFr": "Inter Miami CF",
+      "clubEn": "Inter Miami CF",
+      "start": "2023",
+      "matches": "72.0",
+      "goals": "68.0",
+      "rank": "http://wikiba.se/ontology#PreferredRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/q615-DBB4FAC7-2683-4289-AA35-762A57426902",
+      "club": "http://www.wikidata.org/entity/Q2346842",
+      "clubFr": "FC Barcelone C",
+      "clubEn": "FC Barcelona C",
+      "start": "2003",
+      "end": "2004",
+      "matches": "10.0",
+      "goals": "5.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q615-CF10CD27-493D-4446-B2A1-0865DACC9985",
+      "club": "http://www.wikidata.org/entity/Q2462207",
+      "clubFr": "équipe d'Argentine de football des moins de 23 ans",
+      "clubEn": "Argentina national under-23 football team",
+      "start": "2008",
+      "end": "2008",
+      "matches": "5.0",
+      "goals": "2.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "false",
+      "isNational": "true"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/Q615-3fc56b85-46f0-9e14-845e-d3e9fe13213f",
+      "club": "http://www.wikidata.org/entity/Q483020",
+      "clubFr": "Paris Saint-Germain FC",
+      "clubEn": "Paris Saint-Germain FC",
+      "start": "2021",
+      "end": "2023",
+      "matches": "58.0",
+      "goals": "22.0",
+      "nature": "http://www.wikidata.org/entity/Q1811518",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/q615-2E112905-FA75-4ED4-9A93-A510408739BF",
+      "club": "http://www.wikidata.org/entity/Q7156",
+      "clubFr": "FC Barcelone",
+      "clubEn": "FC Barcelona",
+      "start": "2004",
+      "end": "2021",
+      "matches": "520.0",
+      "goals": "474.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "false"
+    },
+    {
+      "statement": "http://www.wikidata.org/entity/statement/q615-300F63AB-02C6-4C69-8E8C-F904CB92FD9F",
+      "club": "http://www.wikidata.org/entity/Q79800",
+      "clubFr": "équipe d'Argentine de football",
+      "clubEn": "Argentina men's national football team",
+      "start": "2005",
+      "end": "2026",
+      "matches": "207.0",
+      "goals": "125.0",
+      "rank": "http://wikiba.se/ontology#NormalRank",
+      "isClub": "true",
+      "isNational": "true"
+    }
+  ]
+}

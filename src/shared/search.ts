@@ -104,3 +104,43 @@ export type FootballerSuggestion = {
 export type SearchResponse = {
   suggestions: FootballerSuggestion[]
 }
+
+/** A row of `footballer_names`, before it has an id or a footballer. */
+export type SearchTerm = {
+  term: string
+  /** True only for the name itself, and only when it is the canonical one. */
+  isCanonical: boolean
+}
+
+/**
+ * Every term a name has to be indexed under: the whole name, then each of its
+ * words after the first.
+ *
+ * Without the word terms a surname is not typeable on its own — the prefix
+ * index is anchored at the start of a term, so `papin` reaches "Jean-Pierre
+ * Papin" only if Wikidata happens to ship "Papin" as an alias, which it does
+ * for 28 % of the multi-word footballers notorious enough to be scheduled. The
+ * first word needs no row of its own: a prefix of the whole term already
+ * matches it.
+ *
+ * A word term is never displayed and is never canonical, exactly like an alias.
+ *
+ * One definition for two callers — the referential import in `scripts/` and the
+ * career import, which creates the footballers the referential dropped as
+ * homonyms. A footballer inserted without these rows is a footballer the
+ * typeahead cannot reach, so he cannot be guessed either.
+ *
+ * A name that normalises to nothing yields no term at all: an empty term would
+ * match every prefix query.
+ */
+export function nameSearchTerms(name: string, isCanonical: boolean): SearchTerm[] {
+  const term = normalizeSearchTerm(name)
+  if (term === '') return []
+
+  const [, ...tail] = term.split(' ')
+
+  return [
+    { term, isCanonical },
+    ...tail.map((word) => ({ term: word, isCanonical: false })),
+  ]
+}

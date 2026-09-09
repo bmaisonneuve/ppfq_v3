@@ -397,6 +397,30 @@ SELECT (COUNT(*) AS ?c) WHERE {
   FILTER(?n > 1) }
 ```
 
+### 5ter. Rangs des déclarations
+
+Mesuré le même jour, un peu plus tard :
+
+| Rang | Déclarations |
+|---|---|
+| `wikibase:NormalRank` | 1 106 212 |
+| `wikibase:PreferredRank` | 3 904 |
+| **`wikibase:DeprecatedRank`** | **116** |
+
+```sparql
+SELECT ?rank (COUNT(DISTINCT ?st) AS ?cnt) WHERE {
+  ?p wdt:P106 wd:Q937857 ; p:P54 ?st .
+  ?st ps:P54 ?club ; wikibase:rank ?rank .
+} GROUP BY ?rank
+```
+
+La somme fait **1 110 232**, contre 1 110 217 au §0 : quinze déclarations de plus en quelques heures.
+C'est l'ordre de grandeur de la dérive de la source, et la raison pour laquelle aucun test n'épingle un chiffre.
+
+Le rang déprécié est **marginal** (0,01 %) et signale une déclaration que la communauté tient pour fausse.
+Le rang préféré, lui, est ce qui rend `wdt:P54` inutilisable (§0) : 3 904 déclarations préférées suffisent
+à masquer la carrière entière des joueurs concernés.
+
 ---
 
 ## 6. Test qualitatif : cinq parcours
