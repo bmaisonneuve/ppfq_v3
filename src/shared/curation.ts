@@ -10,6 +10,8 @@
  */
 import { z } from 'zod'
 
+import { IDLE_ADMIN_ACTION } from './admin'
+import type { AdminAction, AdminActionState } from './admin'
 import type { Nationality, PlayerClub } from './career'
 
 /**
@@ -168,28 +170,25 @@ export type NewClubInput = z.infer<typeof NewClubInput>
 export const MIN_CLUB_QUERY_LENGTH = 2
 
 /**
- * What a curation form gets back.
+ * What a curation form gets back — the admin's one answer shape, under the name
+ * this screen calls it.
  *
- * Every edit answers in the same shape so one small component renders every
- * outcome, and so an action can say *why* it refused — "ce club n'existe plus",
- * "la fin précède le début" — instead of throwing an error boundary over a
- * screen the admin was halfway through filling in.
+ * Every admin edit answers alike so one small component renders every outcome,
+ * and so an action can say *why* it refused — "ce club n'existe plus", "la fin
+ * précède le début" — instead of throwing an error boundary over a screen the
+ * admin was halfway through filling in. The shape itself is in `shared/admin.ts`
+ * because scheduling wants exactly the same one, and two identical
+ * declarations are how two screens start disagreeing.
  */
-export type CurationActionState = {
-  status: 'idle' | 'ok' | 'error'
-  message: string | null
-}
+export type CurationActionState = AdminActionState
 
-export const IDLE_CURATION_ACTION: CurationActionState = { status: 'idle', message: null }
+export const IDLE_CURATION_ACTION: CurationActionState = IDLE_ADMIN_ACTION
 
 /**
  * The signature every curation Server Action has, so the presentational layer
  * can take one as a prop without importing anything from `server/`.
  */
-export type CurationAction = (
-  previous: CurationActionState,
-  form: FormData,
-) => Promise<CurationActionState>
+export type CurationAction = AdminAction
 
 /** The club picker's data source, handed down the same way. */
 export type ClubSearchAction = (query: string) => Promise<ClubOption[]>

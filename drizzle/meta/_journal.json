@@ -29,6 +29,13 @@
       "when": 1788976551868,
       "tag": "0003_quiet_king_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788982512787,
+      "tag": "0004_late_shadow_king",
+      "breakpoints": true
     }
   ]
 }

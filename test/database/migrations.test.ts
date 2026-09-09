@@ -45,7 +45,9 @@ describe('migrations', () => {
     await withPool(scratchUrl(), async (pool) => {
       const tablesAfterFirstRun = await tableNames(pool)
       expect(tablesAfterFirstRun).toEqual([
+        'challenge_items',
         'clubs',
+        'daily_challenges',
         'footballer_names',
         'footballers',
         'job_runs',

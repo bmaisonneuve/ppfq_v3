@@ -10,14 +10,17 @@
  * barrier is not lost — the ESLint boundary rule forbids `app/** -> server/db/**`
  * (see `eslint.config.mjs`), and nothing outside `server/` may import it.
  *
- * Scope: the catalogue, plus `job_runs` — the career import has to leave a
- * trace somewhere (#4). Grid, enigma and player tables arrive with the tickets
- * that need them (#6, #8, #13).
+ * Scope: the catalogue, the grid and its enigmas — scheduling is what makes
+ * the last two exist (#6) — plus `job_runs`, because the career import has to
+ * leave a trace somewhere (#4). The player tables arrive with the tickets that
+ * need them (#8, #13).
  */
 import {
   boolean,
+  date,
   index,
   integer,
+  pgEnum,
   pgTable,
   text,
   timestamp,
@@ -177,6 +180,99 @@ export const playerClubs = pgTable(
   },
   (t) => [
     index('player_clubs_career_idx').on(t.footballerId, t.startYear, t.endYear),
+  ],
+)
+
+/**
+ * The life of a grid (`docs/modele-donnees.md` §2).
+ *
+ * `draft` is the column default, but the scheduling screen never leaves a grid
+ * there: it writes a date, a theme and three enigmas in one transaction, so a
+ * row exists only once it is complete. The default is what protects a row
+ * inserted by any other hand.
+ */
+export const dailyChallengeStatus = pgEnum('daily_challenge_status', [
+  'draft',
+  'scheduled',
+  'published',
+])
+
+/**
+ * One row per programmed date — the grid.
+ *
+ * **The absence of a row is the hole**: there is no "gap" table and no status
+ * meaning "nothing planned". The month view, the weekly alert job (#14) and the
+ * health route (#15) all read the same absence.
+ *
+ * `date` is a `date` and not a timestamp. The grid of the day is
+ * `WHERE date = <today in Paris>`, computed lazily rather than by a midnight
+ * job — which would fall exactly on the traffic peak — and a column with no
+ * time carries no zone to disagree about.
+ *
+ * The theme lives here because it qualifies the whole day and never a single
+ * enigma. It is free text rather than an enum, and **no automatic check
+ * attaches to it** (specs §4): any theme any day, a Friday may be perfectly
+ * standard, and nothing verifies that the three footballers match what it
+ * announces. The scheduling screen offers the values already used; it does not
+ * impose them.
+ */
+export const dailyChallenges = pgTable(
+  'daily_challenges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** Europe/Paris date, `YYYY-MM-DD`. Read as a string all the way down. */
+    date: date('date', { mode: 'string' }).notNull(),
+    theme: text('theme').notNull().default('standard'),
+    status: dailyChallengeStatus('status').notNull().default('draft'),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+  },
+  (t) => [uniqueIndex('daily_challenges_date_key').on(t.date)],
+)
+
+/**
+ * One of the three enigmas of a grid — a **designation**, not a copy.
+ *
+ * Three useful columns and nothing else (ADR-0001): the parcours, the
+ * durations, the matches, the goals and the nationality the player sees are
+ * read from `player_clubs`, `clubs` and `footballers` at render time. There is
+ * no `career_snapshot` and there must never be one — correcting a career
+ * corrects every enigma at once, and there are never two versions of a parcours
+ * to reconcile.
+ *
+ * The consequence is assumed and has no guard rail: an import that changes a
+ * parcours changes every grid the footballer appears in, archive grids and
+ * games in progress included.
+ *
+ * `footballer_id` restricts rather than cascades. Deleting a footballer who
+ * carries an enigma would silently empty a grid — possibly a published one — so
+ * the delete is refused and a human decides what the grid becomes instead.
+ */
+export const challengeItems = pgTable(
+  'challenge_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    dailyChallengeId: uuid('daily_challenge_id')
+      .notNull()
+      .references(() => dailyChallenges.id, { onDelete: 'cascade' }),
+    /** 1 échauffement, 2 titulaire, 3 légende. Difficulty decided by hand. */
+    position: integer('position').notNull(),
+    /** The answer, and the only thing the enigma knows about the footballer. */
+    footballerId: uuid('footballer_id')
+      .notNull()
+      .references(() => footballers.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  // One index, the one `docs/modele-donnees.md` §7 asks for. There is
+  // deliberately none on `footballer_id`: nothing reads an enigma by
+  // footballer, and the only scan it would spare is the `restrict` check on a
+  // table that grows by about a thousand rows a year.
+  (t) => [
+    // Three enigmas per grid, one per position. This is what makes scheduling
+    // idempotent: replacing a grid rewrites the same three rows.
+    uniqueIndex('challenge_items_daily_challenge_id_position_key').on(
+      t.dailyChallengeId,
+      t.position,
+    ),
   ],
 )
 

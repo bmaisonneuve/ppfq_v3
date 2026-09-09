@@ -16,6 +16,7 @@ import {
   updatePassage,
 } from '@/server/services/curation.service'
 import { importFootballerCareer } from '@/server/services/ingest.service'
+import { adminActionFailed, adminActionOk, firstZodMessage } from '@/shared/admin'
 import { NewClubInput, PassageInput } from '@/shared/curation'
 import type { ClubOption, CurationActionState } from '@/shared/curation'
 
@@ -34,8 +35,12 @@ import type { ClubOption, CurationActionState } from '@/shared/curation'
  * dossier is a read of the tables and re-reading it is the whole refresh.
  */
 
-const ok = (message: string): CurationActionState => ({ status: 'ok', message })
-const failed = (message: string): CurationActionState => ({ status: 'error', message })
+// The two answers, and the reading of a Zod error, are the same on every admin
+// screen: they live in `shared/admin.ts` so scheduling and curation cannot
+// drift apart on what a refusal looks like.
+const ok = adminActionOk
+const failed = adminActionFailed
+const firstMessage = firstZodMessage
 
 /** `FormData` gives strings; an untouched number field gives the empty one. */
 const optionalNumber = z
@@ -231,10 +236,6 @@ export async function searchClubsAction(query: string): Promise<ClubOption[]> {
   return await searchClubs(query)
 }
 
-/** The first message of a Zod error — a form field has one thing wrong at a time. */
-function firstMessage(error: z.ZodError): string {
-  return error.issues[0]?.message ?? 'Saisie invalide.'
-}
 
 /** Service refusals in the admin's words; anything else stays the raw message. */
 function explain(error: unknown): string {

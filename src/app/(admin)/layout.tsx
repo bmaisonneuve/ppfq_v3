@@ -24,9 +24,18 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     <div className="min-h-dvh bg-neutral-50">
       <header className="border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-6 py-3">
-          <Link href="/admin" className="text-sm font-semibold tracking-tight">
-            PPFQ · curation
-          </Link>
+          <nav className="flex items-baseline gap-4">
+            <span className="text-sm font-semibold tracking-tight">PPFQ</span>
+            <Link href="/admin" className="text-sm text-neutral-600 underline underline-offset-2">
+              Curation
+            </Link>
+            <Link
+              href="/admin/schedule"
+              className="text-sm text-neutral-600 underline underline-offset-2"
+            >
+              Calendrier
+            </Link>
+          </nav>
           {signedIn ? (
             <form action={signOutAction}>
               <button
