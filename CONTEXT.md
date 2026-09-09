@@ -54,6 +54,20 @@ _Avoid_: sitelinks (nom de la colonne), popularité
 La personne à faire deviner. Distinct du joueur qui joue au jeu.
 _Avoid_: player (ambigu), joueur
 
+**Référentiel de recherche** :
+L'ensemble des footballeurs qu'on peut proposer dans la barre de recherche. Bien plus large que ceux qui sont jouables, précisément pour que les suggestions ne révèlent rien. Ce n'est pas une table à part : le référentiel et le catalogue curé sont les mêmes lignes de `footballers`, « curé » étant le fait d'avoir des passages.
+_Avoid_: index de recherche, liste de footballeurs
+
+**Alias** :
+Un nom d'usage sous lequel un footballeur peut être cherché sans jamais être affiché : surnom (« Zizou », « Chicharito »), nom complet, ou variante d'orthographe. Une suggestion montre toujours le nom canonique du footballeur, jamais l'alias qui a permis de le trouver. En base : `footballer_names`, avec `is_canonical = false`.
+_Avoid_: surnom (un alias n'est pas toujours un surnom), synonyme
+
+**Terme** :
+La forme normalisée d'un nom canonique ou d'un alias — minuscules, sans accents, un espace entre les mots — telle qu'elle est indexée et telle que la saisie du joueur est normalisée avant d'être cherchée. Une seule définition, dans `src/shared/search.ts`.
+
+Chaque **mot après le premier** d'un nom est en plus indexé comme un terme à lui seul, sinon un nom de famille n'est pas tapable : l'index de préfixe est ancré au début d'un terme, et Wikidata ne livre un alias « Papin » que pour 28 % des footballeurs notoires. Un terme de mot n'est ni un nom canonique ni un alias : il n'est jamais affiché.
+_Avoid_: mot-clé, slug
+
 **Passage** :
 Un séjour d'un footballeur dans un club, à sa place dans la chronologie. Un même club traversé deux fois donne deux passages distincts. En base : `player_clubs`.
 _Avoid_: career_stint, contrat, transfert

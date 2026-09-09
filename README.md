@@ -33,8 +33,12 @@ pnpm install
 cp .env.example .env.local
 pnpm db:up          # lève Postgres et attend qu'il réponde
 pnpm db:migrate     # applique les migrations de drizzle/
+pnpm db:import-referential   # charge les 382 703 footballeurs de .data/ (~50 s)
 pnpm dev            # http://localhost:3000
 ```
+
+Sans l'import, la barre de recherche répond correctement — elle ne trouve
+simplement personne.
 
 ## Commandes
 
@@ -49,6 +53,7 @@ pnpm dev            # http://localhost:3000
 | `pnpm test:db` | Ce qui a besoin d'un vrai Postgres |
 | `pnpm test:watch` | La suite en watch |
 | `pnpm db:generate` | Génère le SQL depuis le schéma Drizzle, à relire et committer |
+| `pnpm db:import-referential` | Charge le référentiel de recherche depuis `.data/`. Idempotent : le relancer ne duplique rien |
 
 Il n'y a **pas** de `db:push`. Les migrations sont générées, relues par un humain
 et committées (`docs/stack-technique.md` §11).
@@ -75,13 +80,14 @@ src/
     services/ cas d'usage + transactions. LA SEULE PORTE D'ENTRÉE.
   ui/         composants présentationnels
   shared/     isomorphe : types, schémas Zod, formatters
-scripts/      outillage Node : migrations, extraction du référentiel
+scripts/      outillage Node : migrations, import et extraction du référentiel
 test/
   domain/       le seam pur
+  shared/       le seam pur aussi : la couche isomorphe
   architecture/ les garde-fous : layering, marqueur server-only
   services/     le seam principal, contre un vrai Postgres
-  database/     contrôles de schéma qui n'appellent aucun service
-  fixtures/     le jeu de données partagé
+  database/     schéma, index et outillage — rien qui appelle un service
+  fixtures/     les jeux de données partagés
   setup/        harnais de base de test
 ```
 
@@ -117,7 +123,8 @@ Trois projets Vitest :
 
 - **`domain`** — fonctions pures, rien à démarrer, quelques millisecondes.
   Réservé aux matrices de cas larges : échelle de dévoilement, calendrier
-  Europe/Paris, ordre du parcours.
+  Europe/Paris, ordre du parcours, normalisation d'un terme de recherche.
+  `test/shared/` y est rattaché : la couche isomorphe est pure aussi.
 - **`architecture`** — pas des tests du produit, des tests des garde-fous qui le
   tiennent honnête. Ne lisent que la config ESLint et l'arborescence.
 - **`postgres`** — tout ce qui a besoin d'un vrai Postgres : le seam principal
@@ -139,3 +146,41 @@ de catalogue part de là plutôt que d'inventer ses lignes.
 | `duplicatePassage` | Le même `(footballeur, club, année de début)` deux fois |
 | `untypedReserve` | Une équipe réserve que la source ne type pas, plus un passage en cours |
 | `loan` | Un prêt qui chevauche le contrat parent, tous deux la même année |
+
+`test/fixtures/search.ts` ajoute trois footballeurs par-dessus, pour ce que le
+classement d'une liste de suggestions demande et que les cinq profils ne disent
+pas : un alias à retrouver, et deux homonymes que la notoriété et l'alphabet
+départagent en sens contraire.
+
+## Le référentiel de recherche
+
+La saisie est une **sélection dans une liste**, jamais du texte libre : un essai
+est un `footballerId`. Les 382 703 footballeurs et 225 886 alias de `.data/`
+entrent en base par `pnpm db:import-referential`, dont 13 042 homonymes qui
+n'entrent **pas** — pour un nom donné, seul le plus notoire est retenu, et
+récupérer un homonyme notable est une insertion manuelle.
+
+Noms canoniques et alias vivent dans une **seule** table (`footballer_names`), la
+recherche est donc une requête et pas une union. Les alias entrent dans l'index
+et jamais dans l'affichage : une suggestion porte toujours `footballers.name`.
+
+Chaque **mot après le premier** d'un nom y entre aussi comme un terme à lui seul,
+sinon un nom de famille n'est pas tapable : l'index de préfixe est ancré au début
+d'un terme, et Wikidata ne livre un alias « Papin » que pour 28 % des
+footballeurs notoires. 1 086 801 termes en tout.
+
+Deux index sur `term`, pour deux usages, et un seul est sur le chemin chaud :
+
+- **btree `text_pattern_ops`** — le préfixe, le cas dominant.
+- **GIN trigrammes** — la tolérance aux fautes, en **secours**, lancée seulement
+  quand le préfixe n'a rien trouvé du tout. Les trigrammes seuls sont mauvais sur
+  les préfixes courts, et un secours qui se déclencherait aussi sur « j'ai trouvé
+  peu » ferait payer un scan GIN à chaque nom correctement tapé.
+
+Le classement est la notoriété (`sitelinks`), jamais l'alphabet. Le secours
+classe sur la similarité **au dixième près**, puis la notoriété : les détails et
+les mesures qui ont tranché sont dans `src/server/services/search.service.ts`.
+
+Anti-rebond de 250 ms et minimum deux caractères côté client, tenus aussi côté
+serveur : ce sont des leviers de charge, pas du confort — le typeahead est
+l'endpoint le plus sollicité du site (`docs/stack-technique.md` §10).

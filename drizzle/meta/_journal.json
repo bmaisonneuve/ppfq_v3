@@ -8,6 +8,20 @@
       "when": 1788966764448,
       "tag": "0000_majestic_firebrand",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788969078902,
+      "tag": "0001_aberrant_solo",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788970327015,
+      "tag": "0002_stiff_harrier",
+      "breakpoints": true
     }
   ]
 }

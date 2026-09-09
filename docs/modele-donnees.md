@@ -36,7 +36,7 @@ Toutes les clés primaires sont des `uuid`. Le thème d'une grille n'est **pas**
 
 Référentiel de recherche **et** catalogue curé. « Curé » n'est pas un statut : c'est le fait d'avoir des `player_clubs`. Les colonnes de curation sont donc nullables.
 
-Les homonymes sont dédupliqués **à l'import** : sur les 382 703 footballeurs de l'extract, seul celui qui a le plus de `sitelinks` est inséré pour un nom donné. Les 13 042 autres n'entrent pas en base. Récupérer un homonyme notable est une insertion manuelle.
+Les homonymes sont dédupliqués **à l'import** : sur les 382 703 footballeurs de l'extract, seul celui qui a le plus de `sitelinks` est inséré pour un nom donné. Les 13 042 autres n'entrent pas en base. Récupérer un homonyme notable est une insertion manuelle. À `sitelinks` égal, c'est le plus petit numéro Wikidata qui gagne — un départage arbitraire mais **déterministe**, sans lequel relancer l'import pourrait échanger deux footballeurs qui partagent un nom et une notoriété.
 
 | Colonne | Type | Description |
 |---|---|---|
@@ -63,6 +63,8 @@ Les homonymes sont dédupliqués **à l'import** : sur les 382 703 footballeurs 
 ### `footballer_names`
 
 Noms canoniques et 225 886 alias Wikidata fusionnés : le typeahead est **une requête**, pas une union. Les alias entrent dans l'index et jamais dans l'affichage.
+
+S'y ajoutent les **mots après le premier** de chaque nom, indexés comme des termes à eux seuls — 1 086 801 lignes en tout. Sans eux un nom de famille n'est pas tapable : l'index de préfixe est ancré au début d'un terme, et Wikidata ne livre un alias « Papin » que pour 28 % des footballeurs multi-mots assez notoires pour être programmés (802 sur 2 890, mesuré le 2026-09-09). Les trigrammes ne comblent pas le trou, puisqu'ils ne sont interrogés que quand le préfixe n'a **rien** trouvé, alors que « papin » trouve trois homonymes obscurs et s'arrête là. Le premier mot n'a pas sa ligne : un préfixe du terme entier le couvre déjà.
 
 | Colonne | Type | Description |
 |---|---|---|
@@ -248,8 +250,8 @@ Reprise de progression quand le lien magique s'ouvre dans un autre navigateur qu
 |---|---|---|
 | `footballer_names` | btree `text_pattern_ops` sur `term` | Recherche par préfixe dès 2 caractères — le cas dominant du typeahead |
 | `footballer_names` | GIN trigrammes sur `term` | Tolérance aux fautes. Les trigrammes seuls sont mauvais sur les préfixes courts, d'où les deux index |
-| `footballer_names` | `footballer_id` | Jointure |
-| `footballers` | `sitelinks` décroissant | Classement des résultats |
+| `footballer_names` | unique `(footballer_id, term)` | Un seul terme par footballeur : c'est ce qui rend l'import idempotent et ce qui fait fusionner les variantes d'accent que Wikidata livre (« Zinédine Zidane » et « Zinedine Zidane » sont un seul terme). Mené par `footballer_id`, il sert aussi la jointure et le cascade, d'où l'absence d'index séparé sur cette colonne |
+| `footballers` | `(sitelinks` décroissant`, name, id)` | Classement des résultats. Les trois colonnes, et `NULLS FIRST` : c'est exactement ce que le typeahead demande en `ORDER BY`, donc Postgres parcourt le référentiel dans l'ordre du classement et s'arrête au dixième résultat. Amputé d'une colonne, ou déclaré `NULLS LAST`, il agrège les 28 000 noms qui commencent par « ma » et les trie — 117 ms mesurés sur l'extract réel, contre 0,8 ms. `name` et `id` ne servent qu'à rendre une égalité de notoriété reproductible d'une frappe à l'autre |
 | `footballers` | `nationality_id` | Jointure de l'indice 3 |
 | `nationalities` | unique `code` | Clé naturelle ISO |
 | `player_clubs` | `(footballer_id, start_year, end_year)` | Reconstitution ordonnée du parcours, lue à chaque rendu d'énigme |

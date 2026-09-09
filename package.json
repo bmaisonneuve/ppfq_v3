@@ -16,6 +16,7 @@
     "db:up": "docker compose up -d --wait postgres",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
+    "db:import-referential": "tsx scripts/import-referential.ts",
     "test": "docker compose up -d --wait postgres-test && vitest run",
     "test:watch": "docker compose up -d --wait postgres-test && vitest",
     "test:fast": "vitest run --project domain --project architecture",

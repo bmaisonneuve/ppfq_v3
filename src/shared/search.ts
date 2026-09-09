@@ -1,0 +1,106 @@
+/**
+ * The search referential's isomorphic layer: what a search term *is*.
+ *
+ * It lives in `shared/` rather than in `server/domain/` because three callers
+ * need the exact same normalisation and only one of them is the server:
+ *
+ * - the query path (`server/services/search.service.ts`),
+ * - the referential import (`scripts/referential.ts`), which runs under plain
+ *   Node and would throw on `import 'server-only'`,
+ * - the client typeahead, which holds the same two-character floor.
+ *
+ * Normalisation is the contract between the import and the query: a term is
+ * stored normalised and a query is normalised the same way. Any disagreement
+ * between the two sides is a footballer nobody can find, which is why the rule
+ * is one function tested as a matrix (`test/shared/search-term.test.ts`).
+ *
+ * Deliberately free of Zod, unlike most of `shared/`: the client typeahead
+ * imports this module, and the schema for the endpoint's query string — which
+ * nothing but that endpoint parses — would put the whole validator in the game
+ * bundle. It lives in the route handler instead.
+ */
+/**
+ * The floor, held by the client *and* the server.
+ *
+ * Not comfort: a load lever. Moving to search-with-selection multiplies request
+ * volume by ~3.5 and makes the typeahead the most-hit endpoint of the site
+ * (docs/stack-technique.md §10).
+ */
+export const MIN_SEARCH_LENGTH = 2
+
+/** Client-side debounce, for the same reason. */
+export const SEARCH_DEBOUNCE_MS = 250
+
+export const DEFAULT_SUGGESTION_LIMIT = 10
+export const MAX_SUGGESTION_LIMIT = 20
+
+/** The longest canonical name in the extract is 52 characters. */
+export const MAX_QUERY_LENGTH = 60
+
+/**
+ * Latin letters NFD does not decompose, because the diacritic is *part of the
+ * letter* rather than a mark on top of one. Without this a Danish or Polish
+ * footballer is unreachable by anyone typing on an ordinary keyboard.
+ */
+const FOLDED_LETTERS: Record<string, string> = {
+  ø: 'o',
+  đ: 'd',
+  ð: 'd',
+  ł: 'l',
+  æ: 'ae',
+  œ: 'oe',
+  ß: 'ss',
+  þ: 'th',
+  ı: 'i',
+  ħ: 'h',
+  ŧ: 't',
+  ŋ: 'n',
+  ə: 'e',
+}
+
+const FOLDED_LETTERS_PATTERN = new RegExp(`[${Object.keys(FOLDED_LETTERS).join('')}]`, 'g')
+
+/** Apostrophes and dots close up: "N'Golo" is typed `ngolo`, not `n golo`. */
+const CLOSING_PUNCTUATION = /['’ʼ`´.]/g
+
+/** The Latin combining diacritics NFD produces, stripped after decomposition. */
+const COMBINING_MARKS = /[\u0300-\u036f]/g
+
+/**
+ * The canonical form of anything searchable: lower case, unaccented, one space
+ * between words.
+ *
+ * Everything that is not a letter or a digit becomes a word break, so a
+ * normalised term carries no `%`, `_` or `\` — which is what makes it safe to
+ * interpolate into a `LIKE` pattern without escaping. A letter this function
+ * does not know how to fold is *kept* rather than dropped: a term that
+ * normalised to nothing would be a footballer no query could reach.
+ */
+export function normalizeSearchTerm(input: string): string {
+  return input
+    .normalize('NFD')
+    .toLowerCase()
+    .replace(COMBINING_MARKS, '')
+    .replace(FOLDED_LETTERS_PATTERN, (letter) => FOLDED_LETTERS[letter] ?? letter)
+    .replace(CLOSING_PUNCTUATION, '')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+}
+
+/**
+ * One suggestion. It carries the *canonical* name and never the alias that
+ * matched: `Chicharito` finds Javier Hernández and the list says "Javier
+ * Hernández" (specs §3, issue #3).
+ *
+ * The id is what an essai is made of — a guess is a `footballerId`, never free
+ * text — so this is also the shape the guess adapter consumes (#9).
+ */
+export type FootballerSuggestion = {
+  footballerId: string
+  name: string
+}
+
+/** The body of `GET /api/footballers/search`, as the client typeahead reads it. */
+export type SearchResponse = {
+  suggestions: FootballerSuggestion[]
+}

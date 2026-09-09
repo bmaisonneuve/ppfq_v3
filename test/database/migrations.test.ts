@@ -46,6 +46,7 @@ describe('migrations', () => {
       const tablesAfterFirstRun = await tableNames(pool)
       expect(tablesAfterFirstRun).toEqual([
         'clubs',
+        'footballer_names',
         'footballers',
         'nationalities',
         'player_clubs',

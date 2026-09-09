@@ -16,8 +16,19 @@
  * Identifiers are fixed so a test can name a row without a lookup. The
  * defective profiles use invented footballers: they carry no claim about a real
  * person's career.
+ *
+ * Each of the five also gets his search terms, because a footballer with no term
+ * is a state the import cannot produce. Rows aimed specifically at *ranking* a
+ * suggestion list live in `search.ts` instead, so this file keeps saying only
+ * what it says.
  */
-import { clubs, footballers, nationalities, playerClubs } from '@/server/db/schema'
+import {
+  clubs,
+  footballerNames,
+  footballers,
+  nationalities,
+  playerClubs,
+} from '@/server/db/schema'
 import type { Db } from '@/server/db/client'
 
 /** Fixed, readable identifiers. The leading digit says which table a row is in. */
@@ -161,6 +172,41 @@ const PASSAGE_ROWS = [
 ]
 
 /**
+ * Search terms. Every footballer of the referential has at least his canonical
+ * term, so a fixture without these rows would model a state the import cannot
+ * produce.
+ *
+ * The terms are written out already normalised rather than run through
+ * `normalizeSearchTerm`. That is the point: the query normalises its input with
+ * that function, so a normalisation that drifted would stop matching these
+ * literals and the search tests would say so.
+ *
+ * Each name also carries its words after the first, as the import derives them:
+ * the prefix index is anchored at the start of a term, so a surname is not
+ * typeable on its own without them.
+ */
+const NAME_ROWS = [
+  { footballerId: FOOTBALLER_IDS.complete, term: 'zinedine zidane', isCanonical: true },
+  // `zidane` is both the second word of the name and an alias in its own right.
+  // One row: that is what the unique index is for.
+  // The aliases Wikidata actually ships for Q1835 — the surname among them,
+  // which is what makes "Zidane" and a typo of it reach him at all.
+  { footballerId: FOOTBALLER_IDS.complete, term: 'zidane', isCanonical: false },
+  { footballerId: FOOTBALLER_IDS.complete, term: 'zizou', isCanonical: false },
+  { footballerId: FOOTBALLER_IDS.complete, term: 'zinedine yazid zidane', isCanonical: false },
+  { footballerId: FOOTBALLER_IDS.complete, term: 'yazid', isCanonical: false },
+
+  { footballerId: FOOTBALLER_IDS.incomplete, term: 'lucien farge', isCanonical: true },
+  { footballerId: FOOTBALLER_IDS.incomplete, term: 'farge', isCanonical: false },
+  { footballerId: FOOTBALLER_IDS.duplicatePassage, term: 'yannick perreau', isCanonical: true },
+  { footballerId: FOOTBALLER_IDS.duplicatePassage, term: 'perreau', isCanonical: false },
+  { footballerId: FOOTBALLER_IDS.untypedReserve, term: 'inigo sarasola', isCanonical: true },
+  { footballerId: FOOTBALLER_IDS.untypedReserve, term: 'sarasola', isCanonical: false },
+  { footballerId: FOOTBALLER_IDS.loan, term: 'theo balland', isCanonical: true },
+  { footballerId: FOOTBALLER_IDS.loan, term: 'balland', isCanonical: false },
+]
+
+/**
  * Inserts the whole fixture. Cheap enough to call from `beforeEach`; a test that
  * wants an empty catalogue simply does not call it.
  */
@@ -169,4 +215,5 @@ export async function seedCatalogue(executor: Db): Promise<void> {
   await executor.insert(clubs).values(CLUB_ROWS)
   await executor.insert(footballers).values(FOOTBALLER_ROWS)
   await executor.insert(playerClubs).values(PASSAGE_ROWS)
+  await executor.insert(footballerNames).values(NAME_ROWS)
 }

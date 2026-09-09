@@ -21,11 +21,14 @@ export default defineConfig({
       {
         // The pure seam: no I/O, nothing to start, milliseconds. Reserved for
         // wide case matrices — the reveal ladder, the Europe/Paris calendar,
-        // the order of a career.
+        // the order of a career, the normalisation of a search term.
+        //
+        // `test/shared/` sits here rather than in a project of its own: the
+        // isomorphic layer is pure too, and it is the same seam.
         resolve: { alias },
         test: {
           name: 'domain',
-          include: ['test/domain/**/*.test.ts'],
+          include: ['test/domain/**/*.test.ts', 'test/shared/**/*.test.ts'],
           environment: 'node',
         },
       },
