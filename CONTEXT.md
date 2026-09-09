@@ -88,6 +88,10 @@ Le nombre de saisons affiché au 2e palier d'indices, compté comme `end_year - 
 **Nationalité** :
 La nationalité sportive d'un footballeur, une seule même pour un binational. Table à part, avec son nom localisé et son drapeau.
 
+**Curation** :
+Le travail de l'admin sur un footballeur : relire ce que l'import a produit, corriger ce que la source donne mal ou pas du tout, ajouter le passage qu'elle ignore, saisir matchs, buts et nationalité. Rien ne l'enregistre — « curé » reste le fait d'avoir des passages, et il n'y a ni statut de vérification ni date. Ce qu'un écran de curation lit sur un footballeur est un `CurationDossier`, recomposé à chaque lecture depuis les tables.
+_Avoid_: validation, vérification (rien n'est tracé), modération
+
 **Indice** :
 Une des cinq informations dévoilées palier par palier après chaque erreur : décennie de début, durée par club, nationalité, matchs en championnat par club, buts en championnat par club.
 _Avoid_: matchs par club, buts par club (la source ne compte que le championnat, et l'énoncé doit le dire)

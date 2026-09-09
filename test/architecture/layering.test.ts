@@ -73,10 +73,22 @@ describe('the layering rule', () => {
   it('rejects routing that imports the Wikidata pipeline', async () => {
     // The whitelist working as intended: `server/ingest` was guarded before it
     // existed, and it needed nobody to remember on the day it appeared.
-    // `server/auth` (#8) is next.
     const messages = await violations(
       'src/app/(game)/forbidden.ts',
       `import { readSeniorCareer } from '@/server/ingest/career-statements'\nexport const x = readSeniorCareer\n`,
+    )
+
+    expect(messages).toHaveLength(1)
+    expect(messages[0]).toMatch(/only reach the server through a service/)
+  })
+
+  it('rejects routing that imports the session signer directly', async () => {
+    // The same whitelist, on the zone that appeared with #5: the back-office
+    // reaches its door through `services/admin-auth.service`, and nowhere else
+    // gets to decide what a valid session is.
+    const messages = await violations(
+      'src/app/(admin)/forbidden.ts',
+      `import { verifyAdminSession } from '@/server/auth/admin-session'\nexport const x = verifyAdminSession\n`,
     )
 
     expect(messages).toHaveLength(1)

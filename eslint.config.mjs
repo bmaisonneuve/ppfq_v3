@@ -19,7 +19,7 @@ export const LAYERING_ZONES = [
   {
     // The rule is a whitelist, not a blacklist: `app/` sees `services/` and
     // nothing else under `server/`. Written this way, `server/ingest` (#4) and
-    // `server/auth` (#8) are guarded the day they are created, without anyone
+    // `server/auth` (#5) were guarded the day they were created, without anyone
     // having to remember to come back here.
     target: './src/app',
     from: './src/server',

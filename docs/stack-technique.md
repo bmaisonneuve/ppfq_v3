@@ -204,7 +204,9 @@ Sans mot de passe, un email qui n'arrive pas = **impossible de se connecter**.
 
 ### Admin
 
-Avec du magic link seul, **qui contrôle la boîte mail contrôle le back-office**. C'est assumé : ni passkey, ni second facteur sur le compte admin. La conséquence à connaître est que la sécurité du back-office **est** celle de la boîte mail de l'admin — c'est donc là, et nulle part dans ce code, qu'il faut la renforcer. Le dispositif se limite au TTL de 10 minutes, à l'usage unique du token et au check de rôle en middleware.
+Avec du magic link seul, **qui contrôle la boîte mail contrôle le back-office**. C'est assumé : ni passkey, ni second facteur sur le compte admin. La conséquence à connaître est que la sécurité du back-office **est** celle de la boîte mail de l'admin — c'est donc là, et nulle part dans ce code, qu'il faut la renforcer. Le dispositif se limite au TTL de 10 minutes et à l'usage unique du token.
+
+> **Corrigé par [ADR-0006](./adr/0006-porte-du-back-office-avant-better-auth.md).** « Check de rôle en middleware » ne tient pas sous Next 16 : une Server Action est joignable par un POST direct, et un layout ne décide pas si ses segments enfants s'affichent. Le contrôle est `await requireAdmin()` en première ligne de chaque page et de chaque action d'admin, tenu par un test d'architecture. En attendant #13, la porte est un secret partagé et un cookie signé.
 
 ---
 
@@ -240,7 +242,7 @@ Les deux principes structurants, rappelés ici parce que tout le reste en décou
 
 ## 6. L'espace d'administration
 
-Route group `app/(admin)` avec layout et check de rôle en middleware. Next code-splitte par route : **le bundle admin ne pèse pas sur le jeu**, pas besoin d'une seconde app.
+Route group `app/(admin)` avec layout ; le contrôle d'accès est `await requireAdmin()` dans chaque page et chaque action, pas un middleware ([ADR-0006](./adr/0006-porte-du-back-office-avant-better-auth.md)). Next code-splitte par route : **le bundle admin ne pèse pas sur le jeu**, pas besoin d'une seconde app.
 
 | Écran | Point délicat |
 |---|---|
@@ -478,7 +480,7 @@ OpenTelemetry donnera le p95 par route : décider sur cette base, pas sur une in
 | **`player_progress` non partitionnée à la création** | À 300 000 lignes/jour, les 100 M sont à ~11 mois *de la cible*, pas du lancement. Partitionner tout de suite compliquerait requêtes et migrations pendant un ou deux ans pour un seuil peut-être jamais atteint |
 | **Ordre du parcours par les années, pas de drag & drop dans l'admin** | Sans colonne d'ordre, un glisser-déposer mentirait : la ligne reviendrait à sa place au rechargement. L'éditeur trie et signale les chevauchements ; corriger un ordre, c'est ajuster une année |
 | **Coquille de grille statique, état personnel en second temps** | Lire un cookie rendrait toute la route dynamique et exposerait l'origine au pic de minuit (20 000 personnes en cinq minutes). La page ne lit aucun cookie : Cloudflare absorbe le pic, et aucun indice ne peut fuir par le cache partagé |
-| **Admin protégé par le seul magic link** | Ni passkey ni second facteur. La sécurité du back-office est celle de la boîte mail de l'admin, et c'est assumé |
+| **Admin protégé par le seul magic link** | Ni passkey ni second facteur. La sécurité du back-office est celle de la boîte mail de l'admin, et c'est assumé. En attendant #13, un secret partagé et un cookie signé ([ADR-0006](./adr/0006-porte-du-back-office-avant-better-auth.md)) |
 | **Grafana + Prometheus + Loki + Alloy, pas SigNoz** | ClickHouse, moteur obligatoire de SigNoz, recommande 32 Go et lève des *memory exceptions* sous 16 Go : colocalisé (§11), il met le jeu à la merci de l'outil censé le surveiller. S'y ajoute la régénération du compose par `foundryctl forge` à chaque version, exactement le frottement qui fait qu'on arrête de mettre à jour |
 | **Scaleway TEM pour l'email transactionnel** | Seul des trois à héberger données et logs en UE, le moins cher, et le seul à rendre une IP dédiée atteignable à ce volume. Deux verrous connus : quota initial de 10 k/mois à faire lever, webhooks en bêta |
 | **Umami sans cookie pour l'analytics** | Cohérence avec la décision sur le cookie. Ce qu'on perd — funnels, replay de session — ne sert pas un jeu à un seul écran, dont le retour utile (taux de réussite par position) vient de notre propre base |

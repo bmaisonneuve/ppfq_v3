@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 
 import { db } from '@/server/db/client'
 import { jobRuns } from '@/server/db/schema'
@@ -66,6 +66,45 @@ export async function finishJobRun(
       lastError: outcome.lastError?.slice(0, MAX_LAST_ERROR_LENGTH) ?? null,
     })
     .where(eq(jobRuns.id, id))
+}
+
+/**
+ * The last run of one job for one subject — the career import of one
+ * footballer, in practice.
+ *
+ * The curation screen reads it to say what the last import did, including when
+ * it did nothing: a refused import leaves no mark on the catalogue, so this row
+ * is the only place the reason survives.
+ *
+ * It matches on `target` rather than on a foreign key because the trace is
+ * written outside the transaction it describes and has to survive its rollback
+ * — so it holds the Wikidata id the caller asked for, which may not correspond
+ * to any row at all.
+ */
+export async function findLastJobRun(query: {
+  job: string
+  target: string
+}): Promise<JobRun | null> {
+  const [row] = await db
+    .select()
+    .from(jobRuns)
+    .where(and(eq(jobRuns.job, query.job), eq(jobRuns.target, query.target)))
+    .orderBy(desc(jobRuns.startedAt))
+    .limit(1)
+
+  return row ?? null
+}
+
+/**
+ * Whether a run went wrong, from the row alone.
+ *
+ * Not `errors > 0`: a run with no `finished_at` never reported back, which is
+ * the shape a crashed process leaves and is a failure too. The trace is written
+ * outside the transaction it describes precisely so that row survives, so
+ * reading it as a success would waste the one thing it was kept for.
+ */
+export function jobRunFailed(run: JobRun): boolean {
+  return (run.errors ?? 0) > 0 || run.finishedAt === null
 }
 
 /**

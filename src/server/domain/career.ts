@@ -28,7 +28,13 @@ export function comparePlayerClubs(a: PlayerClub, b: PlayerClub): number {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
 }
 
-/** `comparePlayerClubs` applied to a whole career. Returns a new array. */
-export function sortPlayerClubs(playerClubs: readonly PlayerClub[]): PlayerClub[] {
+/**
+ * `comparePlayerClubs` applied to a whole career. Returns a new array.
+ *
+ * Generic in the row rather than fixed to `PlayerClub`, so a caller carrying
+ * more than the game needs — the curation screen carries the club's English
+ * name — gets its own rows back and not a narrowed copy.
+ */
+export function sortPlayerClubs<T extends PlayerClub>(playerClubs: readonly T[]): T[] {
   return [...playerClubs].sort(comparePlayerClubs)
 }
