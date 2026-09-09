@@ -75,7 +75,8 @@ Le nombre de saisons affiché au 2e palier d'indices, compté comme `end_year - 
 La nationalité sportive d'un footballeur, une seule même pour un binational. Table à part, avec son nom localisé et son drapeau.
 
 **Indice** :
-Une des cinq informations dévoilées palier par palier après chaque erreur : décennie de début, durée par club, nationalité, matchs par club, buts par club.
+Une des cinq informations dévoilées palier par palier après chaque erreur : décennie de début, durée par club, nationalité, matchs en championnat par club, buts en championnat par club.
+_Avoid_: matchs par club, buts par club (la source ne compte que le championnat, et l'énoncé doit le dire)
 
 ## Les personnes qui jouent
 

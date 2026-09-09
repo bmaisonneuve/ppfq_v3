@@ -13,14 +13,14 @@ Décidé le 2026-09-08. Cible : 100 000 joueurs/jour, auto-hébergé.
 | Base de données | **PostgreSQL** | Relationnel, `pg_trgm` + btree `text_pattern_ops` pour le typeahead |
 | ORM | **Drizzle** | Typé, migrations SQL relues à la main |
 | Auth | **Better Auth** (`magicLink` + `emailOTP`) | Sans mot de passe. Voir §4bis |
-| Email transactionnel | **Resend** ou **Postmark** | Chemin de connexion critique : jamais le SMTP du VPS |
+| Email transactionnel | **Scaleway TEM** (fr-par) | Seul des trois candidats à héberger données *et* logs en UE. Chemin de connexion critique : jamais le SMTP du VPS |
 | UI | **Tailwind + shadcn/ui**, **Motion** | Motion pour l'animation de dévoilement des indices |
 | Formulaires / tables | react-hook-form + Zod, TanStack Table | Surtout pour l'admin |
 | Jobs & cron | **Graphile Worker** | File dans Postgres, crontab déclaré en code |
 | Hébergement | **Coolify** sur VPS (Docker) | Pas de Vercel : maîtrise du monitoring |
 | CDN / edge | **Cloudflare** devant | Cache du HTML et des assets, protection DDoS |
-| Observabilité | Grafana + Prometheus + Loki + OTel, GlitchTip, Uptime Kuma | Voir §8 |
-| Analytics produit | Umami (ou PostHog Cloud EU) | Le self-host PostHog n'est pas soutenu en prod |
+| Observabilité | Grafana + Prometheus + Loki + **Alloy** + OTel, GlitchTip, Uptime Kuma | Voir §8. Promtail est EOL depuis le 2 mars 2026 : Alloy dès le départ |
+| Analytics produit | **Umami**, auto-hébergé, sans cookie | Imposé par la décision sur le cookie (§11) : aucun traceur à cookie. Réglage fin reporté |
 
 **Ce qui n'est PAS dans la stack, et pourquoi :** pas de backend séparé (aucun second consommateur), pas de Redis (un seul réplica au départ), pas de temps réel, pas d'entrepôt analytique (Postgres suffit à ce volume), pas de CMS (l'admin a un seul utilisateur).
 
@@ -189,7 +189,8 @@ Idempotent, et insensible au navigateur qui ouvre le lien.
 Sans mot de passe, un email qui n'arrive pas = **impossible de se connecter**.
 
 - **Jamais le SMTP du VPS** : une IP fraîche part en spam, et Hetzner bloque le port 25 par défaut sur les nouveaux comptes.
-- Provider transactionnel : **Resend** (région EU) ou **Postmark** (meilleure réputation transactionnelle). Scaleway TEM / Brevo pour rester franco-européen.
+- Provider transactionnel : **Scaleway TEM**. Resend et Postmark stockent données et logs **aux États-Unis** et le disent eux-mêmes — le `eu-west-1` de Resend ne contrôle pas où résident les données, et Postmark annonce n'avoir « no plans to add servers in the EU ». Une adresse email est une donnée personnelle : les envoyer hors UE rouvrirait le dossier que la décision sur le cookie (§11) venait de fermer. Scaleway est aussi le moins cher (~25 €/mois à 100 k contre ~126 $ Postmark) et le seul chez qui une **IP dédiée** soit atteignable à ce volume, tout en interdisant le marketing par contrat — ce qui protège la réputation des magic links.
+- **Deux verrous Scaleway à lever d'avance** : le quota par défaut est de **10 000 emails/mois**, débloqué par ticket support avec vérification d'identité (plusieurs jours — à lancer tôt, pas la veille du lancement) ; et les **webhooks sont en bêta**, sans POST HTTP direct (passage imposé par Topics & Events, facturé à part, un webhook par domaine en Essential). En attendant, `email_events` est alimentée par un job nocturne qui interroge le statut des envois via l'API.
 - **SPF + DKIM + DMARC** sur le domaine, non négociable. Sous-domaine d'envoi dédié au transactionnel, séparé de tout envoi marketing.
 - **Webhooks bounce/complaint** → table `email_events` + GlitchTip. Une panne de délivrabilité silencieuse est une panne de connexion silencieuse. À surveiller comme un service.
 
@@ -203,21 +204,35 @@ Sans mot de passe, un email qui n'arrive pas = **impossible de se connecter**.
 
 ### Admin
 
-Avec du magic link seul, **qui contrôle la boîte mail contrôle le back-office**. Acceptable au départ (TTL court + check de rôle en middleware) ; ajouter une **passkey** sur le compte admin dès qu'il y a des parcours curés à protéger.
+Avec du magic link seul, **qui contrôle la boîte mail contrôle le back-office**. C'est assumé : ni passkey, ni second facteur sur le compte admin. La conséquence à connaître est que la sécurité du back-office **est** celle de la boîte mail de l'admin — c'est donc là, et nulle part dans ce code, qu'il faut la renforcer. Le dispositif se limite au TTL de 10 minutes, à l'usage unique du token et au check de rôle en middleware.
 
 ---
 
 ## 5. Modèle de données
 
 > **Remplacé par [`docs/modele-donnees.md`](./docs/modele-donnees.md)**, qui porte le schéma Drizzle complet et les arbitrages.
+>
+> Ce document-là est la **source de vérité** du modèle de données : en cas de divergence avec ce qui est écrit ici, c'est lui qui gagne et c'est ce fichier-ci qu'il faut corriger.
 
 Les deux principes structurants, rappelés ici parce que tout le reste en découle :
 
 **Une énigme désigne un footballeur, elle ne le copie pas.** `challenge_items` porte une grille, une position et un `footballer_id` ; le parcours, les durées, les matchs, les buts et la nationalité sont lus dans les tables au rendu. Le modèle et l'admin y gagnent en simplicité, au prix d'une exposition : un import qui modifie un parcours modifie toutes les grilles où ce footballeur apparaît, y compris en archive et pendant une partie. Voir `docs/modele-donnees.md` §11.
 
-**L'ingest écrit directement sur le footballeur.** Pas de file de validation : le job met à jour le catalogue tel quel. Combiné à l'absence de parcours figé, cela veut dire qu'une édition Wikidata peut atteindre une grille publiée sans aucun filtre. Parades possibles le jour où ça gêne : geler les footballeurs ayant une grille programmée, ou ne rejouer l'import que sur ceux jamais utilisés. Découverte via l'API `recentchanges`, jamais une itération sur 250 000 entités chaque nuit.
+**L'ingest écrit directement sur le footballeur.** Pas de file de validation : l'import met à jour le catalogue tel quel. Combiné à l'absence de parcours figé, cela veut dire qu'un import peut atteindre une grille publiée sans aucun filtre — mais **l'import est un acte volontaire de l'admin**, footballeur par footballeur, et non un job nocturne : rien ne réécrit un parcours en silence. C'est ce qui rend l'exposition décrite en ADR-0001 supportable sans garde-fou. Aucune découverte automatique des changements Wikidata n'est prévue.
 
-**Source :** Wikidata (P54), seule source massivement exploitable sans problème de conditions d'utilisation. Un extract de 382 703 footballeurs et 225 886 alias est déjà en place dans `data/`.
+**Source :** Wikidata (P54), seule source massivement exploitable sans problème de conditions d'utilisation. Un extract de 382 703 footballeurs et 225 886 alias est déjà en place dans `.data/` — c'est le **référentiel de recherche**, il ne contient aucun parcours.
+
+**Ce que la source donne réellement**, mesuré le 2026-09-09 (voir `docs/research/wikidata-coverage.md`) :
+
+| Fait | Conséquence pour l'ingest |
+|---|---|
+| `wdt:P54` masque toute la carrière d'un joueur en activité | Passer par `p:P54 / ps:P54` et lire les qualificateurs sur la déclaration |
+| Un club = `P279* Q476028` **moins** `P279* Q6979593` → 948 951 passages | `P31` exact rate le FC Barcelone ; `P31/P279* Q476028` avale 54 010 sélections |
+| Prêt = `pq:P1642` **de valeur `Q2914547`** | Tester la valeur, pas la présence : 1 804 déclarations portent P1642 avec « transfer » (le PSG de Messi, par exemple) |
+| Début + matchs + buts sur 60,7 % des passages, 91,0 % à sl ≥ 40 | La notoriété est le meilleur prédicteur de complétude |
+| `P1350`/`P1351` = **championnat seulement** | Dit au joueur dans l'énoncé des paliers 4 et 5 (specs §3) |
+| Réserves non détectables (1,4-1,6 % des passages seulement) | Retirées à la main à la curation, avec pré-signalement par libellé |
+| ≥ 21,5 % des carrières « complètes » ont un trou de ≥ 2 ans | **Un parcours peut être complet et faux** : l'OM de Cantona n'existe pas dans Wikidata |
 
 ⚠️ **Le vrai chantier du projet, c'est la donnée**, pas le framework : 3 énigmes/jour = ~1 100 parcours/an à curer et calibrer.
 
@@ -229,7 +244,7 @@ Route group `app/(admin)` avec layout et check de rôle en middleware. Next code
 
 | Écran | Point délicat |
 |---|---|
-| Éditeur de parcours | Liste ordonnée avec drag & drop, toggle *prêt* par ligne, double passage par un même club. L'ordre validé ici est figé dans le parcours à la programmation |
+| Éditeur de parcours | Liste ordonnée, toggle *prêt* par ligne, double passage par un même club. L'ordre n'est **pas** stocké : il est déterminé par `(start_year, end_year, id)`, et le seul moyen de le corriger est d'ajuster les années. Pas de drag & drop, qui promettrait un ordre libre que le modèle ne porte pas. Deux aides à la curation : pré-signalement des **équipes réserve** par heuristique de libellé (` II`, ` B`, ` C`, `Jong`, `U21`, `Reserve`) — signalées, jamais supprimées seules, l'heuristique se trompant — et alerte visuelle sur les **chevauchements** de passages, seul cas où l'ordre est réellement ambigu |
 | Calendrier de programmation | 3 slots par date, vue mois, **trous signalés** |
 | Aperçu joueur | Rejouer la grille comme un utilisateur, avec les 6 paliers |
 | Diagnostic | `job_runs` + `graphile_worker.jobs` (échecs, `attempts`, `last_error`) |
@@ -246,17 +261,15 @@ Les horaires appartiennent au code, versionnés et relus en PR — pas à une ca
 ```ts
 // src/server/jobs/index.ts   ← source de vérité des horaires
 export const crontab = `
-30 3 * * *   ingest_discover        ?fill=1d
-0  4 * * *   stats_rollup           ?fill=1d
 0  9 * * 1   schedule_check_gaps
 0  23 * * *  cache_revalidate
+0  5 * * *   email_events_poll
 `
 
 export const taskList = {
-  ingest_discover:       task(ingestService.discoverChanged),
-  ingest_refresh_player: task(ingestService.refreshPlayer, RefreshPayload),
-  stats_rollup:          task(statsService.refreshRollups),
-  schedule_check_gaps:   task(scheduleService.checkGaps),
+  schedule_check_gaps: task(scheduleService.checkGaps),
+  cache_revalidate:    task(cacheService.revalidateToday),
+  email_events_poll:   task(emailService.pollDeliveryStatus),
 }
 ```
 
@@ -270,11 +283,11 @@ await run({ connectionString, crontab, taskList, concurrency: 4 })
 
 | Job | Fréquence | Rôle |
 |---|---|---|
-| `ingest_discover` | nocturne | Delta Wikidata → enfile un événement par joueur modifié |
-| `ingest_refresh_player` | fan-out | Fetch, diff, stage. Un joueur = une unité de travail |
-| `stats_rollup` | nocturne | Rafraîchit les agrégats (partition de la veille seulement) |
 | `schedule_check_gaps` | hebdo | **Alerte si moins de N jours programmés d'avance** |
 | `cache_revalidate` | quotidien | Pré-chauffe le cache de la grille avant l'arrivée du monde |
+| `email_events_poll` | quotidien | Interroge le statut des envois et alimente `email_events` — les webhooks Scaleway sont en bêta (§4bis) |
+
+**Il n'y a aucun job d'ingest.** L'import n'est pas automatique : l'admin déclenche le rafraîchissement d'**un** footballeur depuis le back-office, et le service est appelé en direct — un footballeur représente quelques requêtes SPARQL en attente d'I/O, ce qui ne justifie ni file ni fan-out. Il n'y a pas non plus de réconciliation nocturne des agrégats : `player_stats` est écrit dans la transaction qui termine la partie.
 
 `schedule_check_gaps` est le job qui empêche le matin sans grille. Il ne contrôle aucun thème : un thème peut être posé n'importe quel jour, et la cohérence entre le thème annoncé et les footballeurs choisis relève de l'admin.
 
@@ -297,10 +310,10 @@ Le coût est nul (même image, `CMD` différent) — c'est l'argument, pas un da
 La file étant dans Postgres, l'app Next enfile sans HTTP vers le worker :
 
 ```ts
-await utils.addJob('ingest_refresh_player', { playerId }, { jobKey: `refresh:${playerId}` })
+await utils.addJob('cache_revalidate', {}, { jobKey: 'revalidate:today' })
 ```
 
-→ bouton « Relancer l'import » dans l'admin, et le `jobKey` évite le doublon au double-clic. Une route d'admin **enfile uniquement** et répond 202 — jamais de batch dans un handler HTTP.
+Utile pour rejouer un job périodique à la demande, le `jobKey` évitant le doublon au double-clic. Une route d'admin qui enfile **répond 202** et n'exécute jamais un batch dans un handler HTTP. Le bouton « relancer l'import » d'un footballeur, lui, appelle le service en direct : ce n'est pas un batch.
 
 ---
 
@@ -358,7 +371,7 @@ Budget RAM pour la cible 100 k/jour, tout colocalisé :
 | App Next (1 réplica) | 1 Go |
 | Worker Graphile | 1 Go |
 | **Postgres** | **6-8 Go** |
-| Grafana + Prometheus + Loki + collecteur OTel | 3 Go |
+| Grafana + Prometheus + Loki + Alloy + collecteur OTel | 3 Go (hypothèse : seul Grafana publie un minimum, 512 Mo ; Prometheus, Loki monolithique et le collecteur OTel n'en documentent aucun — à surveiller, pas un chiffre sourcé) |
 | GlitchTip | 1,5 Go |
 | Uptime Kuma + Umami | 0,5 Go |
 | Cache disque OS (Postgres en dépend) | 4 Go |
@@ -385,16 +398,16 @@ Ordres de grandeur : Hetzner CAX41 (16 vCPU ARM / 32 Go / 320 Go) ~30 €/mois, 
 |---|---|---|
 | Uptime + alerte | **Uptime Kuma** | Léger, one-click Coolify |
 | Erreurs | **GlitchTip** | Compatible SDK Sentry. Sentry self-hosted = ~20 conteneurs / ~16 Go, hors sujet |
-| Traces + métriques + logs | **Grafana + Prometheus + Loki** (standard) ou **SigNoz** (OTel natif, une stack) | |
-| Logs structurés | **pino** en JSON | Vers Loki |
-| Analytics produit | **Umami** | PostHog self-host non soutenu en prod |
+| Traces + métriques + logs | **Grafana + Prometheus + Loki** | SigNoz écarté : son moteur ClickHouse recommande 32 Go et lève des *memory exceptions* sous 16 Go, or il partagerait la RAM d'un Postgres qui en veut 6 à 8 ; et depuis la v0.130.0 son docker-compose n'est plus distribué (génération par `foundryctl forge`, à régénérer à chaque version) |
+| Logs structurés | **pino** en JSON | Vers Loki, expédiés par **Alloy** — Promtail est EOL depuis le 2 mars 2026 |
+| Analytics produit | **Umami**, sans cookie | Un traceur à cookie ramènerait le bandeau de consentement, et un refus casserait la progression (§11). Écarte PostHog, qui dépose des cookies par défaut |
 
 Instrumentation : Next a un hook natif **`instrumentation.ts`** à la racine → `@opentelemetry/sdk-node` en export OTLP. On trace `guessAction → play.service → Postgres` de bout en bout.
 
 **Les deux moniteurs spécifiques au jeu**, les plus utiles :
 
 - **`/api/health/challenge-today`** renvoie 500 s'il n'y a pas de grille programmée pour la date du jour à Paris, surveillé par Uptime Kuma. Couplé à `schedule_check_gaps`, c'est ce qui garantit qu'un matin sans grille n'échappe pas.
-- **Push monitor Uptime Kuma** : `stats_rollup` ping une URL à chaque succès. Pas de ping en 26 h → alerte. C'est ce qui détecte un worker mort — un worker arrêté ne fait aucun bruit.
+- **Push monitor Uptime Kuma** : `cache_revalidate`, quotidien, ping une URL à chaque succès. Pas de ping en 26 h → alerte. C'est ce qui détecte un worker mort — un worker arrêté ne fait aucun bruit.
 
 ---
 
@@ -418,7 +431,9 @@ Coût unitaire : un essai = 2 requêtes Postgres et une comparaison d'identifian
 ### Ce qui casse réellement en premier
 
 1. **`player_progress`** — ~110 M lignes/an à la cible, une ligne par énigme ouverte. Partitionnement mensuel **reporté** faute de volume au démarrage, à faire avant ~100 M de lignes où la migration devient pénible. `player_stats` rend la purge des vieilles partitions sans effet sur les statistiques à vie.
-2. **Le pic de minuit** — pas 15 req/s moyennes, mais potentiellement 20 000 personnes en cinq minutes. Levier gratuit : **la grille du jour est identique pour tous** → cache pleine page (Cloudflare, ou le full route cache de Next), rendue une fois par jour. Contrepartie à concevoir : séparer la coquille partagée (parcours, clubs, prêts → cachée) de l'état personnel (mes essais, mes stats → dynamique). **C'est le seul vrai travail d'architecture que 100 k joueurs imposent.**
+2. **Le pic de minuit** — pas 15 req/s moyennes, mais potentiellement 20 000 personnes en cinq minutes. Levier gratuit : **la grille du jour est identique pour tous** → cache pleine page (Cloudflare, ou le full route cache de Next), rendue une fois par jour. Contrepartie, **tranchée** : la page de la grille ne lit **aucun** cookie et reste donc entièrement statique — revalidée une fois par jour, cachée pleine page par Cloudflare, un HIT ne coûtant rien à l'origine. L'état personnel (mes essais, mes indices déjà dévoilés, mes stats) est chargé par une requête dédiée juste après l'hydratation. Le prix est un bref état de chargement sur les seules zones personnelles ; le parcours, qui *est* l'énigme, s'affiche immédiatement.
+
+Propriété qu'on gagne au passage : la page cachée ne contient structurellement ni donnée personnelle ni indice, donc la fuite par le cache partagé devient impossible par construction plutôt que par vigilance. Si le Partial Prerendering s'avère stable au moment d'implémenter, on y passe sans rien restructurer — le découpage coquille/personnel est le même. **C'est le seul vrai travail d'architecture que 100 k joueurs imposent.**
 3. **Postgres** — 250 écritures/s en pointe, aucune contention (chaque session écrit sa propre ligne). Pool à 20 connexions.
 
 ### Ordre dans lequel scaler
@@ -453,29 +468,36 @@ OpenTelemetry donnera le p95 par route : décider sur cette base, pas sur une in
 | Admin fait main, pas Payload | Un seul utilisateur, 3 fiches/jour ; les écrans coûteux sont custom de toute façon |
 | Migrations Drizzle sous revue humaine, pas de `push` auto | Un `drizzle-kit push` mal cadré sur `player_clubs` se répare mal |
 | Postgres au plus simple, pas d'entrepôt analytique | Le volume ne le justifie pas ; rollups nocturnes suffisent |
+| **Postgres auto-hébergé sur Coolify**, pas de managé | Le typeahead est le chemin critique (~35 requêtes par joueur) : colocalisé, il répond en sous-milliseconde là où un Postgres distant ajoute un aller-retour réseau à chaque frappe. Contrepartie assumée : les sauvegardes sont à notre charge, avec volume dédié et **restore testé avant la première grille publiée** — dès cette grille il y a de la progression joueur à perdre |
+| **Observabilité sur le même VPS**, pour l'instant | Une seule machine à administrer. Risque accepté et connu : Grafana et Loki tombent avec la machine qu'ils observent, et un pic de logs peut lui-même causer la saturation. Le second VPS (~6 €/mois) reste la parade disponible |
+| **Blasons de clubs affichés** | Risque juridique évalué et accepté. `clubs.logo_s3_key` est conservée et destinée à servir |
+| **Cookie d'identité anonyme strictement nécessaire** | Il ne sert qu'à fournir le service demandé : base légale = exécution du service, **pas de bandeau de consentement**, 13 mois glissants, mention en politique de confidentialité. Contrainte qui en découle : aucun traceur analytique à cookie, sinon le bandeau revient et un refus casserait la progression |
+| **Résumé partagé en texte seul, pas d'image OG en v1** | L'OG dynamique ferait entrer un identifiant de résumé stocké dans un modèle conçu pour n'en avoir aucun. À décider après avoir vu si les gens partagent |
+| **Aucun avertissement quand le catalogue bouge sous une grille** | Une grille du jour modifiée par un import n'est pas grave ; on ne paie pas un mécanisme pour ça. D'autant que l'import est déclenché à la main, footballeur par footballeur |
+| **Aucun import automatique, aucun rollup nocturne** | L'admin déclenche l'import d'un footballeur ; `player_stats` est écrit dans la transaction qui termine la partie. Trois jobs périodiques subsistent : trous de programmation, pré-chauffage du cache, statut des envois email |
+| **`player_progress` non partitionnée à la création** | À 300 000 lignes/jour, les 100 M sont à ~11 mois *de la cible*, pas du lancement. Partitionner tout de suite compliquerait requêtes et migrations pendant un ou deux ans pour un seuil peut-être jamais atteint |
+| **Ordre du parcours par les années, pas de drag & drop dans l'admin** | Sans colonne d'ordre, un glisser-déposer mentirait : la ligne reviendrait à sa place au rechargement. L'éditeur trie et signale les chevauchements ; corriger un ordre, c'est ajuster une année |
+| **Coquille de grille statique, état personnel en second temps** | Lire un cookie rendrait toute la route dynamique et exposerait l'origine au pic de minuit (20 000 personnes en cinq minutes). La page ne lit aucun cookie : Cloudflare absorbe le pic, et aucun indice ne peut fuir par le cache partagé |
+| **Admin protégé par le seul magic link** | Ni passkey ni second facteur. La sécurité du back-office est celle de la boîte mail de l'admin, et c'est assumé |
+| **Grafana + Prometheus + Loki + Alloy, pas SigNoz** | ClickHouse, moteur obligatoire de SigNoz, recommande 32 Go et lève des *memory exceptions* sous 16 Go : colocalisé (§11), il met le jeu à la merci de l'outil censé le surveiller. S'y ajoute la régénération du compose par `foundryctl forge` à chaque version, exactement le frottement qui fait qu'on arrête de mettre à jour |
+| **Scaleway TEM pour l'email transactionnel** | Seul des trois à héberger données et logs en UE, le moins cher, et le seul à rendre une IP dédiée atteignable à ce volume. Deux verrous connus : quota initial de 10 k/mois à faire lever, webhooks en bêta |
+| **Umami sans cookie pour l'analytics** | Cohérence avec la décision sur le cookie. Ce qu'on perd — funnels, replay de session — ne sert pas un jeu à un seul écran, dont le retour utile (taux de réussite par position) vient de notre propre base |
 
 ---
 
 ## 12. Points à éclaircir
 
-### A. Décisions produit — toutes tranchées
+Onze points ont été tranchés le 2026-09-09 et sont remontés en §11 : durée et ordre lus au rendu, blasons de clubs, Postgres auto-hébergé, observabilité colocalisée, cookie anonyme et RGPD, format du résumé partagé, absence d'avertissement sur mouvement du catalogue.
 
-Reportées dans `specs-jeu-quiz-football.md` §10 et `docs/modele-donnees.md` §8 : recherche avec sélection (l'extract de 382 703 footballeurs lève l'objection), coup de pouce remplacé par un bouton « passer » qui consomme un essai, série retenue, sept derniers jours d'archive ouverts à tous, doublon consommant un essai.
+### Encore ouvert
 
-Reste ouvert : le **format du résumé partagé** — quels symboles exactement, et faut-il une **image OG dynamique** ? Vecteur de croissance non négligeable et vrai travail Next (`ImageResponse`). C'est la seule fonctionnalité qui demanderait un identifiant de résumé stocké.
+1. **Le pipeline d'extraction des parcours.** Le cadre est arrêté (import direct, réserves retirées à la main, dédoublonnage à l'import, contrôle de complétude à la programmation, aucun statut de vérification — voir `docs/modele-donnees.md` §4 et §10). Ce qui reste : un outil d'extraction des parcours existe déjà et sera versé au dépôt ; ce qu'il produit et ce qu'il faut y ajouter se traite à ce moment-là. Les faits de cadrage à respecter sont dans le tableau du §5 et dans `docs/research/wikidata-coverage.md`.
+2. **ARM64 ou AMD64 ?** **À trancher au provisionnement, pas avant.** Les 18 images du périmètre publient un manifeste `linux/arm64` officiel (vérifié par inspection des manifestes), GlitchTip inclus, et Coolify supporte ARM64 : l'objection technique est levée, le choix ne bloque donc plus rien. Reste l'arbitrage machine, car il n'existe pas de ligne ARM à vCPU **dédié** chez Hetzner — CAX41 (16 vCPU ARM partagés / 32 Go, ~30 €) contre CCX33 (8 vCPU AMD dédiés / 32 Go, ~60 €), alors que le §8 recommande du dédié pour Postgres et les builds. La sortie est peu coûteuse dans les deux sens : l'image de l'app se reconstruit depuis les sources et tout le reste est multi-arch.
+3. **Le dispositif de surveillance en détail** — session dédiée. Ce qui est su : Uptime Kuma tourne sur le VPS qu'il surveille et ne signalera donc pas la panne de cette machine ; il faudra au moins un œil externe. Le reste (quels moniteurs, quelles alertes, quels seuils) se décide en une fois, plus tard.
+4. **Réglage d'Umami** — le choix de l'outil est acté, sa configuration et les événements suivis restent à définir.
+5. **Rétention de `player_progress`.** Reportée avec le partitionnement (§11) : les deux se décident ensemble, le jour où le volume approche 100 M de lignes.
 
-### B. Décisions techniques ouvertes
+### Sans objet désormais
 
-7. **Postgres auto-hébergé sur Coolify, ou managé (Neon) ?** Coolify le déploie en un clic avec sauvegardes S3 planifiées. Acceptable, à **deux conditions non négociables** : un volume dédié, et **un restore effectivement testé** avant l'ouverture de l'archive. Une sauvegarde jamais restaurée n'est pas une sauvegarde. Alternative : garder Neon et ne déployer que l'app sur Coolify — le reste du design est identique.
-8. **La stack d'observabilité sur le même VPS, ou séparée ?** Demandé sur une seule machine, et faisable au dimensionnement du §8. Mais **l'observabilité doit survivre à l'incident qu'elle observe** : si le VPS sature, Grafana tombe au moment où on en a besoin, et un pic de logs Loki peut lui-même causer la saturation. Un second VPS à 2 vCPU / 4 Go (~6 €/mois) libère ~3,5 Go, permet de descendre à 16 Go au lieu de 32, et donne une surveillance indépendante. → *Le seul découplage vraiment recommandé.*
-9. **Grafana + Prometheus + Loki, ou SigNoz ?** Le standard, plus modulaire et plus léger (~3 Go) contre une stack OTel-native intégrée mais plus gourmande (ClickHouse, ~4-6 Go). Trancher avant de câbler `instrumentation.ts`.
-10. **ARM64 ou AMD64 ?** L'ARM64 est ~2× moins cher à specs égales. Vérifier que **chaque** outil de la liste publie une image arm64 (GlitchTip en particulier) avant de s'engager.
-11. **Rétention de `player_progress`** — la table n'est plus purgeable naïvement (statistiques à vie des specs §5), mais `player_stats` la rend purgeable. Combien de mois garder en ligne ? Non tranché.
-12. **Notifier l'admin quand le catalogue bouge sous une grille programmée.** Sans parcours figé, le changement s'applique en silence. Un simple avertissement dans l'admin — « ce footballeur a changé depuis sa programmation » — coûte peu et évite la surprise. → *À acter.*
-
-### C. À vérifier avant de s'engager
-
-13. **Provider email : Resend, Postmark ou Scaleway TEM ?** Trancher avant d'écrire le premier envoi. Critère principal : réputation transactionnelle et région d'hébergement des logs.
-14. **RGPD / identité anonyme.** Un cookie d'identification persistant sans compte, utilisé pour conserver la progression : base légale, durée de conservation, mention dans la politique de confidentialité. Point non traité jusqu'ici. Hetzner/OVH/Scaleway sont en UE, ce qui simplifie.
-15. **Licence des données et des visuels.** Les données Wikidata sont en CC0 : aucun problème. En revanche les **blasons de clubs sont protégés** — les specs ne mentionnent que des noms de clubs en texte, donc pas de sujet en v1, mais toute évolution vers des visuels de clubs devient un problème juridique.
-16. **Formats en réserve** (specs §9 : lundi mercato, hors-série). Le modèle `daily_challenges` porte déjà un champ `theme` libre pour ne pas migrer plus tard. Coût aujourd'hui : une colonne.
+- **Formats en réserve** (specs §9 : mercato, hors-série) : le champ `theme` libre les accueille sans migration. Coût aujourd'hui : une colonne, déjà là.
+- **Licence des données** : Wikidata est en CC0, aucune contrainte d'attribution. Les blasons de clubs sont un risque assumé (§11).

@@ -55,13 +55,15 @@ Le joueur dispose de **6 essais** par footballeur. Il saisit un nom ; à chaque 
 | 1ʳᵉ erreur | Décennie de début de carrière |
 | 2ᵉ erreur | Durée passée dans chaque club (en saisons) |
 | 3ᵉ erreur | Nationalité |
-| 4ᵉ erreur | Nombre de matchs joués par club |
-| 5ᵉ erreur | Nombre de buts marqués par club |
+| 4ᵉ erreur | Nombre de matchs **en championnat** par club |
+| 5ᵉ erreur | Nombre de buts **en championnat** par club |
 | 6ᵉ erreur | Fin de partie : la réponse est révélée |
 
 Un tour passé compte comme une erreur dans ce tableau.
 
 Les informations dévoilées restent affichées jusqu'à la fin de la partie.
+
+Les deux derniers paliers annoncent explicitement « en championnat » : la source ne compte ni les coupes nationales ni les compétitions européennes. Messi au Barça y vaut 520 matchs et 474 buts, ce qui est la Liga seule. Sans la mention, un joueur qui connaît ses chiffres prendrait l'indice pour une erreur — et sur un indice, la confiance compte plus que la précision.
 
 ### Passer son tour
 

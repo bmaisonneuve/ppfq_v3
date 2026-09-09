@@ -85,7 +85,7 @@ Un club renommé au point d'être méconnaissable est une autre ligne : on ne mo
 
 ### `player_clubs`
 
-Un passage senior. Jeunes, réserves et sélections sont filtrés à l'import et non stockés. Les années viennent de Wikidata et **peuvent se chevaucher** (un prêt coexiste avec le contrat parent) : la somme des durées peut dépasser la carrière, c'est assumé.
+Un passage senior. Les **sélections nationales** sont filtrées à l'import de façon fiable (`P279* Q6979593`, recoupement nul avec les clubs) et la carrière jeunes est quasi absente de P54. Les **équipes réserve, en revanche, ne sont pas détectables** : les trois signaux disponibles (type *reserve team*, lien vers le club parent, libellé en « II / B / C / Jong ») ne couvrent que 1,4 à 1,6 % des passages — FC Barcelona C n'est pas typé réserve — et le signal du club parent produit des faux positifs. Elles entrent donc déguisées en clubs seniors et sont **supprimées à la main à la curation**, l'éditeur les pré-signalant par heuristique de libellé sans jamais supprimer seul. Les années viennent de Wikidata et **peuvent se chevaucher** (un prêt coexiste avec le contrat parent) : la somme des durées peut dépasser la carrière, c'est assumé.
 
 | Colonne | Type | Description |
 |---|---|---|
@@ -95,12 +95,12 @@ Un passage senior. Jeunes, réserves et sélections sont filtrés à l'import et
 | `is_loan` | boolean | Simple annotation, jamais un club à part |
 | `start_year` | integer | Année de début. Porte aussi l'ordre d'affichage |
 | `end_year` | integer | Nullable = carrière en cours |
-| `matches` | integer | Nullable, mais requis pour programmer |
-| `goals` | integer | Nullable, mais requis pour programmer |
+| `matches` | integer | Nullable, mais requis pour programmer. **Matchs de championnat uniquement** : c'est ce que compte la source (`P1350`), coupes et compétitions européennes exclues |
+| `goals` | integer | Nullable, mais requis pour programmer. Buts de championnat uniquement (`P1351`) |
 
 Pas de colonne d'ordre : le parcours se trie par `(start_year, end_year, id)`. La date de début n'étant jamais affichée, son imprécision est sans conséquence — mais le tri doit inclure `id` pour être **déterministe**, sinon deux passages commençant la même année pourraient s'afficher dans un ordre différent d'un chargement à l'autre, alors que l'ordre des clubs fait partie de l'énigme. Le cas typique est un prêt commençant l'année du contrat parent ; le seul moyen de corriger l'ordre est alors d'ajuster les années.
 
-Durée affichée au joueur : `end_year - start_year + 1`. 2015-2015 = 1 saison, 2015-2016 = 2 saisons. Approximation assumée, calculée **une seule fois** à la programmation.
+Durée affichée au joueur : `end_year - start_year + 1`. 2015-2015 = 1 saison, 2015-2016 = 2 saisons. Approximation assumée, calculée **au rendu** comme tout le reste de l'énigme (§1) : rien n'est copié à la programmation. Une carrière en cours voit donc sa durée grandir, y compris sur une grille d'archive.
 
 ## 4. Jeu
 
@@ -136,10 +136,12 @@ Une énigme n'est qu'une **désignation** : trois colonnes utiles. Tout ce que v
 | 1 — décennie de début | `min(player_clubs.start_year)` arrondi à la décennie |
 | 2 — durée par club | `end_year - start_year + 1` |
 | 3 — nationalité | `footballers.nationality_id` → `nationalities` |
-| 4 — matchs par club | `player_clubs.matches` |
-| 5 — buts par club | `player_clubs.goals` |
+| 4 — matchs **en championnat** par club | `player_clubs.matches` |
+| 5 — buts **en championnat** par club | `player_clubs.goals` |
 
-**Contrôle avant programmation** : l'admin ne peut pas programmer une énigme dont un passage n'a pas ses matchs et ses buts, ou dont la nationalité manque — un palier vide casserait le jeu après quatre essais déjà consommés. C'est un contrôle au moment de la programmation, **pas une garantie dans le temps** : rien n'empêche un import ultérieur de vider un champ d'une énigme déjà publiée.
+**Contrôle avant programmation** : l'admin ne peut pas programmer une énigme dont un passage n'a pas ses matchs et ses buts, ou dont la nationalité manque — un palier vide casserait le jeu après quatre essais déjà consommés. S'y ajoutent trois prédicats de vraisemblance, mesurés comme fréquents dans la source : `goals <= matches` (2 989 passages violent la règle), `end_year >= start_year` (181 cas) et `start_year >= 1880` (131 cas). Rien n'est rejeté à l'import — le référentiel de recherche reste exhaustif et un footballeur aux données douteuses reste une suggestion valide, il devient simplement non programmable. C'est un contrôle au moment de la programmation, **pas une garantie dans le temps** : rien n'empêche un import ultérieur de vider un champ d'une énigme déjà publiée.
+
+Et surtout, **ce contrôle teste la complétude des champs, pas l'exactitude du parcours**. Les deux sont différentes : la mesure du 2026-09-09 (`docs/research/wikidata-coverage.md`) trouve qu'au moins 21,5 % des carrières dont *tous* les passages sont renseignés ont un trou de deux ans ou plus, donc un club purement absent — Cantona a ses sept passages complets et l'OM 1988-1991 n'existe pas dans Wikidata, ce qui laisse ses trois prêts rattachés à rien. Une telle énigme n'est pas plus difficile, elle est fausse. Aucune requête ne le détecte ; le seul garde-fou est le coup d'œil de l'admin quand il ajoute le footballeur à une grille. **Il n'est ni tracé ni exigé par le modèle, et c'est assumé** : pas de `verified_at`, pas de statut de curation.
 
 ### `player_progress` — la partie
 
@@ -180,7 +182,7 @@ Un joueur est une ligne, avec ou sans compte. La reprise de progression est un `
 
 Ce rôle n'est **pas** confié à la table `user` de Better Auth. Le plugin `anonymous` ferait le travail, mais il ouvre une session d'authentification par visiteur (180 jours d'expiration, des dizaines de millions de lignes pour des gens venus une fois) et **supprime la ligne anonyme après liaison** par défaut — ce qui effacerait la progression qu'on voulait reprendre.
 
-Purge : sans compte, sans partie, non revu depuis 12 mois.
+Purge : sans compte, sans partie, non revu depuis **13 mois** — la durée de vie du cookie d'identité anonyme (§10).
 
 ### `player_stats`
 
@@ -200,7 +202,7 @@ La **série est stockée mais remise à zéro à la lecture** : si `last_solved_
 
 La répartition par nombre d'essais (specs §5) n'est pas stockée : c'est un `GROUP BY tries_used` sur les `player_progress` résolues du joueur, qui en a au plus trois par jour.
 
-Un agrégat dérive : un job nocturne le réconcilie sur les parties de la veille. Ce qui reste ici est ce qui doit être lu en O(1) ou survivre à une purge — le jour où les vieilles `player_progress` seront purgées, la répartition par nombre d'essais ne portera plus que sur la période conservée.
+Il n'y a **pas** de job de réconciliation : cette table est écrite dans la **même transaction** que la fin de partie. Conséquence à connaître : un agrégat faux ne se répare pas tout seul la nuit suivante, donc cette écriture est à couvrir par les tests comme une règle de jeu, pas comme un détail. Ce qui vit ici est ce qui doit être lu en O(1) ou survivre à une purge — le jour où les vieilles `player_progress` seront purgées, la répartition par nombre d'essais ne portera plus que sur la période conservée.
 
 ### `pending_claims`
 
@@ -269,8 +271,8 @@ Reprise de progression quand le lien magique s'ouvre dans un autre navigateur qu
 | 1 erreur | 1 | + décennie de début de carrière |
 | 2 erreurs | 2 | + durée par club, en saisons |
 | 3 erreurs | 3 | + nationalité |
-| 4 erreurs | 4 | + matchs par club |
-| 5 erreurs | 5 | + buts par club |
+| 4 erreurs | 4 | + matchs en championnat par club |
+| 5 erreurs | 5 | + buts en championnat par club |
 | 6 erreurs | 6 | Fin de partie, réponse révélée |
 
 Un tour **passé** compte comme une erreur. Sans cela, six clics donneraient tous les indices gratuitement.
@@ -285,6 +287,8 @@ La saisie est une **sélection dans une liste** : un essai est un `footballer_id
 
 Le serveur ne renvoie jamais la liste complète des indices ni la réponse avant la fin. Conséquence sur le cache : la coquille partagée et cachable pleine page se limite au **parcours** (clubs, ordre, prêts, position, thème), reconstruit depuis les tables une fois par jour ; les indices dévoilés et l'état de partie sont dynamiques. Mettre les cinq indices dans le HTML de la page cachée les rendrait lisibles dans la source.
 
+D'où le découpage acté côté rendu : la page de la grille **ne lit aucun cookie**, donc elle ne connaît aucun joueur et reste statique ; l'état de partie est chargé par une requête dédiée après l'hydratation. Voir `stack-technique.md` §10.
+
 Le **résumé partagé n'est pas stocké** : il se dérive des trois `player_progress` d'une grille. Garde-fou d'interface : on ne propose le partage que si au moins une partie a été jouée, sinon une grille simplement ouverte produirait un résumé de trois échecs.
 
 ---
@@ -298,7 +302,7 @@ Le **résumé partagé n'est pas stocké** : il se dérive des trois `player_pro
 | La liste des footballeurs proposés | Le doublon consomme un essai, il n'y a rien à détecter |
 | Une table d'alias curée à la main | Les 225 886 alias Wikidata sont importés dans `footballer_names` |
 | Une file de validation des diffs Wikidata | L'import écrit directement sur le footballeur |
-| Jeunes, réserves, sélections | Filtrés à l'import, hors périmètre du parcours |
+| Jeunes et sélections nationales | Filtrés à l'import, hors périmètre du parcours. Les **réserves** ne sont pas filtrables automatiquement : elles sont retirées à la main à la curation (§3) |
 | Le résumé partagé | Dérivable des trois `player_progress` |
 | La répartition par nombre d'essais | Un `GROUP BY tries_used` sur les `player_progress` résolues |
 | Le parcours figé (`career_snapshot`, `hints`) | Une énigme désigne un footballeur, elle ne copie rien. Le parcours est lu dans les tables à chaque rendu |
@@ -317,9 +321,13 @@ Le **résumé partagé n'est pas stocké** : il se dérive des trois `player_pro
 | `sitelinks` conservé | Sans classement par notoriété, `Zidane` place Zinedine en 15ᵉ position et `Henry` noie Thierry parmi 502 lignes |
 | Homonymes dédupliqués à l'import, perdants non insérés | Une liste de suggestions sans ambiguïté. Récupérer un homonyme notable est une insertion manuelle |
 | `footballer_names` unifiée, deux index | Une requête au lieu d'une union ; les trigrammes sont mauvais sur les préfixes courts |
+| Dédoublonnage `(footballer, club, start_year)` à l'import | 6 721 groupes de doublons dans la source. Un doublon fait apparaître deux fois le même club dans un parcours, ce qui **ressemble exactement à un vrai double passage** et devient indétectable à l'œil : c'est le seul nettoyage que la curation ne peut pas rattraper. La déclaration la mieux qualifiée est conservée |
+| Incohérences de la source bloquées à la programmation, pas à l'import |  `goals <= matches`, `end_year >= start_year`, `start_year >= 1880`. Trois prédicats SQL, aucun rejet à l'entrée |
+| Matchs et buts = championnat seulement | C'est ce que comptent `P1350`/`P1351`. L'énoncé des paliers 4 et 5 le dit explicitement au joueur (specs §3) |
 | Années Wikidata brutes, chevauchements autorisés | Pas de reconstruction de vérité. Pas de colonne d'ordre : tri déterministe par `(start_year, end_year, id)` |
 | Durée calculée au rendu | `end_year - start_year + 1`. Une carrière en cours voit donc sa durée grandir, y compris sur une grille d'archive |
 | Complétude contrôlée à la programmation | Un palier vide casse le jeu après quatre essais consommés. Contrôle ponctuel, pas garantie dans le temps |
+| Aucun statut de vérification (`verified_at` écarté) | « Curé » reste le fait d'avoir des `player_clubs`. Contrepartie assumée : un parcours peut être complet **et faux par omission**, et rien dans le modèle ne l'empêche d'être programmé (§4) |
 | Nationalité en table étrangère, unique par footballeur | Nom localisé et drapeau partagés ; un binational rendrait l'indice trompeur |
 | Table `players` propre | Évite une session d'auth par visiteur et la suppression automatique de la ligne anonyme à la liaison |
 | `player_progress` créée à l'ouverture | Mesure les gens exposés, ce que le calibrage de difficulté demande |
@@ -330,6 +338,9 @@ Le **résumé partagé n'est pas stocké** : il se dérive des trois `player_pro
 | `player_stats` unique `(player_id, mode)` | L'archive est comptée séparément |
 | Thème de grille en champ libre | Ouvrir un format ne doit pas demander de migration |
 | Logo de club en clé S3, pas en URL | Le domaine du bucket ou du CDN doit pouvoir changer sans réécrire la table |
+| Blasons de clubs affichés | Risque juridique évalué et **accepté**. `logo_s3_key` est conservée et destinée à servir |
+| Cookie d'identité anonyme strictement nécessaire, 13 mois glissants | Il ne sert qu'à fournir le service demandé (retrouver sa partie) : pas de bandeau de consentement, et donc **aucun traceur analytique à cookie** sur le site. La purge de `players` s'aligne sur cette durée |
+| Résumé partagé jamais stocké, pas d'image OG en v1 | L'image OG dynamique est la seule fonctionnalité qui demanderait un identifiant de résumé en base |
 
 ---
 
@@ -337,9 +348,8 @@ Le **résumé partagé n'est pas stocké** : il se dérive des trois `player_pro
 
 | Sujet | État |
 |---|---|
-| Mouvement du catalogue sous une grille vivante | Rien ne protège plus une énigme : l'import écrit directement, et l'énigme lit les tables. Un transfert ajouté fait passer une grille de 5 à 6 clubs — y compris pendant une partie en cours, et sur les grilles d'archive, dont les résumés déjà partagés ne correspondent alors plus. Parades possibles le jour où ça gêne : geler les footballeurs ayant une grille programmée, ou ne rejouer l'import que sur les footballeurs jamais utilisés |
-| Partitionnement mensuel de `player_progress` | ~300 000 lignes/jour à la cible. Repoussé faute de volume ; à faire avant ~100 M de lignes |
+| Mouvement du catalogue sous une grille vivante | **Assumé, et sans garde-fou** : ni gel, ni avertissement dans l'admin. L'import écrit directement et l'énigme lit les tables, donc un transfert ajouté fait passer une grille de 5 à 6 clubs, y compris pendant une partie et sur une grille d'archive. Exposition fortement réduite par l'absence d'import automatique : c'est l'admin qui déclenche l'import d'un footballeur, rien ne se réécrit la nuit. Jugé sans gravité au regard du coût d'un mécanisme de protection. Parades disponibles le jour où ça gênerait : geler les footballeurs ayant une grille programmée, ou ne rejouer l'import que sur ceux jamais utilisés |
+| Partitionnement mensuel de `player_progress` | ~300 000 lignes/jour **à la cible**, quelques centaines au lancement. Réexaminé le 2026-09-09 et confirmé : on ne partitionne **pas** à la création, ça compliquerait requêtes et migrations pendant un ou deux ans pour un seuil peut-être jamais atteint. Premier ticket du jour où le volume décolle, avant ~100 M de lignes |
 | Purge des joueurs anonymes | Règle arrêtée, job à écrire |
 | Rafraîchissement de `sitelinks` | Ponctuel, aucune fréquence arrêtée |
-| Image OG dynamique du résumé | Seule fonctionnalité qui demanderait un identifiant de résumé stocké |
-| Base légale et durée de conservation du cookie (RGPD) | Non traité |
+| Image OG dynamique du résumé | **Écartée en v1** : c'est la seule fonctionnalité qui demanderait un identifiant de résumé stocké. À reprendre si le partage prend |
