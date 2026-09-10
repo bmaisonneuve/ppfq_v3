@@ -1,7 +1,9 @@
-import { readFile, readdir } from 'node:fs/promises'
-import { join, relative, sep } from 'node:path'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
+
+import { pathKey, sourceFilesUnder } from './tree'
 
 /**
  * The third barrier, and the one this ticket adds: **every admin page and every
@@ -45,24 +47,12 @@ const GUARD = 'await requireAdmin()'
  */
 const EXEMPT = new Set(['admin/login/page.tsx', 'session-actions.ts'])
 
-async function adminFiles(dir: string): Promise<string[]> {
-  const entries = await readdir(dir, { withFileTypes: true })
-  const found = await Promise.all(
-    entries.map(async (entry) => {
-      const full = join(dir, entry.name)
-      if (entry.isDirectory()) return await adminFiles(full)
-      return entry.name.endsWith('.ts') || entry.name.endsWith('.tsx') ? [full] : []
-    }),
-  )
-  return found.flat()
-}
-
-const key = (file: string) => relative(ADMIN_ROOT, file).split(sep).join('/')
+const key = (file: string) => pathKey(ADMIN_ROOT, file)
 
 type AdminFile = { key: string; source: string }
 
 async function readAdminFiles(): Promise<AdminFile[]> {
-  const files = await adminFiles(ADMIN_ROOT)
+  const files = await sourceFilesUnder(ADMIN_ROOT)
   return await Promise.all(
     files.map(async (file) => ({ key: key(file), source: await readFile(file, 'utf8') })),
   )

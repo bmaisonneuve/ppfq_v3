@@ -53,4 +53,44 @@ jobs:
       # rather than through `pnpm test`, which would start the compose service.
       - run: pnpm exec vitest run
 
-      - run: pnpm build
+      # `/` is the grid of the day and it is prerendered, which means the build
+      # reads the database (ADR-0008). The service container is already here; it
+      # is migrated and left empty, so the build prerenders "aucune grille" —
+      # which is all the two steps below need.
+      - run: pnpm db:migrate
+        env:
+          DATABASE_URL: postgres://ppfq:ppfq@localhost:5433/ppfq_test
+
+      # The grid has to be *prerendered*, not merely quick, and `○ /` in the
+      # build report is Next saying so. Grepped rather than trusted: a route
+      # turned dynamic by one `cookies()` builds perfectly green, and the whole
+      # architecture of the page is that it is not.
+      - name: Build, and check the grid is a static route
+        run: |
+          set -eo pipefail
+          pnpm build | tee "$RUNNER_TEMP/build.log"
+          grep -qE '○ /[[:space:]]' "$RUNNER_TEMP/build.log"
+        env:
+          DATABASE_URL: postgres://ppfq:ppfq@localhost:5433/ppfq_test
+
+      # And the acceptance criterion in its own words: « la page est servie
+      # depuis le cache pour un visiteur anonyme, vérifiable en observant la
+      # réponse ». So it is observed — a cache hit, and an `s-maxage` a CDN can
+      # hold. Nothing else in the suite can see this: it is a property of the
+      # response, not of the source.
+      - name: Check the grid is served from cache
+        run: |
+          set -eo pipefail
+          pnpm start > "$RUNNER_TEMP/server.log" 2>&1 &
+          server=$!
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null http://127.0.0.1:3000/ && break
+            sleep 1
+          done
+          headers=$(curl -sI http://127.0.0.1:3000/)
+          echo "$headers"
+          grep -qi '^x-nextjs-cache: *HIT' <<<"$headers"
+          grep -qiE '^cache-control:.*s-maxage=[0-9]+' <<<"$headers"
+          kill "$server"
+        env:
+          DATABASE_URL: postgres://ppfq:ppfq@localhost:5433/ppfq_test

@@ -40,6 +40,17 @@ export type PlayerClub = {
   goals: number | null
 }
 
+/**
+ * The sort key of a career: the three fields its canonical order reads, and no
+ * more.
+ *
+ * A career sorts by `(start_year, end_year, id)` (docs/modele-donnees.md §3),
+ * so the ordering rule asks for exactly that. Which is what lets the daily grid
+ * order a parcours from a query that never selects `matches` or `goals`: a
+ * query cannot leak what it does not read.
+ */
+export type PlayerClubOrderKey = Pick<PlayerClub, 'id' | 'startYear' | 'endYear'>
+
 export type Nationality = {
   id: string
   /** ISO 3166-1 alpha-2. */

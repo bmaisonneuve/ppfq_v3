@@ -52,7 +52,7 @@ passages.
 | Commande | Ce qu'elle fait |
 |---|---|
 | `pnpm dev` | Serveur de développement |
-| `pnpm build` / `pnpm start` | Build de production standalone, puis serveur |
+| `pnpm build` / `pnpm start` | Build de production standalone, puis serveur. **Le build lit la base** : `/` est prérendue ([ADR-0008](./docs/adr/0008-la-grille-du-jour-est-prerendue.md)) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm lint` | ESLint, **y compris la règle de layering** |
 | **`pnpm test`** | **Toute la suite. Lève le Postgres de test et le migre lui-même : un seul appel, rien à préparer.** |
@@ -93,13 +93,14 @@ src/
     auth/     la signature d'une session. Aucune table, aucune requête.
     services/ cas d'usage + transactions. LA SEULE PORTE D'ENTRÉE.
   ui/         composants présentationnels
+    game/     ceux du jeu. La grille du jour et ses énigmes
     admin/    ceux du back-office. Les Server Actions leur arrivent en props
   shared/     isomorphe : types, schémas Zod, formatters
 scripts/      outillage Node : migrations, référentiel, import d'un parcours
 test/
   domain/       le seam pur — y compris la lecture d'une déclaration Wikidata
   shared/       le seam pur aussi : la couche isomorphe
-  architecture/ les garde-fous : layering, server-only, garde d'admin
+  architecture/ les garde-fous : layering, server-only, garde d'admin, page statique
   services/     le seam principal, contre un vrai Postgres
   database/     schéma, index et outillage — rien qui appelle un service
   live/         le vrai Wikidata. Hors de `pnpm test`
@@ -119,7 +120,7 @@ Une zone de plus depuis l'ingest : `server/ingest` ne peut voir ni `db/`, ni
 écrire est le travail d'un service. C'est ce qui garde ses règles testables en
 millisecondes.
 
-Trois barrières, pas une :
+Quatre barrières, pas une :
 
 1. `import 'server-only'` en tête de chaque fichier de `server/` — **le build
    casse** si un composant client le tire. Une seule exception :
@@ -129,11 +130,15 @@ Trois barrières, pas une :
    raccourci.
 3. `await requireAdmin()` en première ligne de chaque page et de chaque Server
    Action de `app/(admin)` — voir « Le back-office » ci-dessous.
+4. **Aucune lecture de requête dans la chaîne de segments de `/`** — ni cookie,
+   ni en-tête, ni paramètre de recherche. Une seule ligne suffirait à rendre la
+   route dynamique et à mettre un cache partagé devant des données
+   personnelles ; voir « La grille du jour » ci-dessous.
 
-Les trois barrières sont elles-mêmes testées (`test/architecture/`) : supprimer
+Les quatre barrières sont elles-mêmes testées (`test/architecture/`) : supprimer
 la règle ESLint fait échouer la suite, oublier `server-only` sur un nouveau
-fichier de `server/` aussi, et oublier la garde sur une nouvelle page d'admin
-aussi.
+fichier de `server/` aussi, oublier la garde sur une nouvelle page d'admin
+aussi, et lire un cookie dans la page de la grille aussi.
 
 ## Tests
 
@@ -150,9 +155,12 @@ Quatre projets Vitest :
   Europe/Paris, ordre du parcours, normalisation d'un terme de recherche.
   `test/shared/` y est rattaché : la couche isomorphe est pure aussi.
 - **`architecture`** — pas des tests du produit, des tests des garde-fous qui le
-  tiennent honnête. Ne lisent que la config ESLint et l'arborescence. Depuis le
+  tiennent honnête. Ne lisent que la config ESLint, l'arborescence et le texte
+  des fichiers — jamais le produit qui tourne. Depuis le
   back-office, la garde d'admin en fait partie : un `export` nouveau dans
-  `app/(admin)` qui oublie `await requireAdmin()` fait échouer la CI.
+  `app/(admin)` qui oublie `await requireAdmin()` fait échouer la CI. Depuis la
+  grille du jour, la staticité de `/` aussi : un cookie lu dans sa chaîne de
+  segments fait échouer la CI, et c'est le seul endroit où ça se voit.
 - **`postgres`** — tout ce qui a besoin d'un vrai Postgres : le seam principal
   (`test/services/`) et les contrôles de schéma (`test/database/`). Une base
   partagée par la suite, vidée entre chaque test, fichiers exécutés
@@ -191,6 +199,52 @@ de catalogue part de là plutôt que d'inventer ses lignes.
 classement d'une liste de suggestions demande et que les cinq profils ne disent
 pas : un alias à retrouver, et deux homonymes que la notoriété et l'alphabet
 départagent en sens contraire.
+
+## La grille du jour
+
+`/` affiche les trois énigmes du jour : le parcours complet de chaque
+footballeur, clubs dans l'ordre chronologique, prêts annotés, et rien d'autre.
+Le parcours *est* l'énigme (specs §1) ; ce qui se dévoile essai par essai, ce
+sont les informations périphériques, et c'est #9.
+
+**La page ne lit aucun cookie.** C'est la décision d'architecture centrale du
+projet, et tout le reste en découle :
+
+- elle est **prérendue** et servie depuis le cache pleine page — `○ /` dans la
+  sortie de `next build`, avec un `s-maxage` que Cloudflare tient. Un HIT ne
+  coûte rien à l'origine, ce qui est ce qui absorbe le pic de minuit : pas
+  15 req/s de moyenne, mais possiblement 20 000 personnes en cinq minutes
+  (`docs/stack-technique.md` §10) ;
+- elle ne peut pas faire fuir ce qu'elle ne lit pas. Le service ne sélectionne
+  **jamais** `footballers.name`, ni `matches`, ni `goals` : la réponse et les
+  indices ne sont pas absents de l'affichage, ils sont absents de la valeur.
+  Sur une page cachée et partagée par tout le monde, c'est la seule forme de
+  « ne fuit pas » qui survive ;
+- l'état personnel — mes essais, mes indices déjà dévoilés, ma série — arrive
+  par une requête à lui, après l'hydratation (#8).
+
+Deux garde-fous, parce qu'une ligne suffit à tout perdre :
+`test/architecture/static-game-page.test.ts` fait échouer la CI si la chaîne de
+segments de la page lit un cookie, un en-tête ou un paramètre de recherche, et
+`test/services/grid.service.test.ts` sérialise la grille pour vérifier qu'aucun
+nom, aucun identifiant et aucun chiffre n'y figure.
+
+Les trois énigmes sont accessibles d'emblée — bloquer sur l'échauffement ne
+prive pas du reste de la journée — mais **elles ne sont pas toutes dépliées** :
+une partie naît à l'*ouverture* d'une énigme (#8), et trois parties nées
+ensemble mesureraient trois exposés là où il y en avait un. Le pli est un
+`<details>` natif : zéro JavaScript sur une page dont tout l'intérêt est
+d'être rendue une fois par jour.
+
+La date de grille est une date Europe/Paris, calculée paresseusement à la
+lecture, jamais par un job : la bascule de minuit est un `SELECT WHERE date =`
+dont la réponse change. Combien de temps la page **rendue** est conservée est
+une autre question, et c'est le seul vrai compromis de l'écran : `revalidate`
+est à 60 secondes et non à la journée qu'annonce `docs/stack-technique.md` §10,
+parce que l'horloge de revalidation démarre au rendu et non à minuit. Le
+raisonnement complet, et ce que le job de pré-chauffage (#15) y changera, sont
+dans [ADR-0008](./docs/adr/0008-la-grille-du-jour-est-prerendue.md) — qui porte
+aussi la conséquence sur le build.
 
 ## Le back-office : la curation d'un parcours
 

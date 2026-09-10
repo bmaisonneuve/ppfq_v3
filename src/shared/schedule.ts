@@ -26,6 +26,19 @@ export type Position = 1 | 2 | 3
 
 export const POSITIONS: readonly Position[] = [1, 2, 3]
 
+/**
+ * A stored integer read back as a position, or null when it is not one.
+ *
+ * Nothing in this codebase writes a position outside 1..3 and the unique index
+ * caps them at three per grid, but `position` is an `integer` column and a
+ * hand-written row could carry a 4. Narrowed here rather than cast, in the one
+ * place that already knows what the three positions are, so both readers of a
+ * grid — the calendar and the game — answer the same way.
+ */
+export function asPosition(value: number | null): Position | null {
+  return POSITIONS.find((position) => position === value) ?? null
+}
+
 /** What each position is called, in the words of `CONTEXT.md`. */
 export const POSITION_LABELS: Record<Position, string> = {
   1: 'échauffement',

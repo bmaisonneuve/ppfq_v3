@@ -14,7 +14,7 @@ import {
   todayInParis,
 } from '@/server/domain/challenge-calendar'
 import { assessSchedulability } from '@/server/domain/schedule'
-import { POSITIONS, describeRefusal } from '@/shared/schedule'
+import { POSITIONS, asPosition, describeRefusal } from '@/shared/schedule'
 import type {
   CalendarDay,
   ChallengeDate,
@@ -271,10 +271,9 @@ async function readGrids(where: SQL): Promise<Map<ChallengeDate, ScheduledGrid>>
 
     if (row.footballerId === null || row.name === null) continue
 
-    // Narrowed rather than cast. Nothing in this module writes a position
-    // outside 1..3 and the unique index caps them at three per grid, but a hand
-    // -written row could carry a 4 — and the month view already draws a missing
-    // position as "vide", which is the honest rendering of one it cannot place.
+    // Narrowed rather than cast (`asPosition`). The month view already draws a
+    // missing position as "vide", which is the honest rendering of one it
+    // cannot place.
     const position = asPosition(row.position)
     if (position === null) continue
 
@@ -296,9 +295,4 @@ function positionAt(index: number): Position {
   const position = POSITIONS[index]
   if (position === undefined) throw new Error(`No position ${index + 1} in a grid.`)
   return position
-}
-
-/** A stored integer read back as a position, or null if it is not one. */
-function asPosition(value: number | null): Position | null {
-  return POSITIONS.find((position) => position === value) ?? null
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { MAX_THEME_LENGTH, ScheduleInput, weekdayIndex } from '@/shared/schedule'
+import { MAX_THEME_LENGTH, ScheduleInput, asPosition, weekdayIndex } from '@/shared/schedule'
 
 /**
  * The scheduling rules that need neither a career nor a database.
@@ -81,5 +81,22 @@ describe('weekdayIndex', () => {
   it('is the offset the month view leaves empty before its first day', () => {
     // 1 September 2026 is a Tuesday: one empty square before it.
     expect(weekdayIndex('2026-09-01')).toBe(1)
+  })
+})
+
+describe('asPosition', () => {
+  it('reads back the three positions', () => {
+    expect([1, 2, 3].map(asPosition)).toEqual([1, 2, 3])
+  })
+
+  it('refuses an integer that is not a position, rather than casting it', () => {
+    // `position` is an `integer` column: a hand-written 4, or a 0, is a row the
+    // database accepts and no screen can place. Both readers of a grid — the
+    // calendar and the game — drop it, and they do so from the same function.
+    expect([0, 4, -1, 1.5].map(asPosition)).toEqual([null, null, null, null])
+  })
+
+  it('refuses a missing position, which is what a left join gives', () => {
+    expect(asPosition(null)).toBeNull()
   })
 })
