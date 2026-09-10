@@ -19,10 +19,13 @@
  * process refuses the import — which is the whole point of the marker, and the
  * same thing `vitest.config.ts` arranges with an alias.
  *
- * The service is imported *dynamically*, after `loadEnvLocal()`. A static
- * import is hoisted and evaluated first, and `db/client.ts` builds its pool on
- * evaluation: `.env.local` would not be read yet and the script would die on a
- * missing DATABASE_URL while the file sat right there.
+ * The service is imported *dynamically*, after `loadEnvLocal()`. Static imports
+ * are hoisted and evaluated first, so this is what guarantees `.env.local` is
+ * read before anything under `src/server/` runs. Nothing there reads the
+ * environment on evaluation today — `db/client.ts` opens its pool on the first
+ * query, not on import — and keeping the order explicit is what makes that a
+ * detail rather than the difference between a working script and one that dies
+ * on a missing DATABASE_URL while the file sat right there.
  */
 import { loadEnvLocal } from './db.ts'
 
