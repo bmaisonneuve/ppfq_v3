@@ -18,7 +18,7 @@ import { ActionStatus } from './action-status'
  * entered by hand — and means a later import that meets the real club creates
  * its own row rather than silently renaming this one under every footballer.
  */
-export function CreateClubForm({ createClubAction }: { createClubAction: CurationAction }) {
+export function CreateClubForm({ createClubAction }: Readonly<{ createClubAction: CurationAction }>) {
   const [state, create, pending] = useActionState(createClubAction, IDLE_CURATION_ACTION)
 
   return (

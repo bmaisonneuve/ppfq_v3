@@ -5,7 +5,13 @@ import { refresh } from 'next/cache'
 import { requireAdmin } from '@/server/services/admin-auth.service'
 import { FootballerNotFoundError } from '@/server/services/curation.service'
 import { NotSchedulableError, scheduleGrid } from '@/server/services/schedule.service'
-import { adminActionFailed, adminActionOk, firstZodMessage } from '@/shared/admin'
+import {
+  adminActionFailed,
+  adminActionOk,
+  firstZodMessage,
+  textField,
+  textFields,
+} from '@/shared/admin'
 import { POSITIONS, POSITION_LABELS, ScheduleInput } from '@/shared/schedule'
 import type { Position, ScheduleActionState } from '@/shared/schedule'
 
@@ -33,7 +39,7 @@ export async function scheduleGridAction(
   // Three hidden fields of the same name, in position order: index 0 is the
   // échauffement, index 2 the légende. `getAll` keeps document order, which is
   // the order the pickers are rendered in.
-  const footballerIds = form.getAll('footballerId').map(String)
+  const footballerIds = textFields(form, 'footballerId')
 
   // Named before the schema sees them, because the schema cannot: to Zod an
   // empty string is one invalid item among three, and "choisissez un
@@ -44,8 +50,8 @@ export async function scheduleGridAction(
   if (empty.length > 0) return adminActionFailed(missingPositions(empty))
 
   const parsed = ScheduleInput.safeParse({
-    date: String(form.get('date') ?? ''),
-    theme: String(form.get('theme') ?? ''),
+    date: textField(form, 'date'),
+    theme: textField(form, 'theme'),
     footballerIds,
   })
   if (!parsed.success) return adminActionFailed(firstZodMessage(parsed.error))

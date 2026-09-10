@@ -202,7 +202,7 @@ async function pushTerm(
   value: string | undefined,
   isCanonical: boolean,
 ): Promise<void> {
-  if (!qid) return
+  if (qid === undefined || qid === '') return
 
   for (const { term, isCanonical: canonical } of nameSearchTerms(value ?? '', isCanonical)) {
     await batch.push([qid, term, canonical])
@@ -320,7 +320,7 @@ class Batch {
     const tuples = Array.from({ length: this.rows }, (_, row) => {
       const placeholders = Array.from(
         { length: width },
-        (_, column) => `$${row * width + column + 1}`,
+        (_slot, column) => `$${row * width + column + 1}`,
       )
       return `(${placeholders.join(', ')})`
     })
@@ -368,58 +368,88 @@ async function* readCsv(
   }
 }
 
-async function* readCsvRecords(path: string): AsyncGenerator<string[], void> {
-  let record: string[] = []
-  let field = ''
-  let inQuotes = false
-  let afterQuote = false
-  let first = true
+/**
+ * Where the parser is, mid-character. Mutated in place: a CSV of 200 000 rows
+ * is 12 million characters, and a fresh object per character is the difference
+ * between an import that takes a second and one that takes a minute.
+ */
+type CsvState = {
+  record: string[]
+  field: string
+  inQuotes: boolean
+  afterQuote: boolean
+}
 
-  for await (const chunk of createReadStream(path, { encoding: 'utf8' })) {
-    for (const character of chunk as string) {
-      if (first) {
-        first = false
-        if (character === '\uFEFF') continue
-      }
+/**
+ * One character through the state machine. Answers the record a `\n` just
+ * closed, and `null` the rest of the time.
+ */
+function stepCsv(state: CsvState, character: string): string[] | null {
+  if (state.inQuotes) {
+    if (character === '"') {
+      state.inQuotes = false
+      state.afterQuote = true
+    } else {
+      state.field += character
+    }
+    return null
+  }
 
-      if (inQuotes) {
-        if (character === '"') {
-          inQuotes = false
-          afterQuote = true
-        } else {
-          field += character
-        }
-        continue
-      }
-
-      if (afterQuote) {
-        afterQuote = false
-        // `""` inside a quoted field is one literal quote.
-        if (character === '"') {
-          field += '"'
-          inQuotes = true
-          continue
-        }
-      }
-
-      if (character === '"') {
-        inQuotes = true
-      } else if (character === ',') {
-        record.push(field)
-        field = ''
-      } else if (character === '\n') {
-        record.push(field)
-        yield record
-        record = []
-        field = ''
-      } else if (character !== '\r') {
-        field += character
-      }
+  if (state.afterQuote) {
+    state.afterQuote = false
+    // `""` inside a quoted field is one literal quote.
+    if (character === '"') {
+      state.field += '"'
+      state.inQuotes = true
+      return null
     }
   }
 
-  if (field !== '' || record.length > 0) {
-    record.push(field)
-    yield record
+  return stepOutsideQuotes(state, character)
+}
+
+/** The same character, once quoting has been ruled out. */
+function stepOutsideQuotes(state: CsvState, character: string): string[] | null {
+  if (character === '"') {
+    state.inQuotes = true
+    return null
+  }
+  if (character === ',') {
+    state.record.push(state.field)
+    state.field = ''
+    return null
+  }
+  if (character === '\n') {
+    state.record.push(state.field)
+    const finished = state.record
+    state.record = []
+    state.field = ''
+    return finished
+  }
+  // A `\r` belongs to the `\r\n` the line above just handled.
+  if (character !== '\r') state.field += character
+  return null
+}
+
+async function* readCsvRecords(path: string): AsyncGenerator<string[], void> {
+  const state: CsvState = { record: [], field: '', inQuotes: false, afterQuote: false }
+  let first = true
+
+  for await (const chunk of createReadStream(path, { encoding: 'utf8' })) {
+    // Only the very first character of the file can be a BOM, and it is not
+    // data: left in, it becomes part of the first column's name.
+    const text = first ? (chunk as string).replace(/^\uFEFF/, '') : (chunk as string)
+    first = false
+
+    for (const character of text) {
+      const finished = stepCsv(state, character)
+      if (finished !== null) yield finished
+    }
+  }
+
+  // A file that does not end in a newline still ends in a record.
+  if (state.field !== '' || state.record.length > 0) {
+    state.record.push(state.field)
+    yield state.record
   }
 }

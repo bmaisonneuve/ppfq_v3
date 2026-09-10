@@ -22,11 +22,11 @@ import { SEARCH_DEBOUNCE_MS } from '@/shared/search'
 export function ClubPicker({
   searchClubsAction,
   defaultClub,
-}: {
+}: Readonly<{
   searchClubsAction: ClubSearchAction
   /** The club a passage already points at. Absent when adding one. */
   defaultClub?: ClubOption | null
-}) {
+}>) {
   const [selected, setSelected] = useState<ClubOption | null>(defaultClub ?? null)
   const [query, setQuery] = useState('')
   const [lastAnswer, setLastAnswer] = useState<ClubOption[]>([])
@@ -71,7 +71,7 @@ export function ClubPicker({
           <span className="font-medium">{selected.frName}</span>{' '}
           <button
             type="button"
-            onClick={() => setSelected(null)}
+            onClick={() => { setSelected(null) }}
             className="text-neutral-500 underline underline-offset-2"
           >
             changer
@@ -88,7 +88,7 @@ export function ClubPicker({
             id={inputId}
             type="text"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => { setQuery(event.target.value) }}
             placeholder="Chercher un club…"
             autoComplete="off"
             className="w-full rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
@@ -99,7 +99,7 @@ export function ClubPicker({
                 <li key={club.id}>
                   <button
                     type="button"
-                    onClick={() => choose(club)}
+                    onClick={() => { choose(club) }}
                     className="block w-full px-2 py-1 text-left hover:bg-neutral-100"
                   >
                     {club.frName}

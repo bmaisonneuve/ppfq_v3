@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { footballers } from '@/server/db/schema'
 import { getFootballerCareer } from '@/server/services/catalogue.service'
 
-import { db } from '@test/setup/db'
+import { db, onlyRow } from '@test/setup/db'
 import {
   CLUB_IDS,
   FOOTBALLER_IDS,
@@ -27,7 +27,7 @@ describe('getFootballerCareer', () => {
     expect(career?.name).toBe('Zinedine Zidane')
     expect(career?.wikiFrUrl).toBe('https://fr.wikipedia.org/wiki/Zinedine_Zidane')
     expect(career?.nationality).toEqual({
-      id: expect.any(String),
+      id: expect.any(String) as string,
       code: 'FR',
       frName: 'France',
       flagS3Key: 'flags/fr.svg',
@@ -118,12 +118,14 @@ describe('getFootballerCareer', () => {
 
   it('returns an empty career for a footballer nobody has curated yet', async () => {
     // "Curated" is not a status: it is the fact of having passages.
-    const [inserted] = await db
-      .insert(footballers)
-      .values({ name: 'Anonyme Non Curé', sitelinks: 0 })
-      .returning({ id: footballers.id })
+    const inserted = onlyRow(
+      await db
+        .insert(footballers)
+        .values({ name: 'Anonyme Non Curé', sitelinks: 0 })
+        .returning({ id: footballers.id }),
+    )
 
-    const career = await getFootballerCareer(inserted!.id)
+    const career = await getFootballerCareer(inserted.id)
 
     expect(career).not.toBeNull()
     expect(career?.playerClubs).toEqual([])

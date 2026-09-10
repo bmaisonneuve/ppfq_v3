@@ -44,7 +44,7 @@ describe('mintAdminSession / verifyAdminSession', () => {
     // The whole point of signing the expiry: it is in the cookie, so the holder
     // can read it and would otherwise simply edit it.
     const token = mintAdminSession(SECRET, NOW + HOUR)
-    const [, signature] = token.split('.')
+    const [, signature = ''] = token.split('.')
     const forged = `${NOW + 100 * HOUR}.${signature}`
 
     expect(verifyAdminSession(SECRET, forged, NOW)).toBe(false)
@@ -52,8 +52,8 @@ describe('mintAdminSession / verifyAdminSession', () => {
 
   it('refuses a signature that has been touched', () => {
     const token = mintAdminSession(SECRET, NOW + HOUR)
-    const [expiry, signature] = token.split('.')
-    const flipped = `${signature?.slice(0, -1)}${signature?.endsWith('a') ? 'b' : 'a'}`
+    const [expiry = '', signature = ''] = token.split('.')
+    const flipped = `${signature.slice(0, -1)}${signature.endsWith('a') ? 'b' : 'a'}`
 
     expect(verifyAdminSession(SECRET, `${expiry}.${flipped}`, NOW)).toBe(false)
   })

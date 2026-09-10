@@ -98,6 +98,11 @@ function sign(secret: string, payload: string): string {
 }
 
 function constantTimeEquals(a: string, b: string): boolean {
+  // `'compare'` is a fixed label, not a key: hashing both sides with the same
+  // public string is what gives `timingSafeEqual` two buffers of equal length,
+  // whatever the two inputs were. Nothing here is secret, and there is nothing
+  // to rotate.
+  // eslint-disable-next-line sonarjs/hardcoded-secret-signatures
   const digest = (value: string) => createHmac('sha256', 'compare').update(value).digest()
   return timingSafeEqual(digest(a), digest(b))
 }

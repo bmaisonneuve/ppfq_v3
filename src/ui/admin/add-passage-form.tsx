@@ -26,11 +26,11 @@ export function AddPassageForm({
   footballerId,
   addPassageAction,
   searchClubsAction,
-}: {
+}: Readonly<{
   footballerId: string
   addPassageAction: CurationAction
   searchClubsAction: ClubSearchAction
-}) {
+}>) {
   const [state, add, pending] = useActionState(addPassageAction, IDLE_CURATION_ACTION)
 
   return (

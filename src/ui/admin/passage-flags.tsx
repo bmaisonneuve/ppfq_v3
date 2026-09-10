@@ -29,7 +29,7 @@ const LABELS: Record<PassageFlag, { text: string; title: string; className: stri
   },
 }
 
-export function PassageFlags({ flags }: { flags: readonly PassageFlag[] }) {
+export function PassageFlags({ flags }: Readonly<{ flags: readonly PassageFlag[] }>) {
   if (flags.length === 0) return null
 
   return (

@@ -1,5 +1,7 @@
 import 'server-only'
 
+import { compareStrings } from '@/shared/career'
+
 /**
  * What Wikidata's `P54` statements mean — the whole reading, as a pure function.
  *
@@ -218,7 +220,7 @@ function mergeSpell(declarations: CareerStatement[]): ExtractedPassage {
   // statement in there in the first place.
   const winner = best as CareerStatement & { startYear: number }
 
-  const fill = <K extends 'endYear' | 'matches' | 'goals'>(field: K): number | null =>
+  const fill = (field: 'endYear' | 'matches' | 'goals'): number | null =>
     winner[field] ?? rest.find((other) => other[field] !== null)?.[field] ?? null
 
   return {
@@ -299,6 +301,4 @@ function anomaliesOf(passage: ExtractedPassage): PassageAnomaly[] {
   return anomalies
 }
 
-function compareStrings(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0
-}
+

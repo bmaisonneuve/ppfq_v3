@@ -47,7 +47,7 @@ export async function withPool<T>(
  * generated, read by a human and committed (docs/stack-technique.md §11).
  */
 export async function runMigrations(connectionString: string): Promise<void> {
-  await withPool(connectionString, (pool) =>
-    migrate(drizzle(pool), { migrationsFolder: MIGRATIONS_FOLDER }),
-  )
+  await withPool(connectionString, async (pool) => {
+    await migrate(drizzle(pool), { migrationsFolder: MIGRATIONS_FOLDER })
+  })
 }

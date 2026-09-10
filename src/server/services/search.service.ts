@@ -71,7 +71,7 @@ const SIMILARITY_THRESHOLD = '0.25'
 
 export async function searchFootballers(input: {
   query: string
-  limit?: number | undefined
+  limit?: number
 }): Promise<FootballerSuggestion[]> {
   const term = normalizeSearchTerm(input.query)
   if (term.length < MIN_SEARCH_LENGTH) return []
@@ -94,13 +94,14 @@ export async function searchFootballers(input: {
  * terms match — "zi" catches four of Zidane's — without a `GROUP BY`.
  */
 async function matchByPrefix(term: string, limit: number): Promise<FootballerSuggestion[]> {
+  const prefix = `${term}%`
   const hasMatchingTerm = db
     .select({ matched: sql`1` })
     .from(footballerNames)
     .where(
       and(
         eq(footballerNames.footballerId, footballers.id),
-        sql`${footballerNames.term} like ${`${term}%`}`,
+        sql`${footballerNames.term} like ${prefix}`,
       ),
     )
 

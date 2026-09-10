@@ -27,7 +27,7 @@ async function waitForPostgres(connectionString: string, attempts = 30): Promise
   let lastError: unknown
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
-      await withPool(connectionString, (pool) => pool.query('select 1'), {
+      await withPool(connectionString, async (pool) => await pool.query('select 1'), {
         connectionTimeoutMillis: 2_000,
       })
       return

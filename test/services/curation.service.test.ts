@@ -16,7 +16,7 @@ import {
 } from '@/server/services/curation.service'
 import { CAREER_IMPORT_JOB } from '@/server/services/job-runs.service'
 
-import { db } from '@test/setup/db'
+import { db, onlyRow } from '@test/setup/db'
 import {
   CLUB_IDS,
   FOOTBALLER_IDS,
@@ -91,13 +91,15 @@ describe('getCurationDossier', () => {
     // The signal was measured on English labels, and `clubs.en_name` exists in
     // the model as the admin's fallback. Reading only the French name would
     // let this club through.
-    const [club] = await db
-      .insert(clubs)
-      .values({ frName: 'Bayern Munich espoirs', enName: 'FC Bayern Munich II' })
-      .returning({ id: clubs.id })
+    const club = onlyRow(
+      await db
+        .insert(clubs)
+        .values({ frName: 'Bayern Munich espoirs', enName: 'FC Bayern Munich II' })
+        .returning({ id: clubs.id }),
+    )
 
     await addPassage(FOOTBALLER_IDS.incomplete, {
-      clubId: club!.id,
+      clubId: club.id,
       isLoan: false,
       startYear: 2006,
       endYear: 2008,
@@ -141,12 +143,14 @@ describe('getCurationDossier', () => {
   it('shows a footballer nobody has curated yet, with an empty parcours', async () => {
     // "Curé" is not a status: it is the fact of having passages. So this is a
     // dossier to open, not a missing one.
-    const [inserted] = await db
-      .insert(footballers)
-      .values({ name: 'Anonyme Non Curé', sitelinks: 0 })
-      .returning({ id: footballers.id })
+    const inserted = onlyRow(
+      await db
+        .insert(footballers)
+        .values({ name: 'Anonyme Non Curé', sitelinks: 0 })
+        .returning({ id: footballers.id }),
+    )
 
-    const dossier = await getCurationDossier(inserted!.id)
+    const dossier = await getCurationDossier(inserted.id)
 
     expect(dossier).not.toBeNull()
     expect(dossier?.passages).toEqual([])

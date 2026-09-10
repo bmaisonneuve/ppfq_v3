@@ -16,7 +16,7 @@ import {
   updatePassage,
 } from '@/server/services/curation.service'
 import { importFootballerCareer } from '@/server/services/ingest.service'
-import { adminActionFailed, adminActionOk, firstZodMessage } from '@/shared/admin'
+import { adminActionFailed, adminActionOk, firstZodMessage, textField } from '@/shared/admin'
 import { NewClubInput, PassageInput } from '@/shared/curation'
 import type { ClubOption, CurationActionState } from '@/shared/curation'
 
@@ -89,7 +89,7 @@ export async function addPassageAction(
 ): Promise<CurationActionState> {
   await requireAdmin()
 
-  const footballerId = String(form.get('footballerId') ?? '')
+  const footballerId = textField(form, 'footballerId')
   const parsed = readPassageForm(form)
   if (parsed === null) return failed('Passage invalide : vérifiez le club et les années.')
   if (!parsed.success) return failed(firstMessage(parsed.error))
@@ -110,7 +110,7 @@ export async function updatePassageAction(
 ): Promise<CurationActionState> {
   await requireAdmin()
 
-  const passageId = String(form.get('passageId') ?? '')
+  const passageId = textField(form, 'passageId')
   const parsed = readPassageForm(form)
   if (parsed === null) return failed('Passage invalide : vérifiez le club et les années.')
   if (!parsed.success) return failed(firstMessage(parsed.error))
@@ -137,7 +137,7 @@ export async function deletePassageAction(
   await requireAdmin()
 
   try {
-    await deletePassage(String(form.get('passageId') ?? ''))
+    await deletePassage(textField(form, 'passageId'))
   } catch (error) {
     return failed(explain(error))
   }
@@ -152,8 +152,8 @@ export async function setNationalityAction(
 ): Promise<CurationActionState> {
   await requireAdmin()
 
-  const footballerId = String(form.get('footballerId') ?? '')
-  const raw = String(form.get('nationalityId') ?? '')
+  const footballerId = textField(form, 'footballerId')
+  const raw = textField(form, 'nationalityId')
   // The empty option is "aucune", not a missing field: the admin has to be able
   // to take back a nationality he typed wrong, which no import ever does.
   const nationalityId = raw === '' ? null : raw
@@ -175,9 +175,10 @@ export async function createClubAction(
 ): Promise<CurationActionState> {
   await requireAdmin()
 
+  const enName = textField(form, 'enName').trim()
   const parsed = NewClubInput.safeParse({
-    frName: form.get('frName') ?? '',
-    enName: String(form.get('enName') ?? '').trim() === '' ? null : form.get('enName'),
+    frName: textField(form, 'frName'),
+    enName: enName === '' ? null : enName,
   })
   if (!parsed.success) return failed('Nom de club invalide.')
 
@@ -204,16 +205,14 @@ export async function reimportCareerAction(
 ): Promise<CurationActionState> {
   await requireAdmin()
 
-  const qid = String(form.get('qid') ?? '')
+  const qid = textField(form, 'qid')
   if (!/^Q\d+$/.test(qid)) return failed('Identifiant Wikidata absent ou invalide.')
 
   try {
     const report = await importFootballerCareer({ qid })
     refresh()
-    return ok(
-      `Import terminé : ${report.passagesWritten} passage(s) écrit(s)` +
-        `${report.clubsCreated > 0 ? `, ${report.clubsCreated} club(s) créé(s)` : ''}.`,
-    )
+    const created = report.clubsCreated > 0 ? `, ${report.clubsCreated} club(s) créé(s)` : ''
+    return ok(`Import terminé : ${report.passagesWritten} passage(s) écrit(s)${created}.`)
   } catch (error) {
     // The refusals of ADR-0005 land here — not a footballer, no club passage,
     // unnamed footballer — and each of them wrote nothing. The trace in

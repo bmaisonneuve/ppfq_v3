@@ -62,7 +62,7 @@ describe('searchFootballers', () => {
     const suggestions = await names('zid')
 
     expect(suggestions[0]).toBe('Zinedine Zidane')
-    expect(suggestions).not.toEqual([...suggestions].sort())
+    expect(suggestions).not.toEqual([...suggestions].sort((a, b) => a.localeCompare(b)))
   })
 
   it('orders a notoriety tie the same way on every call', async () => {
@@ -183,7 +183,9 @@ describe('searchFootballers, on an imported referential', () => {
     )
 
     const connectionString = process.env.DATABASE_URL
-    if (!connectionString) throw new Error('DATABASE_URL is not set for the test run.')
+    if (connectionString === undefined || connectionString === '') {
+    throw new Error('DATABASE_URL is not set for the test run.')
+  }
 
     await importReferential({ connectionString, footballersCsv, aliasesCsv })
   })

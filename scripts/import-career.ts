@@ -31,7 +31,7 @@ import { loadEnvLocal } from './db.ts'
 
 loadEnvLocal()
 
-if (!process.env.DATABASE_URL) {
+if ((process.env.DATABASE_URL ?? '') === '') {
   throw new Error(
     'DATABASE_URL is not set. Copy .env.example to .env.local, then run `pnpm db:up`.',
   )
@@ -108,9 +108,10 @@ function describe(report: Report): string {
     .filter(([, n]) => n > 0)
     .map(([reason, n]) => `${n} ${reason}`)
 
+  const nationality = report.nationality?.code ?? nationalityRefusal(report)
   lines.push(
     `  ${report.passagesWritten} passages, ${report.clubsCreated} clubs created` +
-      `, nationality ${report.nationality?.code ?? `none (${report.nationalityRefusal ?? '—'})`}`,
+      `, nationality ${nationality}`,
   )
   if (skipped.length > 0) lines.push(`  skipped: ${skipped.join(', ')}`)
   for (const anomaly of report.anomalies) {
@@ -119,6 +120,11 @@ function describe(report: Report): string {
   lines.push(`  run ${report.jobRunId}`)
 
   return lines.join('\n')
+}
+
+/** No nationality, and — the part worth printing by hand — why not. */
+function nationalityRefusal(report: Report): string {
+  return `none (${report.nationalityRefusal ?? '—'})`
 }
 
 /** A missing count is a hole in a hint, so it prints as one. */

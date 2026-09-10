@@ -23,11 +23,11 @@ import { FootballerTypeahead } from '@/ui/footballer-typeahead'
 export function EnigmaPicker({
   position,
   defaultEnigma,
-}: {
+}: Readonly<{
   position: Position
   /** What is already programmed at this position, when the day has a grid. */
   defaultEnigma?: ScheduledEnigma | null
-}) {
+}>) {
   const [chosen, setChosen] = useState<{ footballerId: string; name: string } | null>(
     defaultEnigma ?? null,
   )
@@ -45,14 +45,14 @@ export function EnigmaPicker({
       {chosen === null ? (
         <FootballerTypeahead
           label={`Chercher le footballeur — ${POSITION_LABELS[position]}`}
-          onSelect={(suggestion: FootballerSuggestion) => setChosen(suggestion)}
+          onSelect={(suggestion: FootballerSuggestion) => { setChosen(suggestion) }}
         />
       ) : (
         <p className="text-sm">
           <span className="font-medium">{chosen.name}</span>{' '}
           <button
             type="button"
-            onClick={() => setChosen(null)}
+            onClick={() => { setChosen(null) }}
             className="text-neutral-500 underline underline-offset-2"
           >
             changer

@@ -34,8 +34,8 @@ const statement = (overrides: Partial<CareerStatement> = {}): CareerStatement =>
   ...overrides,
 })
 
-const recorded = (qid: RecordedItem) =>
-  fetchWikidataFootballer(qid, recordedRunner(qid)).then((footballer) =>
+const recorded = async (qid: RecordedItem) =>
+  await fetchWikidataFootballer(qid, recordedRunner(qid)).then((footballer) =>
     readSeniorCareer(footballer.statements),
   )
 

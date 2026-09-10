@@ -36,12 +36,12 @@ export function PassageRow({
   updateAction,
   deleteAction,
   searchClubsAction,
-}: {
+}: Readonly<{
   passage: FlaggedPassage
   updateAction: CurationAction
   deleteAction: CurationAction
   searchClubsAction: ClubSearchAction
-}) {
+}>) {
   const [saveState, save, saving] = useActionState(updateAction, IDLE_CURATION_ACTION)
   const [deleteState, remove, deleting] = useActionState(deleteAction, IDLE_CURATION_ACTION)
 
@@ -120,13 +120,13 @@ function YearField({
   defaultValue,
   required,
   placeholder,
-}: {
+}: Readonly<{
   label: string
   name: string
   defaultValue: number | null
   required?: boolean
   placeholder?: string
-}) {
+}>) {
   return (
     <label className="flex flex-col text-xs font-medium text-neutral-600">
       {label}
@@ -154,11 +154,11 @@ function CountField({
   label,
   name,
   defaultValue,
-}: {
+}: Readonly<{
   label: string
   name: string
   defaultValue: number | null
-}) {
+}>) {
   return (
     <label className="flex flex-col text-xs font-medium text-neutral-600">
       {label}

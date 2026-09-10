@@ -16,7 +16,9 @@ const SCRATCH_DATABASE = 'ppfq_migration_check'
 
 function urlWithDatabase(database: string): string {
   const base = process.env.DATABASE_URL
-  if (!base) throw new Error('DATABASE_URL is not set for the test run.')
+  if (base === undefined || base === '') {
+    throw new Error('DATABASE_URL is not set for the test run.')
+  }
   const url = new URL(base)
   url.pathname = `/${database}`
   return url.toString()
@@ -33,8 +35,8 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  await withPool(adminUrl(), (pool) =>
-    pool.query(`DROP DATABASE IF EXISTS ${SCRATCH_DATABASE}`),
+  await withPool(adminUrl(), async (pool) =>
+    await pool.query(`DROP DATABASE IF EXISTS ${SCRATCH_DATABASE}`),
   )
 })
 

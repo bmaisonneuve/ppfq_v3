@@ -27,10 +27,10 @@ import type { FootballerSuggestion, SearchResponse } from '@/shared/search'
 export function FootballerTypeahead({
   label,
   onSelect,
-}: {
+}: Readonly<{
   label: string
   onSelect: (suggestion: FootballerSuggestion) => void
-}) {
+}>) {
   const [query, setQuery] = useState('')
   const [lastAnswer, setLastAnswer] = useState<FootballerSuggestion[]>([])
   const [highlighted, setHighlighted] = useState(0)
@@ -139,7 +139,7 @@ export function FootballerTypeahead({
         aria-autocomplete="list"
         maxLength={MAX_QUERY_LENGTH}
         value={query}
-        onChange={(event) => setQuery(event.target.value)}
+        onChange={(event) => { setQuery(event.target.value) }}
         onKeyDown={onKeyDown}
         placeholder="Zidane, Chicharito…"
         className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
@@ -162,8 +162,8 @@ export function FootballerTypeahead({
                 type="button"
                 // The list is built from a fresh answer on every keystroke, so
                 // the pointer must not wait for a re-render to agree with it.
-                onMouseEnter={() => setHighlighted(index)}
-                onClick={() => choose(suggestion)}
+                onMouseEnter={() => { setHighlighted(index) }}
+                onClick={() => { choose(suggestion) }}
                 className={`block w-full px-3 py-2 text-left text-base ${
                   index === highlighted ? 'bg-neutral-100' : 'bg-white'
                 }`}

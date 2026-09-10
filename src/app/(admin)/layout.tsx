@@ -17,7 +17,7 @@ import { signOutAction } from './session-actions'
  * let the page underneath run its queries. The gate is `requireAdmin()` in each
  * page and each action, checked by `test/architecture/admin-guard.test.ts`.
  */
-export default async function AdminLayout({ children }: { children: ReactNode }) {
+export default async function AdminLayout({ children }: Readonly<{ children: ReactNode }>) {
   const signedIn = await isAdmin()
 
   return (

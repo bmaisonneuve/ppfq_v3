@@ -34,8 +34,8 @@ describe('the grid schema', () => {
         ('00000000-0000-4000-8000-000000003101', 'Zinedine Zidane'),
         ('00000000-0000-4000-8000-000000003102', 'Théo Balland')`,
     )
-    const enigma = (footballer: string) =>
-      pool.query(
+    const enigma = async (footballer: string) =>
+      await pool.query(
         `INSERT INTO challenge_items (daily_challenge_id, position, footballer_id)
          VALUES ('00000000-0000-4000-8000-000000005001', 2, $1)`,
         [footballer],

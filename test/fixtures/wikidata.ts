@@ -76,6 +76,9 @@ export function wikidataRunner(
   rows: { identity: SparqlRow[]; career: SparqlRow[] },
   options: RunnerOptions = {},
 ): SparqlQueryRunner {
+  // `promise-function-async` wants the async keyword on anything answering a
+  // promise, and this replay has nothing to await. The signature wins.
+  // eslint-disable-next-line @typescript-eslint/require-await
   return async (query: string) => {
     const half = query.includes('p:P54') ? 'career' : 'identity'
     if (options.failOn === half) {

@@ -22,9 +22,9 @@ import { scheduleGridAction } from './actions'
  */
 export default async function SchedulePage({
   searchParams,
-}: {
+}: Readonly<{
   searchParams: Promise<{ month?: string; date?: string }>
-}) {
+}>) {
   await requireAdmin()
 
   const { month, date } = await searchParams

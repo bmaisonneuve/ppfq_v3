@@ -151,7 +151,7 @@ export type CareerImportInput = {
 export async function importFootballerCareer(
   input: CareerImportInput,
 ): Promise<CareerImportReport> {
-  const runQuery = input.runQuery ?? ((query: string) => runSparqlQuery(query))
+  const runQuery = input.runQuery ?? (async (query: string) => await runSparqlQuery(query))
   const jobRunId = await startJobRun({ job: CAREER_IMPORT_JOB, target: input.qid })
 
   try {
@@ -195,8 +195,9 @@ async function importIntoCatalogue(
     await tx.insert(playerClubs).values(
       career.passages.map((passage) => ({
         footballerId: footballer.id,
-        // Every club was just inserted or read back by qid.
-        clubId: clubIds.byQid.get(passage.clubQid) as string,
+        // Every club was just inserted or read back by qid, so a miss here is
+        // `upsertClubs` having lost one — worth a crash, never a silent hole.
+        clubId: clubIdFor(clubIds.byQid, passage.clubQid),
         isLoan: passage.isLoan,
         startYear: passage.startYear,
         endYear: passage.endYear,
@@ -351,10 +352,22 @@ async function upsertClubs(
     .from(clubs)
     .where(inArray(clubs.wikidataQid, [...wanted.keys()]))
 
-  return {
-    byQid: new Map(rows.map((row) => [row.wikidataQid as string, row.id])),
-    created: inserted.length,
+  // The select filtered on `wikidata_qid`, so every row has one. The column is
+  // nullable all the same — a club created by hand in the back-office has no
+  // Wikidata id — and skipping is the reading that stays true if that changes.
+  const byQid = new Map<string, string>()
+  for (const row of rows) {
+    if (row.wikidataQid !== null) byQid.set(row.wikidataQid, row.id)
   }
+
+  return { byQid, created: inserted.length }
+}
+
+/** The club row `upsertClubs` just guaranteed for this qid. */
+function clubIdFor(byQid: ReadonlyMap<string, string>, qid: string): string {
+  const clubId = byQid.get(qid)
+  if (clubId === undefined) throw new Error(`No club row was created for ${qid}.`)
+  return clubId
 }
 
 /** Same rule for a nationality: created when unknown, never rewritten. */

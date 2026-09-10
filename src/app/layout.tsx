@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description: 'Le quiz quotidien des parcours footballistiques.',
 }
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="fr">
       <body className="min-h-dvh bg-white text-neutral-900 antialiased">{children}</body>

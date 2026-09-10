@@ -145,12 +145,13 @@ describe('the recordings the offline suite runs on', () => {
   it(
     'still describe the same career as the source',
     async () => {
-      const live = await fetchWikidataFootballer(RECORDED.zidane, (query) =>
-        runSparqlQuery(query),
+      const live = await fetchWikidataFootballer(RECORDED.zidane, async (query) =>
+        await runSparqlQuery(query),
       )
       const recorded = recordedWikidata(RECORDED.zidane)
 
-      const clubsOf = (qids: (string | null)[]) => [...new Set(qids)].sort()
+      const clubsOf = (qids: (string | null)[]) =>
+        [...new Set(qids)].sort((a, b) => (a ?? '').localeCompare(b ?? ''))
 
       expect(clubsOf(live.statements.map((s) => s.clubQid))).toEqual(
         clubsOf(recorded.career.map((row) => entityId(row.club))),

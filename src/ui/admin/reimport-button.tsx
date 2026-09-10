@@ -23,11 +23,11 @@ import { ActionStatus } from './action-status'
 export function ReimportButton({
   qid,
   reimportAction,
-}: {
+}: Readonly<{
   /** Null for a footballer entered by hand: there is nothing to re-import. */
   qid: string | null
   reimportAction: CurationAction
-}) {
+}>) {
   const [state, reimport, pending] = useActionState(reimportAction, IDLE_CURATION_ACTION)
 
   if (qid === null) {

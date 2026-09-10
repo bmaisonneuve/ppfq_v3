@@ -12,6 +12,17 @@
  * play the game.
  */
 
+/**
+ * Codepoint order, three ways.
+ *
+ * Not `localeCompare`: this orders identifiers and qids, where the only thing
+ * asked of the order is that it be the same on every machine and every run.
+ */
+export function compareStrings(a: string, b: string): number {
+  if (a < b) return -1
+  return a > b ? 1 : 0
+}
+
 /** One senior spell at one club. The same club crossed twice gives two of these. */
 export type PlayerClub = {
   id: string

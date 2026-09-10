@@ -18,7 +18,9 @@ export function AdminFootballerSearch() {
   return (
     <FootballerTypeahead
       label="Chercher un footballeur"
-      onSelect={(suggestion) => router.push(`/admin/footballers/${suggestion.footballerId}`)}
+      onSelect={(suggestion) => {
+        router.push(`/admin/footballers/${suggestion.footballerId}`)
+      }}
     />
   )
 }

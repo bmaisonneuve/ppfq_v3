@@ -40,14 +40,14 @@ export function ScheduleForm({
   grid,
   themes,
   scheduleAction,
-}: {
+}: Readonly<{
   /** The day the calendar has selected. Not editable here — see above. */
   date: string
   /** What is already programmed on that date; the form starts from it. */
   grid: ScheduledGrid | null
   themes: readonly string[]
   scheduleAction: ScheduleAction
-}) {
+}>) {
   const [state, submit, pending] = useActionState(scheduleAction, IDLE_SCHEDULE_ACTION)
   const themeListId = useId()
 
@@ -91,7 +91,7 @@ export function ScheduleForm({
           disabled={pending}
           className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
         >
-          {pending ? 'Programmation…' : grid === null ? 'Programmer' : 'Remplacer la grille'}
+          {submitLabel(pending, grid !== null)}
         </button>
         <p className="text-xs text-neutral-500">
           {grid === null
@@ -109,4 +109,10 @@ export function ScheduleForm({
       </p>
     </form>
   )
+}
+
+/** Scheduling a bare day and replacing a grid are not the same promise. */
+function submitLabel(pending: boolean, hasGrid: boolean): string {
+  if (pending) return 'Programmation…'
+  return hasGrid ? 'Remplacer la grille' : 'Programmer'
 }

@@ -29,7 +29,7 @@ import * as schema from './schema'
 
 function connectionString(): string {
   const url = process.env.DATABASE_URL
-  if (!url) {
+  if (url === undefined || url === '') {
     throw new Error(
       'DATABASE_URL is not set. Copy .env.example to .env.local, then run `pnpm db:up`.',
     )
@@ -78,7 +78,7 @@ function lazy<T extends object>(resolve: () => T): T {
     get(_target, property) {
       const instance = resolve()
       const value = Reflect.get(instance, property) as unknown
-      return typeof value === 'function' ? value.bind(instance) : value
+      return typeof value === 'function' ? (value.bind(instance) as unknown) : value
     },
     has: (_target, property) => Reflect.has(resolve(), property),
   })

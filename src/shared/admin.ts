@@ -52,6 +52,26 @@ export function firstZodMessage(error: z.ZodError): string {
   return error.issues[0]?.message ?? 'Saisie invalide.'
 }
 
+/**
+ * A text field, read out of a `FormData`.
+ *
+ * `FormData.get` answers `string | File | null`: a file input, or no field at
+ * all, are as much a possible answer as the text the admin typed. Passing that
+ * straight to `String()` turns an uploaded file into the id `"[object File]"`,
+ * which then reaches a query as a perfectly well-formed nonsense value. This
+ * is the one place that narrowing happens; a `File` reads as the empty string
+ * and every caller already refuses that.
+ */
+export function textField(form: FormData, name: string): string {
+  const value = form.get(name)
+  return typeof value === 'string' ? value : ''
+}
+
+/** The same narrowing for a field submitted several times, in document order. */
+export function textFields(form: FormData, name: string): string[] {
+  return form.getAll(name).map((value) => (typeof value === 'string' ? value : ''))
+}
+
 /** What `signInAction` answers. `null` while nothing has gone wrong yet. */
 export type AdminSignInState = { error: string | null }
 

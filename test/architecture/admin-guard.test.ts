@@ -50,7 +50,7 @@ async function adminFiles(dir: string): Promise<string[]> {
   const found = await Promise.all(
     entries.map(async (entry) => {
       const full = join(dir, entry.name)
-      if (entry.isDirectory()) return adminFiles(full)
+      if (entry.isDirectory()) return await adminFiles(full)
       return entry.name.endsWith('.ts') || entry.name.endsWith('.tsx') ? [full] : []
     }),
   )

@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { compareStrings } from '@/shared/career'
 import type { PlayerClub } from '@/shared/career'
 
 /**
@@ -25,7 +26,7 @@ export function comparePlayerClubs(a: PlayerClub, b: PlayerClub): number {
   const bEnd = b.endYear ?? Number.POSITIVE_INFINITY
   if (aEnd !== bEnd) return aEnd - bEnd
 
-  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  return compareStrings(a.id, b.id)
 }
 
 /**

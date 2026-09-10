@@ -41,6 +41,9 @@ import {
  * unconfigured back-office stays shut: a missing variable must never be the
  * thing that lets someone in.
  */
+// The *name* of the variable to read, which is exactly why it is in the source
+// and the password is not.
+// eslint-disable-next-line sonarjs/no-hardcoded-passwords
 const ADMIN_PASSWORD_VAR = 'ADMIN_PASSWORD'
 const ADMIN_SESSION_SECRET_VAR = 'ADMIN_SESSION_SECRET'
 

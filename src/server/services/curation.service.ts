@@ -265,7 +265,8 @@ export async function searchClubs(query: string): Promise<ClubOption[]> {
   if (trimmed.length < MIN_CLUB_QUERY_LENGTH) return []
 
   // `%`, `_` and `\` would otherwise be wildcards in the admin's own query.
-  const pattern = `%${trimmed.replace(/[\\%_]/g, (char) => `\\${char}`)}%`
+  const escaped = trimmed.replace(/[\\%_]/g, (char) => `\\${char}`)
+  const pattern = `%${escaped}%`
 
   return await db
     .select({ id: clubs.id, frName: clubs.frName, enName: clubs.enName })

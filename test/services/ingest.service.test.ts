@@ -31,10 +31,10 @@ import {
  * afterwards, never the queries it went through. The live counterpart of these
  * tests, the one that really talks to Wikidata, is `test/live/`.
  */
-const importCareer = (qid: string, runQuery: ReturnType<typeof wikidataRunner>) =>
-  importFootballerCareer({ qid, runQuery })
+const importCareer = async (qid: string, runQuery: ReturnType<typeof wikidataRunner>) =>
+  await importFootballerCareer({ qid, runQuery })
 
-const careerOf = (footballerId: string) => getFootballerCareer(footballerId)
+const careerOf = async (footballerId: string) => await getFootballerCareer(footballerId)
 
 const footballerByQid = async (qid: string) => {
   const [row] = await db.select().from(footballers).where(eq(footballers.wikidataQid, qid))

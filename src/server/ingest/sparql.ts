@@ -79,8 +79,16 @@ export class SparqlError extends Error {
 /**
  * The shape of `application/sparql-results+json` — only the part that is read.
  */
+/**
+ * What the endpoint *claims* to answer, not what it is trusted to. Every
+ * optional and every `null` here is a case `readBindings` has met: the types
+ * are written loose on purpose, so the narrowing below cannot be linted away
+ * as unnecessary.
+ */
+type SparqlBinding = Record<string, { value?: unknown } | undefined> | null
+
 type SparqlResults = {
-  results?: { bindings?: Record<string, { value?: unknown }>[] }
+  results?: { bindings?: SparqlBinding[] }
 }
 
 export type SparqlOptions = {
@@ -105,7 +113,11 @@ export async function runSparqlQuery(
   const endpoint =
     options.endpoint ?? process.env.WIKIDATA_SPARQL_ENDPOINT ?? DEFAULT_ENDPOINT
   const maxAttempts = options.maxAttempts ?? MAX_ATTEMPTS
-  const sleep = options.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)))
+  const sleep =
+    options.sleep ??
+    (async (ms: number) => {
+      await new Promise((resolve) => setTimeout(resolve, ms))
+    })
   const url = `${endpoint}?query=${encodeURIComponent(query)}`
 
   let lastError: unknown
@@ -167,8 +179,11 @@ export function readBindings(payload: unknown): SparqlRow[] {
 
   return bindings.map((binding) => {
     const row: Record<string, string> = {}
-    for (const [variable, value] of Object.entries(binding ?? {})) {
-      if (value?.value !== undefined) row[variable] = String(value.value)
+    for (const [variable, cell] of Object.entries(binding ?? {})) {
+      // SPARQL JSON always carries the bound value as a string. Anything else
+      // is the endpoint breaking its own contract, and stringifying it would
+      // put `[object Object]` where a qid belongs.
+      if (typeof cell?.value === 'string') row[variable] = cell.value
     }
     return row
   })
@@ -176,7 +191,7 @@ export function readBindings(payload: unknown): SparqlRow[] {
 
 /** `http://www.wikidata.org/entity/Q1835` → `Q1835`. Also fine on a bare qid. */
 export function entityId(uri: string | undefined): string | null {
-  if (!uri) return null
+  if (uri === undefined || uri === '') return null
   const id = uri.slice(uri.lastIndexOf('/') + 1)
   return id === '' ? null : id
 }

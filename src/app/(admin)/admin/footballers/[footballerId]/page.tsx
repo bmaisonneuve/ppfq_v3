@@ -36,9 +36,9 @@ import {
  */
 export default async function CurationPage({
   params,
-}: {
+}: Readonly<{
   params: Promise<{ footballerId: string }>
-}) {
+}>) {
   await requireAdmin()
 
   const { footballerId } = await params
@@ -125,7 +125,7 @@ export default async function CurationPage({
  * The link opened on every curation. It is the guard against the one defect
  * nothing else catches, so it is prominent rather than tucked away.
  */
-function WikipediaLinks({ frUrl, enUrl }: { frUrl: string | null; enUrl: string | null }) {
+function WikipediaLinks({ frUrl, enUrl }: Readonly<{ frUrl: string | null; enUrl: string | null }>) {
   if (frUrl === null && enUrl === null) {
     return (
       <p className="text-sm text-neutral-500">
@@ -163,7 +163,7 @@ function WikipediaLinks({ frUrl, enUrl }: { frUrl: string | null; enUrl: string 
  * it failed: a refused import wrote nothing, so the catalogue says nothing
  * about it and this row is the only trace of the reason.
  */
-function LastImport({ trace }: { trace: CurationImportTrace | null }) {
+function LastImport({ trace }: Readonly<{ trace: CurationImportTrace | null }>) {
   if (trace === null) {
     return <p className="text-sm text-neutral-500">Aucun import enregistré.</p>
   }
@@ -172,10 +172,14 @@ function LastImport({ trace }: { trace: CurationImportTrace | null }) {
 
   return (
     <p className={`text-sm ${trace.failed ? 'text-red-700' : 'text-neutral-600'}`}>
-      Dernier import : {when} —{' '}
-      {trace.failed
-        ? `échec${trace.lastError === null ? '' : ` : ${trace.lastError}`}`
-        : `${trace.passagesWritten ?? 0} passage(s) écrit(s)`}
+      Dernier import : {when} — {importOutcome(trace)}
     </p>
   )
+}
+
+/** What that run came to: the reason it was refused, or what it wrote. */
+function importOutcome(trace: CurationImportTrace): string {
+  if (!trace.failed) return `${trace.passagesWritten ?? 0} passage(s) écrit(s)`
+  if (trace.lastError === null) return 'échec'
+  return `échec : ${trace.lastError}`
 }

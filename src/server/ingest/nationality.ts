@@ -91,10 +91,10 @@ export function selectNationality(
   const citizenships = distinctQids(countries.filter((c) => c.kind === 'citizenship'))
   const candidates = sporting.length > 0 ? sporting : citizenships
 
-  if (candidates.length === 0) return refuse('missing')
-  if (candidates.length > 1) return refuse('ambiguous')
+  const [country, ...extra] = candidates
+  if (country === undefined) return refuse('missing')
+  if (extra.length > 0) return refuse('ambiguous')
 
-  const country = candidates[0] as WikidataCountry
   const code = country.alpha2 ?? country.subdivision ?? country.alpha3
   if (code === null) return refuse('no-code')
 

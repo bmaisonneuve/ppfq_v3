@@ -1,3 +1,6 @@
+import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { dirname, resolve } from 'node:path'
+
 import { ESLint } from 'eslint'
 import { describe, expect, it } from 'vitest'
 
@@ -7,17 +10,27 @@ import { describe, expect, it } from 'vitest'
  * routing layer to the database or the domain, and lets the legal import
  * through.
  *
- * `lintText` is given a `filePath` that need not exist: ESLint resolves the
- * config, and the rule's zones, from the path alone. That is what lets us test
- * a forbidden import without committing one.
+ * The probe is written to the path it is about and deleted again: the rule
+ * reads paths, so where the file sits *is* the case being tested, and nothing
+ * forbidden is ever committed. It cannot be `lintText` on a path that does not
+ * exist — the config is type-aware, and TypeScript's project service refuses a
+ * file it cannot find in the program.
  */
 const eslint = new ESLint({ cwd: process.cwd() })
 
 const RULE = 'import/no-restricted-paths'
 
 async function violations(filePath: string, code: string): Promise<string[]> {
-  const [result] = await eslint.lintText(code, { filePath, warnIgnored: false })
-  return (result?.messages ?? []).filter((m) => m.ruleId === RULE).map((m) => m.message)
+  const absolute = resolve(process.cwd(), filePath)
+  await mkdir(dirname(absolute), { recursive: true })
+  await writeFile(absolute, code, 'utf8')
+
+  try {
+    const [result] = await eslint.lintFiles([absolute])
+    return (result?.messages ?? []).filter((m) => m.ruleId === RULE).map((m) => m.message)
+  } finally {
+    await rm(absolute, { force: true })
+  }
 }
 
 describe('the layering rule', () => {

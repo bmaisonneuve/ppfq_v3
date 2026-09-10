@@ -28,13 +28,13 @@ export function MonthCalendarView({
   selectedDate,
   previousMonth,
   nextMonth,
-}: {
+}: Readonly<{
   calendar: MonthCalendar
   today: string
   selectedDate: string
   previousMonth: string
   nextMonth: string
-}) {
+}>) {
   const first = calendar.days[0]
   // The empty squares before the 1st, so the columns line up with the weekdays.
   const lead = first === undefined ? 0 : weekdayIndex(first.date)
@@ -46,9 +46,7 @@ export function MonthCalendarView({
         <h2 className="text-lg font-medium">
           {formatChallengeMonth(calendar.month)}{' '}
           <span className="text-sm font-normal text-neutral-500">
-            {gaps === 0
-              ? 'aucun trou'
-              : `${gaps} jour${gaps > 1 ? 's' : ''} sans grille`}
+            {gapsLabel(gaps)}
           </span>
         </h2>
         <nav className="flex gap-3 text-sm">
@@ -100,18 +98,14 @@ function DaySquare({
   month,
   isToday,
   isSelected,
-}: {
+}: Readonly<{
   day: CalendarDay
   month: string
   isToday: boolean
   isSelected: boolean
-}) {
+}>) {
   const grid = day.grid
-  const border = isSelected
-    ? 'border-neutral-900'
-    : grid === null
-      ? 'border-dashed border-amber-400'
-      : 'border-neutral-200'
+  const border = dayBorder(isSelected, grid !== null)
 
   return (
     <Link
@@ -148,6 +142,22 @@ function DaySquare({
       )}
     </Link>
   )
+}
+
+/** "aucun trou", or how many days of the month have no grid. */
+function gapsLabel(gaps: number): string {
+  if (gaps === 0) return 'aucun trou'
+  return `${gaps} jour${gaps > 1 ? 's' : ''} sans grille`
+}
+
+/**
+ * A square's outline says two things at once: whether the form is aimed at it,
+ * and whether the day has a grid. Selection wins — the admin needs to see
+ * where they are before they see what is missing.
+ */
+function dayBorder(isSelected: boolean, hasGrid: boolean): string {
+  if (isSelected) return 'border-neutral-900'
+  return hasGrid ? 'border-neutral-200' : 'border-dashed border-amber-400'
 }
 
 /**

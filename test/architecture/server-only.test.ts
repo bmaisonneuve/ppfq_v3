@@ -29,7 +29,7 @@ async function serverFiles(dir: string): Promise<string[]> {
   const found = await Promise.all(
     entries.map(async (entry) => {
       const full = join(dir, entry.name)
-      if (entry.isDirectory()) return serverFiles(full)
+      if (entry.isDirectory()) return await serverFiles(full)
       return entry.name.endsWith('.ts') || entry.name.endsWith('.tsx') ? [full] : []
     }),
   )

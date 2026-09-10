@@ -11,7 +11,7 @@ import type { AdminSignInAction } from '@/shared/admin'
  * It says nothing about who the admin is — there is one, and the password is
  * the whole credential until #13 replaces this with the six-digit code.
  */
-export function AdminLoginForm({ signInAction }: { signInAction: AdminSignInAction }) {
+export function AdminLoginForm({ signInAction }: Readonly<{ signInAction: AdminSignInAction }>) {
   const [state, action, pending] = useActionState(signInAction, IDLE_SIGN_IN)
 
   return (

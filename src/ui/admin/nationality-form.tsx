@@ -25,12 +25,12 @@ export function NationalityForm({
   nationality,
   nationalities,
   setNationalityAction,
-}: {
+}: Readonly<{
   footballerId: string
   nationality: Nationality | null
   nationalities: readonly Nationality[]
   setNationalityAction: CurationAction
-}) {
+}>) {
   const [state, submit, pending] = useActionState(setNationalityAction, IDLE_CURATION_ACTION)
 
   return (

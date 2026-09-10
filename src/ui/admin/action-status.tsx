@@ -8,7 +8,7 @@ import type { AdminActionState } from '@/shared/admin'
  * by footballer — lands here rather than as an error boundary over a screen the
  * admin was halfway through filling in.
  */
-export function ActionStatus({ state }: { state: AdminActionState }) {
+export function ActionStatus({ state }: Readonly<{ state: AdminActionState }>) {
   if (state.status === 'idle' || state.message === null) return null
 
   return (
