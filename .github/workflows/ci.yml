@@ -91,6 +91,28 @@ jobs:
           echo "$headers"
           grep -qi '^x-nextjs-cache: *HIT' <<<"$headers"
           grep -qiE '^cache-control:.*s-maxage=[0-9]+' <<<"$headers"
+
+          # The other half of the same decision, and the other acceptance
+          # criterion that is a property of a *response*: the personal state is
+          # cached nowhere, and the identity cookie is strictly necessary — 13
+          # months rolling (34 214 400 s), out of reach of any script, and no
+          # consent banner because there is nothing else in it. The service
+          # container is empty, so there is no grid and no partie to open; the
+          # joueur is created and the cookie set all the same, which is exactly
+          # what these two greps are about.
+          personal=$(curl -sD - -o /dev/null -X POST \
+            -H 'content-type: application/json' \
+            -d '{"date":"2026-01-01"}' \
+            http://127.0.0.1:3000/api/game/state)
+          echo "$personal"
+          grep -qiE '^cache-control:.*private' <<<"$personal"
+          grep -qiE '^cache-control:.*no-store' <<<"$personal"
+          grep -qiE '^set-cookie: *ppfq_player=[0-9a-f-]+;.*Max-Age=34214400' <<<"$personal"
+          grep -qi '^set-cookie:.*HttpOnly' <<<"$personal"
+
+          # And a GET creates nothing: a link prefetch or a crawler must never
+          # count as somebody exposed to an enigma.
+          test "$(curl -so /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/game/state)" = 405
           kill "$server"
         env:
           DATABASE_URL: postgres://ppfq:ppfq@localhost:5433/ppfq_test

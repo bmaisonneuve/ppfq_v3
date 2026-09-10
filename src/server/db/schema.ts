@@ -12,8 +12,10 @@
  *
  * Scope: the catalogue, the grid and its enigmas — scheduling is what makes
  * the last two exist (#6) — plus `job_runs`, because the career import has to
- * leave a trace somewhere (#4). The player tables arrive with the tickets that
- * need them (#8, #13).
+ * leave a trace somewhere (#4), and `players` and `player_progress`, which are
+ * the joueur and his partie (#8). The tables that aggregate a joueur's history
+ * arrive with the tickets that read them: `player_stats` with the série and the
+ * cartons pleins (#10), `pending_claims` with the account (#13).
  */
 import {
   boolean,
@@ -311,4 +313,128 @@ export const jobRuns = pgTable(
     lastError: text('last_error'),
   },
   (t) => [index('job_runs_job_started_at_idx').on(t.job, t.startedAt.desc())],
+)
+
+/**
+ * How a partie is played (`docs/modele-donnees.md` §2).
+ *
+ * Only the quotidien feeds the série and the cartons pleins (specs §7), which
+ * is why the mode is a column of the partie and not a property of the grid: the
+ * same grid is the grid of the day once and an archive grid forever after.
+ */
+export const playMode = pgEnum('play_mode', ['daily', 'archive'])
+
+/**
+ * The issue of a partie — but only the *stored* one.
+ *
+ * `in_progress` is not the same thing as "still playable": a partie left open
+ * on a grid that is no longer the grid of the day is **read** as `failed`, by a
+ * rule and not by a job (`docs/modele-donnees.md` §4). That rule lives in
+ * `server/domain/play.ts`, and it is the reason nothing in this application
+ * ever writes `failed` at midnight.
+ */
+export const playStatus = pgEnum('play_status', ['in_progress', 'solved', 'failed'])
+
+/**
+ * A joueur — with or without an account (ADR-0003).
+ *
+ * The identity is an UUID in a cookie (`cookie_id`) and **not** Better Auth's
+ * `anonymous` plugin: that plugin opens an authentication session per visitor
+ * and deletes the anonymous row on linking, which would erase exactly the
+ * progression the specs promise to carry over. So the reprise de progression is
+ * an `UPDATE players SET auth_user_id` (#13) and never a data migration —
+ * everything that points at a joueur points at `players.id` and does not move.
+ *
+ * The cookie is *strictly necessary* to the service asked for: no consent
+ * banner, 13 months rolling, and the purge of this table follows the same
+ * duration. The constraint that comes with it, and that must not be broken
+ * later: **no cookie-based analytics tracker** anywhere on the site, or the
+ * banner comes back — and a joueur who refuses it loses his progression.
+ */
+export const players = pgTable(
+  'players',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    /** The anonymous identity: the UUID the browser carries. Never displayed. */
+    cookieId: text('cookie_id').notNull(),
+    /** Better Auth's user id, filled in at sign-up (#13). Null until then. */
+    authUserId: text('auth_user_id'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Bumped on every personal read. The only thing the purge can go on. */
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // What makes resolving a cookie into a joueur one statement, and what makes
+    // two concurrent first requests from the same browser one row.
+    uniqueIndex('players_cookie_id_key').on(t.cookieId),
+    uniqueIndex('players_auth_user_id_key').on(t.authUserId),
+    // Purge: no account, no partie, not seen for 13 months.
+    index('players_last_seen_at_idx').on(t.lastSeenAt),
+  ],
+)
+
+/**
+ * La partie: one joueur's state on one enigma (`docs/modele-donnees.md` §4).
+ *
+ * **One mutable row, never a journal.** The unique index is what says so: an
+ * essai updates this row, and the distribution by number of essais is a
+ * `GROUP BY tries_used` over these rows — not a `game_events` table, which
+ * would be ~450 M rows a year for an answer this shape already gives (§9).
+ *
+ * A row is written **when the enigma is opened**, not at the first essai. That
+ * is what measures the people *exposed* to an enigma, which is what the
+ * difficulty calibration of #12 reads. The interface corollary is not optional:
+ * the three enigmas must not unfold at once, or three parties are born where
+ * one person arrived.
+ *
+ * `tries_used` counts everything the player spends — a wrong footballer, a
+ * footballer already tried, a skipped turn (specs §3). There is no
+ * `skips_used`, and a skip is not distinguishable from an error here.
+ */
+export const playerProgress = pgTable(
+  'player_progress',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    challengeItemId: uuid('challenge_item_id')
+      .notNull()
+      .references(() => challengeItems.id, { onDelete: 'cascade' }),
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    /** No default: the day the archive arrives (#14), nothing may forget to say. */
+    mode: playMode('mode').notNull(),
+    /** 0 to 6. Everything consumes one, skipping a turn included. */
+    triesUsed: integer('tries_used').notNull().default(0),
+    status: playStatus('status').notNull().default('in_progress'),
+    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
+    /** Null while the partie is open. Never set by a job. */
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    /**
+     * The last footballer proposed, and when — **anti-double-click, not a game
+     * rule** (`docs/stack-technique.md` §4). Proposing a footballer already
+     * tried costs an essai; the same proposition arriving twice within two
+     * seconds costs nothing. The two mechanisms are easy to confuse and are
+     * opposites. Written by #9; the columns are here because they belong to
+     * this row and not because this ticket fills them.
+     *
+     * `set null` on delete: it is a marker, and a footballer leaving the
+     * catalogue must not make a delete fail over a two-second window.
+     */
+    lastGuessFootballerId: uuid('last_guess_footballer_id').references(
+      () => footballers.id,
+      { onDelete: 'set null' },
+    ),
+    lastGuessAt: timestamp('last_guess_at', { withTimezone: true }),
+  },
+  (t) => [
+    // The heart of it: one row per (enigma, joueur). Opening an enigma twice —
+    // two tabs, a double request, a reload — cannot make a second partie, and
+    // that is a constraint rather than a check in the service.
+    uniqueIndex('player_progress_challenge_item_id_player_id_key').on(
+      t.challengeItemId,
+      t.playerId,
+    ),
+    // Personal history and statistics (#10, #12), read by joueur.
+    index('player_progress_player_id_opened_at_idx').on(t.playerId, t.openedAt.desc()),
+  ],
 )

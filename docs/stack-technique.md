@@ -90,6 +90,14 @@ app/api/admin/jobs/[name]/route.ts# enfile un job (202), n'exécute JAMAIS en li
 app/api/health/challenge-today/route.ts
 ```
 
+> **Complété par l'ADR-0009** : il y en a cinq. `app/api/game/state/route.ts`
+> porte l'état personnel d'une grille, parce que la page de la grille ne lit
+> aucun cookie (ADR-0008) et que cette réponse-là a besoin d'un contrat HTTP —
+> `private, no-store` devant un CDN, et un cookie à poser. C'est un POST, parce
+> qu'ouvrir une énigme **crée** une partie : un GET serait déclenché par un
+> préchargement de lien ou un crawler, et chacun compterait comme une personne
+> exposée à l'énigme.
+
 ### L'essai
 
 Une Server Action **est** un endpoint : à la compilation, Next génère un POST vers l'URL courante avec un header `Next-Action`. Il y a bien un aller-retour réseau ; simplement on n'écrit pas la route, et le corps de la fonction ne part jamais dans le bundle client.

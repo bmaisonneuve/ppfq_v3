@@ -71,6 +71,24 @@ const REQUEST_TIME = [
   'searchParams',
 ]
 
+/**
+ * The services that know who is asking, and the second half of the same
+ * barrier: not only does the cached route read no cookie, it does not render a
+ * joueur's state at all.
+ *
+ * The two are one decision seen from both ends. A page that reached these
+ * services could only do it by resolving an identity, which means reading a
+ * cookie — so the rule above would catch it. Naming them anyway is what makes
+ * the *intent* checkable: `l'état personnel est chargé par une requête distincte
+ * de la page, après l'hydratation` (#8), and this is the assertion that the
+ * personal half stays on the other side of that request.
+ */
+const PERSONAL = [
+  'server/services/play.service',
+  'server/services/player.service',
+  'server/auth/player-cookie',
+]
+
 const PAGE = 'src/app/(game)/page.tsx'
 
 async function guardedFiles(): Promise<string[]> {
@@ -90,6 +108,26 @@ describe('the static grid barrier', () => {
       const source = await readFile(file, 'utf8')
       for (const pattern of REQUEST_TIME) {
         if (source.includes(pattern)) offenders.push(`${pathKey(ROOT, file)}: ${pattern}`)
+      }
+    }
+
+    expect(offenders).toEqual([])
+  })
+
+  it('renders no personal state: the joueur is on the other side of a request', async () => {
+    const files = await guardedFiles()
+    expect(files.length).toBeGreaterThan(0)
+
+    const offenders: string[] = []
+    for (const file of files) {
+      const source = await readFile(file, 'utf8')
+      for (const service of PERSONAL) {
+        // `from '…'`, so the prose of these files may name the services it
+        // explains — and `ui/game` does, at length: the client component that
+        // fetches the personal state lives there and has to say what it fetches.
+        if (source.includes(`from '@/${service}'`)) {
+          offenders.push(`${pathKey(ROOT, file)}: ${service}`)
+        }
       }
     }
 

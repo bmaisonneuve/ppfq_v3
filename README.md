@@ -86,14 +86,17 @@ src/
   app/        routage + rendu. Aucune logique métier.
     (game)/   la grille du jour
     (admin)/  le back-office. Bundle séparé : il ne pèse pas sur le jeu
+    api/      ce qui a besoin d'un contrat HTTP : typeahead, état personnel
   server/     le back. Chaque fichier : import 'server-only'.
     db/       schéma Drizzle + client. Personne d'autre n'y touche.
     domain/   règles pures. Zéro DB, zéro service, zéro import Next.
     ingest/   le pipeline Wikidata : il lit la source et rend des valeurs.
-    auth/     la signature d'une session. Aucune table, aucune requête.
+    auth/     les cookies du site : la session d'admin signée, l'identité
+              anonyme d'un joueur. Aucune table, aucune requête.
     services/ cas d'usage + transactions. LA SEULE PORTE D'ENTRÉE.
   ui/         composants présentationnels
-    game/     ceux du jeu. La grille du jour et ses énigmes
+    game/     ceux du jeu. La grille du jour, ses énigmes, et la seule
+              requête personnelle de la page
     admin/    ceux du back-office. Les Server Actions leur arrivent en props
   shared/     isomorphe : types, schémas Zod, formatters
 scripts/      outillage Node : migrations, référentiel, import d'un parcours
@@ -131,9 +134,10 @@ Quatre barrières, pas une :
 3. `await requireAdmin()` en première ligne de chaque page et de chaque Server
    Action de `app/(admin)` — voir « Le back-office » ci-dessous.
 4. **Aucune lecture de requête dans la chaîne de segments de `/`** — ni cookie,
-   ni en-tête, ni paramètre de recherche. Une seule ligne suffirait à rendre la
-   route dynamique et à mettre un cache partagé devant des données
-   personnelles ; voir « La grille du jour » ci-dessous.
+   ni en-tête, ni paramètre de recherche, et **aucun import de l'état
+   personnel**. Une seule ligne suffirait à rendre la route dynamique et à
+   mettre un cache partagé devant des données personnelles ; voir « La grille du
+   jour » ci-dessous.
 
 Les quatre barrières sont elles-mêmes testées (`test/architecture/`) : supprimer
 la règle ESLint fait échouer la suite, oublier `server-only` sur un nouveau
@@ -195,6 +199,11 @@ de catalogue part de là plutôt que d'inventer ses lignes.
 | `untypedReserve` | Une équipe réserve que la source ne type pas, plus un passage en cours |
 | `loan` | Un prêt qui chevauche le contrat parent, tous deux la même année |
 
+`test/fixtures/players.ts` porte deux joueurs, tous deux sans compte. Deux et
+non un : presque tout ce qu'on affirme d'une partie est une affirmation sur *à
+qui* elle est, et une suite à un seul joueur ne distingue pas « lit ma partie »
+de « lit une partie ».
+
 `test/fixtures/search.ts` ajoute trois footballeurs par-dessus, pour ce que le
 classement d'une liste de suggestions demande et que les cinq profils ne disent
 pas : un alias à retrouver, et deux homonymes que la notoriété et l'alphabet
@@ -221,7 +230,8 @@ projet, et tout le reste en découle :
   Sur une page cachée et partagée par tout le monde, c'est la seule forme de
   « ne fuit pas » qui survive ;
 - l'état personnel — mes essais, mes indices déjà dévoilés, ma série — arrive
-  par une requête à lui, après l'hydratation (#8).
+  par une requête à lui, après l'hydratation
+  ([ADR-0009](./docs/adr/0009-l-etat-personnel-est-un-post-qui-cree-la-partie.md)).
 
 Deux garde-fous, parce qu'une ligne suffit à tout perdre :
 `test/architecture/static-game-page.test.ts` fait échouer la CI si la chaîne de
@@ -231,10 +241,12 @@ nom, aucun identifiant et aucun chiffre n'y figure.
 
 Les trois énigmes sont accessibles d'emblée — bloquer sur l'échauffement ne
 prive pas du reste de la journée — mais **elles ne sont pas toutes dépliées** :
-une partie naît à l'*ouverture* d'une énigme (#8), et trois parties nées
-ensemble mesureraient trois exposés là où il y en avait un. Le pli est un
-`<details>` natif : zéro JavaScript sur une page dont tout l'intérêt est
-d'être rendue une fois par jour.
+une partie naît à l'*ouverture* d'une énigme, et trois parties nées ensemble
+mesureraient trois exposés là où il y en avait un. Le pli **est** donc le geste
+qui crée la partie, ce qui a un prix depuis #8 : la liste des énigmes est un
+composant client, là où le `<details>` ne coûtait aucun JavaScript. Le parcours
+reste dans le premier rendu — un composant client est rendu côté serveur lui
+aussi — et ce qui attend l'hydratation n'est que la conséquence de l'ouverture.
 
 La date de grille est une date Europe/Paris, calculée paresseusement à la
 lecture, jamais par un job : la bascule de minuit est un `SELECT WHERE date =`
@@ -245,6 +257,45 @@ parce que l'horloge de revalidation démarre au rendu et non à minuit. Le
 raisonnement complet, et ce que le job de pré-chauffage (#15) y changera, sont
 dans [ADR-0008](./docs/adr/0008-la-grille-du-jour-est-prerendue.md) — qui porte
 aussi la conséquence sur le build.
+
+## L'identité anonyme et la partie
+
+Un joueur est reconnu sans compte, et son état de partie survit à un
+rechargement. `POST /api/game/state` est la requête qui le lui rend : le client
+envoie la date lue sur la page et, s'il en ouvre une, la position de l'énigme ;
+le serveur répond l'état des trois énigmes, en `private, no-store`.
+
+Trois choix qui ne vont pas de soi, tous dans
+[ADR-0009](./docs/adr/0009-l-etat-personnel-est-un-post-qui-cree-la-partie.md) :
+
+- **C'est un POST, pas un GET**, parce que la requête **crée**. Un GET qui crée
+  une partie serait déclenché par un préchargement de lien ou un crawler, et
+  chacun compterait comme une personne exposée à l'énigme — le dénominateur
+  exact que lit le calibrage de difficulté (#12).
+- **Ouvrir est refusé sur toute date qui n'est pas celle du jour.** La page est
+  servie depuis un cache partagé pendant une minute (ADR-0008), donc quelqu'un
+  qui arrive à minuit peut tenir la grille de la veille. La réponse porte
+  `today` et l'interface propose de recharger.
+- **Une partie non terminée dont la grille a tourné est un échec à la lecture**,
+  et aucun job ne l'écrit : un job de minuit tomberait pile au pic de trafic.
+  La ligne continue de dire `in_progress`, et `test/services/play.service.test.ts`
+  l'affirme — c'est la seule façon d'observer l'absence du job.
+
+L'identité est un UUID en cookie, sur une table `players` à nous et non le
+plugin `anonymous` de Better Auth, qui supprimerait la ligne anonyme à la
+liaison — exactement la progression qu'on promet de reprendre
+([ADR-0003](./docs/adr/0003-identite-anonyme-hors-better-auth.md)). Le cookie
+est **strictement nécessaire** au service demandé : pas de bandeau de
+consentement, 13 mois glissants, `httpOnly`, et la purge de `players` s'aligne
+sur cette durée. La contrainte qui en découle et qu'il ne faut pas casser plus
+tard : **aucun traceur analytique à cookie** sur le site, sinon le bandeau
+revient — et un joueur qui refuse perd sa progression.
+
+Conséquence traitée dans le même ticket : une partie pend à sa ligne
+`challenge_items` par un cascade, donc **reprogrammer une journée ne remplace
+plus que ce qui change**. Corriger un thème à quinze heures effacerait sinon
+toutes les parties du jour, pour tout le monde. Une position dont le footballeur
+change, en revanche, est une autre question, et ses parties s'en vont avec.
 
 ## Le back-office : la curation d'un parcours
 

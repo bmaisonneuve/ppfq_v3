@@ -1,6 +1,6 @@
 import 'server-only'
 
-import { asc, between, eq } from 'drizzle-orm'
+import { and, asc, between, eq, notInArray } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 
 import { db } from '@/server/db/client'
@@ -183,10 +183,18 @@ export async function listThemes(): Promise<string[]> {
  * existing day by re-submitting it.
  *
  * The write is one transaction and it **replaces**: one grid per date is the
- * model's unique index, and correcting a day is not a second grid. The three
- * enigmas are deleted and rewritten rather than updated in place, because a
- * position that changes hands is indistinguishable from "leave it alone" in a
- * partial update.
+ * model's unique index, and correcting a day is not a second grid.
+ *
+ * What it replaces is only what changed, and that is not a micro-optimisation:
+ * since #8, a partie hangs off its `challenge_items` row by a cascade. Deleting
+ * the three enigmas and writing them back — which is what this did while
+ * nothing depended on their identity — would delete every partie of the day,
+ * for every joueur, the moment the admin corrected a theme at three in the
+ * afternoon. So a position whose footballer has not changed keeps its row.
+ *
+ * The other half of that decision is deliberate too: a position whose
+ * footballer *has* changed is a different question, and the parties carrying
+ * essais spent on the previous one go with it.
  */
 export async function scheduleGrid(input: ScheduleInput): Promise<ScheduledGrid> {
   const careers = await Promise.all(
@@ -216,14 +224,44 @@ export async function scheduleGrid(input: ScheduleInput): Promise<ScheduledGrid>
 
     const gridId = (grid as { id: string }).id
 
-    await tx.delete(challengeItems).where(eq(challengeItems.dailyChallengeId, gridId))
-    await tx.insert(challengeItems).values(
-      input.footballerIds.map((footballerId, index) => ({
-        dailyChallengeId: gridId,
-        position: positionAt(index),
-        footballerId,
-      })),
-    )
+    const wanted = input.footballerIds.map((footballerId, index) => ({
+      dailyChallengeId: gridId,
+      position: positionAt(index),
+      footballerId,
+    }))
+
+    const present = await tx
+      .select({
+        position: challengeItems.position,
+        footballerId: challengeItems.footballerId,
+      })
+      .from(challengeItems)
+      .where(eq(challengeItems.dailyChallengeId, gridId))
+
+    // The positions that are already asking for exactly the footballer they
+    // are being asked for. Their rows are the ones the day's parties hang off.
+    const kept = present
+      .filter((item) =>
+        wanted.some(
+          (enigma) =>
+            enigma.position === item.position && enigma.footballerId === item.footballerId,
+        ),
+      )
+      .map((item) => item.position)
+
+    await tx
+      .delete(challengeItems)
+      .where(
+        and(
+          eq(challengeItems.dailyChallengeId, gridId),
+          // `notInArray` on an empty list is not valid SQL, and an empty list
+          // is the common case: a day being programmed for the first time.
+          kept.length === 0 ? undefined : notInArray(challengeItems.position, kept),
+        ),
+      )
+
+    const written = wanted.filter((enigma) => !kept.includes(enigma.position))
+    if (written.length > 0) await tx.insert(challengeItems).values(written)
   })
 
   return {

@@ -55,6 +55,8 @@ describe('migrations', () => {
         'job_runs',
         'nationalities',
         'player_clubs',
+        'player_progress',
+        'players',
       ])
 
       // A row survives the replay: the second run must not recreate anything.

@@ -2,8 +2,10 @@ import { getDailyGrid } from '@/server/services/grid.service'
 import { DailyGridView, NoGridView } from '@/ui/game/daily-grid'
 
 /**
- * La grille du jour : trois énigmes, ouvertes d'emblée, chacune montrant le
- * parcours complet d'un footballeur.
+ * La grille du jour : trois énigmes accessibles d'emblée — aucune n'attend
+ * qu'une autre soit trouvée — chacune montrant le parcours complet d'un
+ * footballeur. Accessibles, et non toutes dépliées : une partie naît à
+ * l'ouverture d'une énigme (#8).
  *
  * ## The route reads no cookie, and that is the architecture
  *
@@ -23,8 +25,8 @@ import { DailyGridView, NoGridView } from '@/ui/game/daily-grid'
  *
  * The price is a brief loading state on the personal zones alone (my tries, the
  * hints I have already uncovered, my streak), fetched after hydration by a
- * request of their own (#8). The parcours, which *is* the enigma, is there in
- * the first paint.
+ * request of their own — `POST /api/game/state`, and ADR-0009 for why that is
+ * a POST. The parcours, which *is* the enigma, is there in the first paint.
  */
 
 /**
