@@ -4,6 +4,9 @@
 # `postgres-test` — the database the integration suite runs against. It lives on
 #                   tmpfs and is wiped on every restart: no fsync, no durability,
 #                   nothing worth keeping. `pnpm test` starts it on its own.
+# `adminer`       — a browser over both databases. Not needed by anything: the
+#                   other services are started by name, so it only comes up when
+#                   asked for (`pnpm db:ui`).
 #
 # Both images must match the production major version (docs/adr/0002).
 
@@ -60,6 +63,19 @@ services:
       interval: 1s
       timeout: 3s
       retries: 60
+
+  adminer:
+    image: adminer:5
+    restart: unless-stopped
+    environment:
+      # Pre-filled on the login form; `postgres-test` is reachable under that
+      # same name from the server field. Credentials: ppfq / ppfq.
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - '${ADMINER_PORT:-8081}:8080'
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres-data:

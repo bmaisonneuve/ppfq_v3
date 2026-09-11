@@ -70,14 +70,20 @@ et committées (`docs/stack-technique.md` §11).
 
 ## Services locaux
 
-`docker-compose.yml` porte deux Postgres :
+`docker-compose.yml` porte deux Postgres et un Adminer :
 
 | Service | Port | Données |
 |---|---|---|
 | `postgres` | 5432 | Base de développement, volume nommé, persistante |
 | `postgres-test` | 5433 | Base de test, **tmpfs et `fsync=off`** — jetable et rapide |
+| `adminer` | 8081 | Rien. Un navigateur sur les deux bases, levé à la demande par `pnpm db:ui` |
 
-`POSTGRES_PORT` et `POSTGRES_TEST_PORT` déplacent les ports si 5432/5433 sont pris.
+`POSTGRES_PORT`, `POSTGRES_TEST_PORT` et `ADMINER_PORT` déplacent les ports si
+5432/5433/8081 sont pris.
+
+Adminer s'ouvre sur <http://localhost:8081>, identifiants `ppfq` / `ppfq`. Le
+serveur est prérempli sur `postgres` ; saisir `postgres-test` dans le champ
+*Serveur* bascule sur la base de test (`ppfq_test`), quand celle-ci tourne.
 
 ## Architecture
 
