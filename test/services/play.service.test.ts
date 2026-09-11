@@ -91,7 +91,9 @@ describe('opening an enigma', () => {
 
     const day = await getDayPlays(mine({ open: 1 }))
 
-    expect(day.plays).toEqual([{ position: 1, triesUsed: 0, status: 'in_progress' }])
+    expect(day.plays).toEqual([
+      { position: 1, triesUsed: 0, status: 'in_progress', hints: [], answer: null },
+    ])
   })
 
   it('creates it in the quotidien, which is the only mode that counts', async () => {
@@ -152,7 +154,7 @@ describe('opening an enigma', () => {
 
     const day = await getDayPlays(mine({ open: 1 }))
 
-    expect(day.plays).toEqual([{ position: 1, triesUsed: 3, status: 'in_progress' }])
+    expect(day.plays).toMatchObject([{ position: 1, triesUsed: 3, status: 'in_progress' }])
   })
 
   it('creates nothing on a date that is not the grid of the day', async () => {
@@ -262,7 +264,7 @@ describe('reading the state of a grid', () => {
       .where(eq(playerProgress.playerId, PLAYER_IDS.other))
 
     expect((await getDayPlays(mine())).plays).toEqual([
-      { position: 1, triesUsed: 0, status: 'in_progress' },
+      { position: 1, triesUsed: 0, status: 'in_progress', hints: [], answer: null },
     ])
     expect(await allParties()).toHaveLength(2)
   })
@@ -277,7 +279,7 @@ describe('a partie whose grid is no longer the grid of the day', () => {
     paris(TODAY)
     const day = await getDayPlays(mine({ date: YESTERDAY }))
 
-    expect(day.plays).toEqual([{ position: 1, triesUsed: 0, status: 'failed' }])
+    expect(day.plays).toMatchObject([{ position: 1, triesUsed: 0, status: 'failed' }])
   })
 
   it('is failed by the reading and not by a job: the row is untouched', async () => {
@@ -308,7 +310,7 @@ describe('a partie whose grid is no longer the grid of the day', () => {
     const day = await getDayPlays(mine({ date: YESTERDAY }))
 
     // Everything ever solved sits on a grid that is no longer the day's.
-    expect(day.plays).toEqual([{ position: 1, triesUsed: 2, status: 'solved' }])
+    expect(day.plays).toMatchObject([{ position: 1, triesUsed: 2, status: 'solved' }])
   })
 })
 

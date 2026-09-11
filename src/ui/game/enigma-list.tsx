@@ -9,6 +9,7 @@ import type { DailyGrid, Enigma } from '@/shared/grid'
 import type { EnigmaPlay } from '@/shared/play'
 import type { Position } from '@/shared/schedule'
 
+import { EnigmaEssai } from './enigma-essai'
 import { isStaleGrid, playAt, useDayPlays } from './use-day-plays'
 
 /**
@@ -38,9 +39,12 @@ import { isStaleGrid, playAt, useDayPlays } from './use-day-plays'
  * in React knows it happened, so hydration asks the DOM what is open instead of
  * assuming it knows.
  *
- * Everything personal is folded into `describePlay`, and there is nothing here
- * to be careful about: a partie carries essais spent and an issue, never a name
- * and never a hint (`shared/play.ts`).
+ * Everything personal comes down from one hook and nothing here computes any of
+ * it: the summary is `describePlay`, the essai and the hints are
+ * `enigma-essai.tsx`, and both are handed an `EnigmaPlay` the server built. A
+ * partie carries what it has earned and nothing else — the hints its erreurs
+ * paid for, and the name of the footballer only once it is over
+ * (`shared/play.ts`).
  */
 export function EnigmaList({ grid }: Readonly<{ grid: DailyGrid }>) {
   // The first by its rank in the list rather than by `position === 1`: a grid
@@ -48,7 +52,7 @@ export function EnigmaList({ grid }: Readonly<{ grid: DailyGrid }>) {
   // parcours has to be visible from the start.
   const first = grid.enigmas[0]?.position
 
-  const { state, open } = useDayPlays(grid.date, first)
+  const { state, open, submit, pending } = useDayPlays(grid.date, first)
   const [unfolded, setUnfolded] = useState<ReadonlySet<Position>>(
     () => new Set(first === undefined ? [] : [first]),
   )
@@ -101,7 +105,9 @@ export function EnigmaList({ grid }: Readonly<{ grid: DailyGrid }>) {
               open={unfolded.has(enigma.position)}
               play={playAt(state, enigma.position)}
               loading={state.status === 'loading'}
+              pending={pending.has(enigma.position)}
               onToggle={toggle}
+              onSubmit={submit}
             />
           </li>
         ))}
@@ -131,13 +137,17 @@ function EnigmaCard({
   open,
   play,
   loading,
+  pending,
   onToggle,
+  onSubmit,
 }: Readonly<{
   enigma: Enigma
   open: boolean
   play: EnigmaPlay | undefined
   loading: boolean
+  pending: boolean
   onToggle: (position: Position, isOpen: boolean) => void
+  onSubmit: (position: Position, footballerId: string | null) => void
 }>) {
   return (
     <details
@@ -186,6 +196,17 @@ function EnigmaCard({
           </li>
         ))}
       </ol>
+
+      {/* The essai, the hints and — at the end, and only then — the answer.
+          Below the parcours because the parcours *is* the question: it is in
+          the first paint, and everything here waits for the personal request. */}
+      <EnigmaEssai
+        play={play}
+        pending={pending}
+        onSubmit={(footballerId) => {
+          onSubmit(enigma.position, footballerId)
+        }}
+      />
     </details>
   )
 }

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { PERSONAL_HEADERS, jsonBody } from '../personal-request'
+
 import { getDayPlays } from '@/server/services/play.service'
 import { currentPlayerId } from '@/server/services/player.service'
 import { CHALLENGE_DATE_PATTERN, POSITIONS } from '@/shared/schedule'
@@ -49,13 +51,6 @@ import type { DayPlays } from '@/shared/play'
  */
 
 /**
- * Personal, and therefore cached nowhere: not by the browser, not by
- * Cloudflare, not by anything in between. A POST is not cacheable to begin
- * with; saying so is what keeps that from depending on a default.
- */
-const CACHE_CONTROL = 'private, no-store'
-
-/**
  * What the client may send: which grid, and which enigma it is opening.
  *
  * `date` comes from the page the client is holding, which is why it is sent at
@@ -76,9 +71,12 @@ const StateRequest = z.object({
 })
 
 export async function POST(request: Request): Promise<Response> {
-  const parsed = StateRequest.safeParse(await body(request))
+  const parsed = StateRequest.safeParse(await jsonBody(request))
   if (!parsed.success) {
-    return Response.json({ error: 'Invalid game state request.' }, { status: 400 })
+    return Response.json(
+      { error: 'Invalid game state request.' },
+      { status: 400, headers: PERSONAL_HEADERS },
+    )
   }
 
   // Before the service, and in this order: everything below needs a joueur, and
@@ -88,12 +86,5 @@ export async function POST(request: Request): Promise<Response> {
 
   const day = await getDayPlays({ playerId, date: parsed.data.date, open: parsed.data.open })
 
-  return Response.json(day satisfies DayPlays, {
-    headers: { 'Cache-Control': CACHE_CONTROL },
-  })
-}
-
-/** A body that is not JSON is a caller's bug, and `json()` throws on one. */
-async function body(request: Request): Promise<unknown> {
-  return await request.json().catch(() => null)
+  return Response.json(day satisfies DayPlays, { headers: PERSONAL_HEADERS })
 }

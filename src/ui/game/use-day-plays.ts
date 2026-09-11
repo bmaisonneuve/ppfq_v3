@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import { GAME_STATE_PATH, isGridOfDay } from '@/shared/play'
+import { GAME_STATE_PATH, GAME_TRY_PATH, isGridOfDay } from '@/shared/play'
 import type { DayPlays, EnigmaPlay } from '@/shared/play'
 import type { ChallengeDate, Position } from '@/shared/schedule'
 
@@ -40,6 +40,19 @@ import type { ChallengeDate, Position } from '@/shared/schedule'
  * the whole state of the day, so the last one to run is by definition the
  * freshest — there is no out-of-order answer left to detect.
  *
+ * ## The essai rides the same queue, and that is the point
+ *
+ * `POST /api/game/try` creates a `players` row for a caller with no cookie
+ * exactly as the state request does, so an essai racing the request that opens
+ * the enigma would make the same two joueurs. One queue for both, and the
+ * ordering falls out: an essai cannot overtake the open that made its partie.
+ *
+ * What comes back from an essai is a whole `EnigmaPlay` — the same value the
+ * state request carries — so there is nothing to merge and nothing to compute
+ * here. The three forms the specs ask for are its three statuses, and the hints
+ * it carries are the ones already earned. The client counts nothing, decides
+ * nothing, and therefore cannot disagree with the server about a partie.
+ *
  * ## What a failure must not do
  *
  * It must not leave the personal zones spinning for ever, and it must not claim
@@ -47,6 +60,11 @@ import type { ChallengeDate, Position } from '@/shared/schedule'
  * empty answer, and one of them is a lie. So it says `unavailable`, the
  * interface says so too, and the enigma is forgotten rather than remembered as
  * asked: unfolding it again is then a real retry.
+ *
+ * A **refused** essai is not that kind of failure. The seventh essai, a grid
+ * that has turned, an enigma reprogrammed under an open page: the server knows
+ * why and the client does not need to. It re-reads the state and shows what is
+ * actually there, which is right for all three without telling them apart.
  */
 
 /** The state of the personal zones: loading, loaded, or missing. */
@@ -74,8 +92,20 @@ const LOADING: PersonalState = { status: 'loading' }
 export function useDayPlays(
   date: ChallengeDate,
   first: Position | undefined,
-): { state: PersonalState; open: (position: Position) => void } {
+): {
+  state: PersonalState
+  open: (position: Position) => void
+  /** One essai: a footballer proposed, or `null` for a tour passé. */
+  submit: (position: Position, footballerId: string | null) => void
+  /** The enigmas with an essai in flight — what disables a form. */
+  pending: ReadonlySet<Position>
+} {
   const [state, setState] = useState<PersonalState>(LOADING)
+  // Counted rather than flagged: the queue is serial, so a second essai on the
+  // same enigma waits behind the first — and a flag would be cleared by the
+  // first one finishing while the second is still in flight, re-enabling a
+  // button that should stay down.
+  const [inFlight, setInFlight] = useState<ReadonlyMap<Position, number>>(() => new Map())
 
   // One request at a time, in the order they were asked for. See above: this
   // is what keeps a first visitor from becoming two joueurs.
@@ -87,24 +117,24 @@ export function useDayPlays(
   // The hydration request, once. React runs an effect twice in development.
   const started = useRef(false)
 
+  const readState = useCallback(
+    async (open: Position | undefined): Promise<void> => {
+      const day = await post<DayPlays>(GAME_STATE_PATH, { date, open })
+
+      setState({
+        status: 'ready',
+        plays: new Map(day.plays.map((play) => [play.position, play])),
+        today: day.today,
+      })
+    },
+    [date],
+  )
+
   const load = useCallback(
     (open: Position | undefined): void => {
       queue.current = queue.current.then(async () => {
         try {
-          const response = await fetch(GAME_STATE_PATH, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date, open }),
-          })
-          if (!response.ok) throw new Error(String(response.status))
-
-          const day = (await response.json()) as DayPlays
-
-          setState({
-            status: 'ready',
-            plays: new Map(day.plays.map((play) => [play.position, play])),
-            today: day.today,
-          })
+          await readState(open)
         } catch {
           // Offline, a 500, a malformed answer.
           if (open !== undefined) asked.current.delete(open)
@@ -114,7 +144,7 @@ export function useDayPlays(
         }
       })
     },
-    [date],
+    [readState],
   )
 
   useEffect(() => {
@@ -136,7 +166,77 @@ export function useDayPlays(
     [load],
   )
 
-  return { state, open }
+  const submit = useCallback(
+    (position: Position, footballerId: string | null): void => {
+      setInFlight((current) => counted(current, position, 1))
+
+      queue.current = queue.current.then(async () => {
+        try {
+          const play = await post<EnigmaPlay>(GAME_TRY_PATH, { date, position, footballerId })
+
+          // A whole partie replaces a whole partie. Nothing is incremented here
+          // and no hint is appended: the server said what the partie is.
+          setState((current) =>
+            current.status === 'ready'
+              ? { ...current, plays: new Map(current.plays).set(play.position, play) }
+              : current,
+          )
+        } catch (error) {
+          // A refusal is not a breakdown: the server knows why — the seventh
+          // essai, a grid that turned — and re-reading says so on screen.
+          if (error instanceof RefusedTry) await readState(undefined).catch(() => undefined)
+        } finally {
+          setInFlight((current) => counted(current, position, -1))
+        }
+      })
+    },
+    [date, readState],
+  )
+
+  return {
+    state,
+    open,
+    submit,
+    pending: new Set([...inFlight.keys()]),
+  }
+}
+
+/** The in-flight count of one enigma, moved by one, the map left immutable. */
+function counted(
+  current: ReadonlyMap<Position, number>,
+  position: Position,
+  delta: number,
+): ReadonlyMap<Position, number> {
+  const next = new Map(current)
+  const count = (next.get(position) ?? 0) + delta
+
+  if (count > 0) next.set(position, count)
+  else next.delete(position)
+
+  return next
+}
+
+/** An essai the server would not take. Its reason is its business, not ours. */
+class RefusedTry extends Error {}
+
+/**
+ * One personal request: POST, JSON in, JSON out, cached by nobody.
+ *
+ * Both doors of the game answer the same way and fail the same way, so they
+ * share this rather than each carrying its own `fetch`. A 409 is the only
+ * status either of them gives a meaning to.
+ */
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (response.status === 409) throw new RefusedTry()
+  if (!response.ok) throw new Error(String(response.status))
+
+  return (await response.json()) as T
 }
 
 /** The partie on one enigma, or undefined while loading or when never opened. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { MAX_TRIES, describePlay } from '@/shared/play'
+import { HINT_LABELS, HINT_TIERS, MAX_TRIES, describePlay } from '@/shared/play'
 import type { EnigmaPlay } from '@/shared/play'
 
 /**
@@ -16,6 +16,8 @@ const play = (over: Partial<EnigmaPlay> = {}): EnigmaPlay => ({
   position: 1,
   triesUsed: 0,
   status: 'in_progress',
+  hints: [],
+  answer: null,
   ...over,
 })
 
@@ -46,5 +48,37 @@ describe('describePlay', () => {
     // number of essais spent on a partie the day took away says nothing.
     expect(describePlay(play({ triesUsed: 6, status: 'failed' }))).toBe('Échoué')
     expect(describePlay(play({ triesUsed: 2, status: 'failed' }))).toBe('Échoué')
+  })
+})
+
+/**
+ * The words the ladder is announced in, and one of them is a game rule.
+ *
+ * « En championnat » on tiers 4 and 5 is not a caption (specs §3): the source
+ * counts neither the domestic cups nor the European competitions, so Messi at
+ * Barcelona is 520 matchs and 474 buts, which is the Liga alone. Without the
+ * words, a joueur who knows his figures reads the hint as a mistake — and on a
+ * hint, confidence is worth more than precision. It is asserted rather than
+ * remembered because it is two words that any tidying would drop.
+ */
+describe('HINT_LABELS', () => {
+  it('says « en championnat » on the two tiers that count matches and goals', () => {
+    expect(HINT_LABELS[4]).toContain('en championnat')
+    expect(HINT_LABELS[5]).toContain('en championnat')
+  })
+
+  it('names the five tiers in the order the specs fix', () => {
+    expect(HINT_TIERS.map((tier) => HINT_LABELS[tier])).toEqual([
+      'Décennie de début',
+      'Durée par club',
+      'Nationalité',
+      'Matchs en championnat',
+      'Buts en championnat',
+    ])
+  })
+
+  it('has one label per tier and one tier per essai but the last', () => {
+    // Five tiers for six essais: the sixth erreur reveals the answer instead.
+    expect(HINT_TIERS).toHaveLength(MAX_TRIES - 1)
   })
 })

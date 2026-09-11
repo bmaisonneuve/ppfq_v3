@@ -98,6 +98,16 @@ app/api/health/challenge-today/route.ts
 > préchargement de lien ou un crawler, et chacun compterait comme une personne
 > exposée à l'énigme.
 
+> **Corrigé par l'[ADR-0012](./adr/0012-l-essai-est-une-route-handler-et-l-echelle-se-deduit.md)** :
+> il y en a sept, et **l'essai n'est pas une Server Action**. Le squelette donné
+> plus bas dans cette même section ne tient pas : une Server Action appelée
+> depuis un composant client rafraîchit la route d'où elle part, et cette
+> route-là est la grille du jour — prérendue et servie depuis un cache partagé
+> (ADR-0008). Treize essais par joueur seraient treize payloads RSC ramenés pour
+> rien. Surtout, l'essai doit faire la queue derrière `POST /api/game/state` :
+> sans cookie, chaque requête en vol crée un joueur, et une Server Action est
+> hors de cette file. C'est donc `app/api/game/try/route.ts`.
+
 > **Complété par l'[ADR-0010](./adr/0010-le-blason-en-base-adresse-par-son-contenu.md)** :
 > il y en a six. `app/api/crests/[key]/route.ts` sert les octets d'un blason à
 > une adresse qui **est** leur SHA-256. Un contrat HTTP, pour la raison

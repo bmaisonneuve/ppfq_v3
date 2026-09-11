@@ -346,6 +346,27 @@ La saisie est une **sélection dans une liste** : un essai est un `footballer_id
 | `wrong` | essais consommés + **un seul** indice, le suivant | Mauvaise réponse, doublon, ou tour passé |
 | `exhausted` | révélation complète | 6ᵉ erreur |
 
+> **Corrigé par l'[ADR-0012](./adr/0012-l-essai-est-une-route-handler-et-l-echelle-se-deduit.md).**
+> Les trois formes sont conservées, mais ce sont les **trois statuts** de la
+> partie — `in_progress`, `solved`, `failed` — et la réponse d'un essai est un
+> `EnigmaPlay`, la valeur que sert déjà la route d'état. Deux écarts avec ce qui
+> précède, tous deux volontaires :
+>
+> 1. **Les indices voyagent cumulés, pas un par un.** « Les informations
+>    dévoilées restent affichées jusqu'à la fin de la partie » (specs §3) sur une
+>    page qu'un rechargement jette : la route d'état doit donc de toute façon les
+>    renvoyer tous. Ce qui garantit « un seul indice, le suivant » n'est alors
+>    plus le format mais l'échelle — `server/domain/reveal-ladder.ts` dérive la
+>    liste des erreurs commises, donc une réponse à six indices serait une partie
+>    à six erreurs. La ligne ci-dessous reste vraie là où elle compte : **aucune
+>    réponse ne contient un indice qui n'a pas été payé, ni la réponse avant la
+>    fin**.
+> 2. **L'essai qui trouve ne compte pas comme une erreur.** Le tableau des
+>    paliers ci-dessus indexe sur `tries_used` ; il ne couvre que les erreurs,
+>    puisqu'une bonne réponse termine la partie. Trouver au troisième essai,
+>    c'est deux erreurs, donc deux indices — sans quoi on offrirait un palier
+>    pour avoir eu raison (specs §3, « à chaque erreur »).
+
 Le serveur ne renvoie jamais la liste complète des indices ni la réponse avant la fin. Conséquence sur le cache : la coquille partagée et cachable pleine page se limite au **parcours** (clubs, ordre, prêts, position, thème), reconstruit depuis les tables une fois par jour ; les indices dévoilés et l'état de partie sont dynamiques. Mettre les cinq indices dans le HTML de la page cachée les rendrait lisibles dans la source.
 
 D'où le découpage acté côté rendu : la page de la grille **ne lit aucun cookie**, donc elle ne connaît aucun joueur et reste statique ; l'état de partie est chargé par une requête dédiée après l'hydratation. Voir `stack-technique.md` §10.

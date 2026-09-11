@@ -24,7 +24,9 @@ _Avoid_: coup de pouce, skip, indice gratuit
 Ce qu'annonce une grille : standard, rétro, mercato, hors-série. Champ libre, propriété de la grille entière et jamais d'une énigme seule. Aucun jour de la semaine ne lui est attaché et aucun contrôle automatique ne s'y rattache.
 
 **Essai** :
-Un footballeur proposé pour une énigme, choisi dans la liste de recherche. Six essais par énigme ; un footballeur déjà tenté n'en consomme pas.
+Un footballeur proposé pour une énigme, choisi dans la liste de recherche. Six essais par énigme, et **tout en consomme un** : une mauvaise réponse, un footballeur déjà proposé, un tour passé (specs §3 et §10). Le septième est refusé par le service.
+
+À ne pas confondre avec le **double-clic**, qui est son exact contraire : la même proposition arrivant deux fois en moins de deux secondes ne consomme rien. Le doublon est une règle de jeu, le double-clic une protection technique.
 _Avoid_: tentative, guess, réponse
 
 **Partie** :
