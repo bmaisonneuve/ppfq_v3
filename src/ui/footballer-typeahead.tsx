@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 
 import {
@@ -26,10 +26,34 @@ import type { FootballerSuggestion, SearchResponse } from '@/shared/search'
  */
 export function FootballerTypeahead({
   label,
+  placeholder = 'Zidane, Chicharito…',
+  tone = 'form',
   onSelect,
+  onHighlight,
 }: Readonly<{
   label: string
+  placeholder?: string
+  /**
+   * L'habillage, et rien d'autre : `form` au back-office, `game` sur l'écran
+   * du jeu, où le champ est blanc dans le bandeau vert sombre et où la liste
+   * s'ouvre **vers le haut** — le bandeau est collé au bas de la fenêtre, et
+   * une liste vers le bas sortirait de l'écran.
+   */
+  tone?: 'form' | 'game'
   onSelect: (suggestion: FootballerSuggestion) => void
+  /**
+   * Ce que la touche Entrée validerait, et de quoi le valider soi-même.
+   *
+   * L'écran du jeu pose un bouton « Valider » **à côté** du champ, pas dedans :
+   * il lui faut donc savoir de l'extérieur s'il y a quelque chose à valider, et
+   * disposer du même geste que la touche Entrée — celui qui vide le champ et
+   * referme la liste en même temps qu'il propose. Sans ce second argument, le
+   * bouton laisserait derrière lui le texte de la proposition déjà envoyée.
+   *
+   * `submit` est stable : le parent peut la garder dans un état sans que sa
+   * seule identité déclenche un rendu de plus.
+   */
+  onHighlight?: (suggestion: FootballerSuggestion | null, submit: () => void) => void
 }>) {
   const [query, setQuery] = useState('')
   const [lastAnswer, setLastAnswer] = useState<FootballerSuggestion[]>([])
@@ -129,10 +153,31 @@ export function FootballerTypeahead({
 
   const open = suggestions.length > 0
   const activeId = open ? `${listId}-${highlighted}` : undefined
+  const skin = SKINS[tone]
+
+  // Ce que « Valider » validerait, remonté à qui a le bouton. Un effet et non
+  // un appel pendant le rendu : prévenir le parent est un effet de bord, et
+  // React interdit de le faire pendant qu'il calcule l'arbre.
+  const choice = suggestions[highlighted] ?? null
+
+  const pick = useRef<() => void>(noop)
+  useEffect(() => {
+    pick.current = () => {
+      if (choice !== null) choose(choice)
+    }
+  })
+
+  const submit = useCallback(() => {
+    pick.current()
+  }, [])
+
+  useEffect(() => {
+    onHighlight?.(choice, submit)
+  }, [choice, onHighlight, submit])
 
   return (
     <div className="relative">
-      <label htmlFor={inputId} className="block text-sm font-medium text-neutral-700">
+      <label htmlFor={inputId} className={skin.label}>
         {label}
       </label>
       <input
@@ -148,15 +193,15 @@ export function FootballerTypeahead({
         value={query}
         onChange={(event) => { setQuery(event.target.value) }}
         onKeyDown={onKeyDown}
-        placeholder="Zidane, Chicharito…"
-        className="mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
+        placeholder={placeholder}
+        className={skin.input}
       />
 
       {open ? (
         <ul
           id={listId}
           role="listbox"
-          className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg"
+          className={skin.list}
         >
           {suggestions.map((suggestion, index) => (
             <li
@@ -171,8 +216,8 @@ export function FootballerTypeahead({
                 // the pointer must not wait for a re-render to agree with it.
                 onMouseEnter={() => { setHighlighted(index) }}
                 onClick={() => { choose(suggestion) }}
-                className={`block w-full px-3 py-2 text-left text-base ${
-                  index === highlighted ? 'bg-neutral-100' : 'bg-white'
+                className={`${skin.option} ${
+                  index === highlighted ? skin.highlighted : 'bg-white'
                 }`}
               >
                 {suggestion.name}
@@ -184,3 +229,31 @@ export function FootballerTypeahead({
     </div>
   )
 }
+
+/**
+ * Les deux habillages, côte à côte pour qu'ils restent comparables.
+ *
+ * Le comportement est au-dessus et il est le même dans les deux : ce tableau ne
+ * contient que des classes, jamais une différence de logique. C'est ce qui
+ * permet d'en ajouter un troisième sans relire le composant.
+ */
+const SKINS = {
+  form: {
+    label: 'block text-sm font-medium text-neutral-700',
+    input:
+      'mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900',
+    list: 'absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg',
+    option: 'block w-full px-3 py-2 text-left text-base',
+    highlighted: 'bg-neutral-100',
+  },
+  game: {
+    label: 'sr-only',
+    input:
+      'rounded-row font-mono text-field text-ink placeholder:text-ink/45 caret-pitch w-full bg-white px-[14px] py-[13px] outline-none',
+    list: 'rounded-row absolute bottom-full z-10 mb-2 max-h-[40dvh] w-full overflow-y-auto bg-white',
+    option: 'font-display block w-full px-[14px] py-[10px] text-left text-[15px] font-bold',
+    highlighted: 'bg-crest',
+  },
+} as const
+
+const noop = (): void => undefined

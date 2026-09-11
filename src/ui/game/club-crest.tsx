@@ -1,50 +1,51 @@
-import { crestUrl } from '@/shared/club'
+import { clubInitials, crestUrl } from '@/shared/club'
 
 /**
- * Le blason d'un club, côté joueur.
+ * Le blason d'un club, ou ce qui en tient lieu.
  *
- * Il est arrivé sur la grille par une décision de jeu et non parce que le
- * back-office en avait : un parcours de dix lignes de texte se lit mal, et le
- * blason est ce qui rend une séquence de clubs reconnaissable d'un coup d'œil.
- * Il ne dévoile rien — le nom du club est juste à côté, et le parcours est
- * montré entier dès la première seconde (specs §3).
+ * Toujours un cercle de la même taille, avec ou sans image : la bande de
+ * blasons d'une carte et la colonne d'un tableau s'alignent sur le gabarit et
+ * non sur le contenu, sinon un parcours dont trois clubs ont un blason et
+ * quatre n'en ont pas se lit comme une ligne cassée.
  *
- * `alt=""` partout, et c'est volontaire : là où le blason accompagne un nom, il
- * le répète, et un lecteur d'écran qui annonce « Juventus, image Juventus » lit
- * deux fois la même chose. Là où il est seul — la bande d'une carte — c'est la
- * bande entière qui est décorative, et le nombre de clubs est écrit dessous.
- *
- * Un `<img>` nu plutôt que `next/image` : les octets sont une vignette déjà
- * rendue, servie par notre origine à une URL adressée par son contenu et
- * cachée pour toujours (ADR-0010). Il n'y a rien à optimiser.
+ * L'image sort de `/api/crests/<clé>` : le blason vit en base, adressé par le
+ * SHA-256 de ses octets (ADR-0010), donc l'URL est immuable et le navigateur la
+ * garde. `loading="lazy"` parce qu'un parcours peut en aligner sept et qu'aucun
+ * n'est ce que le joueur lit en premier.
  */
 export function ClubCrest({
+  clubName,
   crestKey,
-  className = 'size-8',
+  size,
 }: Readonly<{
-  /** Null quand le catalogue n'a pas de blason : une image qui manque. */
+  clubName: string
   crestKey: string | null
-  className?: string
+  /** 28 px dans la bande d'une carte, 32 px dans une ligne de tableau. */
+  size: 28 | 32
 }>) {
-  if (crestKey === null) {
-    // Le trou garde sa place plutôt que de disparaître : sans lui, une liste
-    // où un seul club n'a pas de blason a une ligne désalignée, ce qui se
-    // remarque plus que l'image manquante.
-    return (
-      <span
-        aria-hidden
-        className={`${className} shrink-0 rounded-full border border-dashed border-neutral-200`}
-      />
-    )
-  }
+  const box = size === 28 ? 'size-[28px]' : 'size-[32px]'
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- voir la note ci-dessus.
-    <img
-      src={crestUrl(crestKey)}
-      alt=""
-      loading="lazy"
-      className={`${className} shrink-0 object-contain`}
-    />
+    <span
+      className={`bg-crest flex ${box} shrink-0 items-center justify-center overflow-hidden rounded-full`}
+    >
+      {crestKey === null ? (
+        <span
+          aria-hidden
+          className={`font-mono text-crest-ink font-bold ${
+            size === 28 ? 'text-[9px]' : 'text-[10px]'
+          }`}
+        >
+          {clubInitials(clubName)}
+        </span>
+      ) : (
+        <img
+          src={crestUrl(crestKey)}
+          alt=""
+          loading="lazy"
+          className="size-full object-contain"
+        />
+      )}
+    </span>
   )
 }

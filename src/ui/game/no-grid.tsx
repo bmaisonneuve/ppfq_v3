@@ -1,23 +1,22 @@
+import { GameShell } from './chrome'
+
 /**
- * A day with no grid.
+ * Le jour où rien n'est programmé.
  *
- * The absence of a `daily_challenges` row *is* the hole
- * (docs/modele-donnees.md §4), and the player is the last person who should
- * learn about it: the weekly alert and the health route (#15, #16) read the
- * same absence, days earlier. So this says what happened, plainly, and offers
- * nothing to click.
- *
- * Its own file, and a server component, because it is the one screen of the
- * game with nothing to play: the grid itself is a client component and would
- * otherwise drag its whole bundle onto a page that has no enigma on it.
+ * Il n'a pas d'en-tête : sans grille il n'y a ni date de journée, ni thème, ni
+ * niveau à ouvrir — une barre segmentée vide et une pastille de thème absente
+ * feraient un écran cassé là où il n'y a qu'un calendrier incomplet. La marque
+ * reste, et le reste attend demain.
  */
 export function NoGridView() {
   return (
-    <div className="flex flex-col gap-2">
-      <h1 className="text-3xl font-semibold tracking-tight">Pas de grille aujourd’hui</h1>
-      <p className="text-neutral-600">
-        Aucune grille n’est programmée pour la journée. Revenez demain.
-      </p>
-    </div>
+    <GameShell>
+      <div className="flex flex-1 flex-col justify-center gap-3 px-4 py-10">
+        <h1 className="font-display text-score text-white">Pas de grille aujourd’hui</h1>
+        <p className="font-mono text-meta text-ink">
+          Aucune grille n’est programmée pour la journée. Revenez demain.
+        </p>
+      </div>
+    </GameShell>
   )
 }

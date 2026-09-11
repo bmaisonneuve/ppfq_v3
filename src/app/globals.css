@@ -1,1 +1,188 @@
 @import 'tailwindcss';
+
+/**
+ * Le thème du jeu, tel que le handoff de design le fixe.
+ *
+ * Tout est ici et rien n'est ailleurs : les écrans n'écrivent aucune couleur en
+ * dur, parce qu'une couleur écrite en dur dans un composant est une couleur que
+ * le prochain écran ne retrouvera pas. Les jetons sont déclarés dans `@theme`,
+ * donc Tailwind en fait des utilitaires (`bg-pitch`, `text-ink`, `rounded-card`,
+ * `text-club`) et ce sont ces noms-là qu'on lit dans le JSX.
+ *
+ * Les tailles de texte portent un **rôle** et non un nombre : le handoff donne
+ * une échelle de 8,5 à 32 px où chaque cran est associé à une graisse, un
+ * interlettrage et une famille — `text-club` dit « nom de club » et emporte les
+ * quatre décisions d'un coup. Une échelle numérique (`text-sm`, `text-base`)
+ * aurait redemandé la graisse et l'interlettrage à chaque usage, et les aurait
+ * laissés diverger.
+ *
+ * La famille reste séparée (`font-display` / `font-mono`) : Tailwind n'attache
+ * pas de famille à un cran de taille. La règle du handoff est simple — Bricolage
+ * Grotesque pour ce qui se lit (titres, noms, boutons), IBM Plex Mono pour ce
+ * qui se compte (chiffres, badges, capitales espacées).
+ */
+@theme {
+  /* Les deux couleurs qui font l'identité : le terrain et l'encre. */
+  --color-pitch: #2ecb92;
+  --color-ink: #0b2e22;
+
+  /* Le bandeau d'action et les tuiles de statistiques : des voiles posés sur le
+     vert, jamais des couleurs à part. */
+  --color-band: rgb(11 46 34 / 0.1);
+  --color-tile: rgb(255 255 255 / 0.2);
+
+  /* Le blason en attente d'image : un cercle et deux initiales. */
+  --color-crest: #edf2ef;
+  --color-crest-ink: #6e837a;
+
+  /* L'issue d'une partie, en trois paires fond/texte. */
+  --color-found: #12a574;
+  --color-found-soft: #d9f5e8;
+  --color-found-ink: #0b6b4c;
+  --color-missed: #e4573d;
+  --color-missed-soft: #fdece8;
+
+  /* Le prêt, annotation accolée au nom du club — et l'essai non consommé. */
+  --color-loan: #b6f0d7;
+  --color-unspent: #e6efea;
+
+  /* La police de titrage, chargée par `next/font` dans le layout racine. La
+     pile de secours est là pour la fraction de seconde où elle n'est pas
+     encore peinte, et pour le jour où le réseau la refuse. */
+  --font-display:
+    var(--font-bricolage), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono:
+    var(--font-plex-mono), ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+
+  /* Bricolage Grotesque — toujours un interlettrage négatif, d'autant plus
+     serré que le corps est gros. */
+  --text-wordmark: 19px;
+  --text-wordmark--line-height: 1;
+  --text-wordmark--font-weight: 800;
+  --text-wordmark--letter-spacing: -0.04em;
+
+  --text-date: 24px;
+  --text-date--line-height: 1;
+  --text-date--font-weight: 800;
+  --text-date--letter-spacing: -0.04em;
+
+  --text-score: 30px;
+  --text-score--line-height: 1;
+  --text-score--font-weight: 800;
+  --text-score--letter-spacing: -0.045em;
+
+  --text-answer: 22px;
+  --text-answer--line-height: 1.1;
+  --text-answer--font-weight: 800;
+  --text-answer--letter-spacing: -0.035em;
+
+  --text-figure: 22px;
+  --text-figure--line-height: 1;
+  --text-figure--font-weight: 800;
+
+  --text-action: 16px;
+  --text-action--line-height: 1;
+  --text-action--font-weight: 800;
+  --text-action--letter-spacing: -0.02em;
+
+  --text-club: 15.5px;
+  --text-club--line-height: 1.15;
+  --text-club--font-weight: 700;
+  --text-club--letter-spacing: -0.02em;
+
+  --text-card: 15px;
+  --text-card--line-height: 1.2;
+  --text-card--font-weight: 700;
+  --text-card--letter-spacing: -0.025em;
+
+  --text-rail: 14px;
+  --text-rail--line-height: 1.2;
+  --text-rail--font-weight: 700;
+  --text-rail--letter-spacing: -0.025em;
+
+  --text-segment: 10.5px;
+  --text-segment--line-height: 1.2;
+  --text-segment--font-weight: 700;
+  --text-segment--letter-spacing: -0.02em;
+
+  /* IBM Plex Mono — les capitales portent un interlettrage positif, de .08em
+     sur les badges à .12em sur la pastille de thème. */
+  --text-field: 13px;
+  --text-field--line-height: 1.2;
+  --text-field--font-weight: 500;
+
+  --text-pass: 11.5px;
+  --text-pass--line-height: 1;
+  --text-pass--font-weight: 700;
+
+  --text-cell: 11.5px;
+  --text-cell--line-height: 1.2;
+  --text-cell--font-weight: 600;
+
+  --text-meta: 11px;
+  --text-meta--line-height: 1.3;
+  --text-meta--font-weight: 500;
+
+  --text-cta: 11px;
+  --text-cta--line-height: 1;
+  --text-cta--font-weight: 700;
+
+  --text-sub: 10.5px;
+  --text-sub--line-height: 1.3;
+  --text-sub--font-weight: 500;
+
+  --text-pill: 10px;
+  --text-pill--line-height: 1;
+  --text-pill--font-weight: 700;
+  --text-pill--letter-spacing: 0.12em;
+
+  --text-state: 10px;
+  --text-state--line-height: 1;
+  --text-state--font-weight: 600;
+
+  --text-chip: 9.5px;
+  --text-chip--line-height: 1;
+  --text-chip--font-weight: 700;
+  --text-chip--letter-spacing: 0.1em;
+
+  --text-overline: 9.5px;
+  --text-overline--line-height: 1;
+  --text-overline--font-weight: 700;
+  --text-overline--letter-spacing: 0.12em;
+
+  --text-badge: 9px;
+  --text-badge--line-height: 1;
+  --text-badge--font-weight: 700;
+  --text-badge--letter-spacing: 0.08em;
+
+  --text-column: 9px;
+  --text-column--line-height: 1;
+  --text-column--font-weight: 700;
+  --text-column--letter-spacing: 0.1em;
+
+  /* Le libellé d'une tuile statistique, et le badge « PRÊT ».
+     Ni `--text-tile` ni `--text-loan` : Tailwind sert `text-<nom>` depuis
+     `--text-*` **et** depuis `--color-*`, alors un nom porté par les deux
+     donne un utilitaire ambigu — `text-loan` peignait le texte du badge de la
+     couleur de son propre fond, donc invisible. Les tailles portent ici un nom
+     que la palette n'a pas. */
+  --text-stat: 9px;
+  --text-stat--line-height: 1.2;
+  --text-stat--font-weight: 600;
+  --text-stat--letter-spacing: 0.08em;
+
+  --text-tag: 8.5px;
+  --text-tag--line-height: 1;
+  --text-tag--font-weight: 700;
+  --text-tag--letter-spacing: 0.08em;
+
+  /* Aucune ombre portée dans les maquettes : l'état sélectionné est un contour
+     (`ring-2 ring-ink`), et les rayons font tout le reste du relief. */
+  --radius-bar: 3px;
+  --radius-loan: 4px;
+  --radius-field: 8px;
+  --radius-icon: 9px;
+  --radius-rail: 11px;
+  --radius-row: 12px;
+  --radius-card: 14px;
+}

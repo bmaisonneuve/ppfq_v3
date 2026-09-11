@@ -58,15 +58,44 @@ export const POSITION_LABELS: Record<Position, string> = {
 }
 
 /**
- * Comment une énigme s'annonce à l'écran : « 1. échauffement ».
+ * Le nom d'une énigme tel que le joueur le lit : « L'échauffement ».
+ *
+ * Deux formes du même mot, et c'est la langue qui les impose : un titre
+ * s'annonce avec son article et une capitale, une phrase le reprend en
+ * complément (« Reprendre **le titulaire** », « Ouvrir **la légende** »).
+ * L'élision de « l'échauffement » interdit de les dériver l'une de l'autre en
+ * collant un article devant `POSITION_LABELS` — alors les deux sont écrites.
+ */
+const POSITION_TITLES: Record<Position, string> = {
+  1: 'L’échauffement',
+  2: 'Le titulaire',
+  3: 'La légende',
+}
+
+const POSITION_OBJECTS: Record<Position, string> = {
+  1: 'l’échauffement',
+  2: 'le titulaire',
+  3: 'la légende',
+}
+
+export function positionTitle(position: Position): string {
+  return POSITION_TITLES[position]
+}
+
+export function positionObject(position: Position): string {
+  return POSITION_OBJECTS[position]
+}
+
+/**
+ * Comment une énigme s'annonce sur sa carte : « 1 · L'échauffement ».
  *
  * Le rang et son nom, jamais l'un sans l'autre — la position *est* l'ordre de
- * difficulté (CONTEXT.md), et la carte comme la fenêtre l'annoncent donc de la
- * même façon. Une seule définition, sinon les deux se répondent de travers le
- * jour où l'une des deux change de ponctuation.
+ * difficulté (CONTEXT.md), et tous les écrans l'annoncent donc de la même
+ * façon. Une seule définition, sinon ils se répondent de travers le jour où
+ * l'un des deux change de ponctuation.
  */
 export function positionHeading(position: Position): string {
-  return `${position}. ${POSITION_LABELS[position]}`
+  return `${position} · ${POSITION_TITLES[position]}`
 }
 
 /**
@@ -103,6 +132,24 @@ export function formatChallengeDate(date: ChallengeDate): string {
     month: 'long',
     year: 'numeric',
   })
+}
+
+/**
+ * La date telle qu'elle titre l'écran du jeu : « Jeudi 11 septembre ».
+ *
+ * Sans l'année, et avec une capitale — les deux différences avec
+ * `formatChallengeDate`, qui date une grille dans le résumé partagé et au
+ * back-office, où l'année compte. Ici elle ne compte pas : l'écran dit le jour
+ * qu'on est en train de jouer, et « 2026 » n'y apprend rien à personne.
+ */
+export function formatGridDate(date: ChallengeDate): string {
+  const words = frenchCalendar(`${date}T12:00:00Z`, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  })
+
+  return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
 /** The month, spelled the way a French calendar heads it. */

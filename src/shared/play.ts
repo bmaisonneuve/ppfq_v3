@@ -258,3 +258,80 @@ export function describePlay(play: EnigmaPlay): string {
 
 /** French, so zero is singular: « 0 essai », « 1 essai », « 2 essais ». */
 const essais = (count: number) => `${count} essai${count > 1 ? 's' : ''}`
+
+/** Ce qu'il reste à dépenser : jamais négatif, même si le serveur a compté 7. */
+export function triesLeft(play: EnigmaPlay): number {
+  return Math.max(0, MAX_TRIES - play.triesUsed)
+}
+
+export function isOver(play: EnigmaPlay): boolean {
+  return play.status !== 'in_progress'
+}
+
+/**
+ * Le pied d'une carte de la grille : « 3 essais restants », « 4 essais ».
+ *
+ * Une partie en cours compte ce qui reste, une partie finie ce qui a été
+ * dépensé, et une énigme jamais ouverte annonce la dotation. Trois phrases pour
+ * trois moments, et c'est la même règle que `describePlay` sert ailleurs en
+ * plus long : un échec ne dit pas son nombre d'essais (voir plus haut).
+ */
+export function describeTries(play: EnigmaPlay | undefined): string {
+  if (play === undefined) return essais(MAX_TRIES)
+
+  switch (play.status) {
+    case 'in_progress':
+      return `${essais(triesLeft(play))} restants`
+    case 'solved':
+      return essais(play.triesUsed)
+    case 'failed':
+      return 'échoué'
+  }
+}
+
+/**
+ * Lire un palier dévoilé, quand il l'est.
+ *
+ * `undefined` et `null` ne disent pas la même chose et l'écran les traite
+ * différemment : `undefined`, le palier n'est pas atteint et rien ne s'affiche ;
+ * `null`, il est atteint mais la donnée manque au catalogue, et l'écran doit
+ * l'avouer plutôt que de faire croire à un indice qui n'arrive pas.
+ */
+function hintOf<T extends HintTier>(
+  hints: readonly RevealedHint[],
+  tier: T,
+): Extract<RevealedHint, { tier: T }> | undefined {
+  return hints.find((hint): hint is Extract<RevealedHint, { tier: T }> => hint.tier === tier)
+}
+
+export function revealedDecade(hints: readonly RevealedHint[]): number | null | undefined {
+  return hintOf(hints, 1)?.decade
+}
+
+export function revealedNationality(
+  hints: readonly RevealedHint[],
+): HintNationality | null | undefined {
+  return hintOf(hints, 3)?.nationality
+}
+
+/**
+ * Les colonnes chiffrées du tableau des clubs, dans l'ordre du parcours.
+ *
+ * Les trois paliers portent la même forme sous trois noms — `durations`,
+ * `matches`, `goals` — parce qu'ils disent trois choses différentes ; le
+ * tableau, lui, les affiche de la même façon, et c'est ici que les trois se
+ * rejoignent au lieu de se rejoindre dans le JSX.
+ */
+export function revealedFigures(
+  hints: readonly RevealedHint[],
+  tier: 2 | 4 | 5,
+): readonly HintClubLine[] | undefined {
+  switch (tier) {
+    case 2:
+      return hintOf(hints, 2)?.durations
+    case 4:
+      return hintOf(hints, 4)?.matches
+    case 5:
+      return hintOf(hints, 5)?.goals
+  }
+}

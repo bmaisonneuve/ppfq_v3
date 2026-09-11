@@ -3,23 +3,12 @@
 import type { ReactNode } from 'react'
 
 /**
- * Les deux choses que le jeu doit dire quand il ne peut pas tenir sa promesse.
+ * Les deux choses qui peuvent mal tourner sur l'écran du jeu, dites au joueur.
  *
- * Elles sont dans un fichier à elles parce qu'elles s'affichent à deux endroits
- * : sous les cartes, et **dans la fenêtre d'une énigme**. Une fenêtre modale
- * couvre la page, donc un avis posé derrière elle n'existe pas pour le joueur
- * qui est en train de jouer — et c'est précisément le moment où il a besoin de
- * le lire. Deux formulations pour la même panne, c'est deux vérités qui
- * divergent le jour où l'une des deux est corrigée.
- */
-
-/**
- * La grille à l'écran n'est plus la grille du jour.
- *
- * La page est prérendue et servie par un cache partagé pendant une minute
- * (ADR-0008), donc quelqu'un qui arrive à minuit peut tenir celle de la veille.
- * Le serveur n'ouvrira pas de partie dessus — rien de ce qu'il ferait ne serait
- * enregistré — alors le dire vaut mieux que le laisser jouer dans le vide.
+ * Elles sont séparées parce qu'elles ne demandent pas la même chose : une
+ * grille qui a tourné se répare en rechargeant, une progression qui n'est pas
+ * arrivée ne se répare pas depuis ici. Confondre les deux sous un « une erreur
+ * est survenue » ferait recharger dans le second cas, pour rien.
  */
 export function StaleGridNotice() {
   return (
@@ -38,20 +27,13 @@ export function StaleGridNotice() {
   )
 }
 
-/**
- * L'état personnel n'a pas pu être lu.
- *
- * Le dire, plutôt que d'afficher zéro essai partout : « aucune partie » et
- * « on n'a pas pu demander » se ressemblent à l'écran et un seul des deux est
- * vrai. Le parcours n'est pas concerné — il est venu avec la page.
- */
 export function UnavailableNotice() {
   return <Notice>Votre progression n’a pas pu être chargée.</Notice>
 }
 
 function Notice({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <p className="rounded-md border border-neutral-200 bg-neutral-50 px-4 py-2 text-sm text-neutral-600">
+    <p className="rounded-row font-mono text-meta text-ink bg-white px-[14px] py-[11px]">
       {children}
     </p>
   )

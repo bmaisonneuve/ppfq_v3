@@ -48,6 +48,11 @@ const GUARDED = [
   'src/app/layout.tsx',
   'src/app/(game)/layout.tsx',
   'src/app/(game)/page.tsx',
+  // Les trois niveaux ont chacun leur URL (`/1`, `/2`, `/3`) et sont rendus par
+  // ce seul fichier. Il est dans la liste pour la même raison que l'accueil :
+  // c'est une route du jeu, prérendue, servie depuis le même cache partagé, et
+  // une lecture de requête y coûterait exactement autant.
+  'src/app/(game)/[position]/page.tsx',
   'src/server/services/grid.service.ts',
   'src/ui/game',
 ]
@@ -149,17 +154,23 @@ describe('the static grid barrier', () => {
       const source = await readFile(file, 'utf8')
       // `dynamic = 'force-dynamic'` would undo the whole thing in five words,
       // and `dynamic` has no other value worth setting here.
-      expect(source).not.toContain('export const dynamic')
+      //
+      // The pattern carries its `=` so it cannot catch `dynamicParams`, which
+      // is the opposite decision and is set on the level route: `false` there
+      // *refuses* to render a segment nobody prerendered, so `/4` is a 404
+      // instead of a dynamic render.
+      expect(source).not.toContain('export const dynamic =')
     }
   })
 
   it('guards files that exist, so a rename cannot empty the list', async () => {
-    // `(game)/layout.tsx` is allowed to be absent — there is none today — but
-    // the rest are not: a path that stops matching anything after a move would
-    // leave this test passing over nothing.
+    // A path that stops matching anything after a move would leave this test
+    // passing over nothing, so every entry has to resolve to at least one file.
     for (const entry of [
       PAGE,
       'src/app/layout.tsx',
+      'src/app/(game)/layout.tsx',
+      'src/app/(game)/[position]/page.tsx',
       'src/server/services/grid.service.ts',
       'src/ui/game',
     ]) {

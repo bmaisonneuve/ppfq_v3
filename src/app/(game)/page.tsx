@@ -1,12 +1,14 @@
-import { getDailyGrid } from '@/server/services/grid.service'
-import { DailyGridView } from '@/ui/game/daily-grid'
-import { NoGridView } from '@/ui/game/no-grid'
+import { HomeScreen } from '@/ui/game/home-screen'
 
 /**
- * La grille du jour : trois énigmes accessibles d'emblée — aucune n'attend
+ * L'aperçu de la journée : trois énigmes accessibles d'emblée — aucune n'attend
  * qu'une autre soit trouvée — chacune montrant le parcours complet d'un
  * footballeur. Accessibles, et non toutes dépliées : une partie naît à
- * l'ouverture d'une énigme (#8).
+ * l'ouverture d'une énigme (#8), et ouvrir est ici un lien vers `/1`, `/2` ou
+ * `/3`.
+ *
+ * La grille elle-même est lue par le layout, qui la partage avec les trois
+ * écrans de niveau. Ce qui suit vaut pour les quatre routes.
  *
  * ## The route reads no cookie, and that is the architecture
  *
@@ -53,12 +55,8 @@ import { NoGridView } from '@/ui/game/no-grid'
  */
 export const revalidate = 60
 
-export default async function GamePage() {
-  const grid = await getDailyGrid()
-
-  return (
-    <main className="mx-auto flex min-h-dvh max-w-2xl flex-col gap-6 px-6 py-10">
-      {grid === null ? <NoGridView /> : <DailyGridView grid={grid} />}
-    </main>
-  )
+export default function GamePage() {
+  // Le châssis de l'écran est dans `ui/game` : c'est là que vit le thème, et
+  // la page n'a pas à connaître sa gouttière.
+  return <HomeScreen />
 }

@@ -179,3 +179,26 @@ export const IDLE_CLUB_ACTION: ClubActionState = IDLE_ADMIN_ACTION
 
 /** The signature every club Server Action has, for the presentational layer. */
 export type ClubAction = AdminAction
+
+/**
+ * Les deux lettres qui tiennent la place d'un blason.
+ *
+ * Tous les clubs n'en ont pas — le blason est extrait de Wikipédia et
+ * l'extraction échoue parfois (ADR-0010) — et un cercle vide dans une bande de
+ * sept fait un trou que le joueur lit comme une donnée manquante *de
+ * l'énigme*. Deux initiales ne disent rien de plus que le nom déjà affiché à
+ * côté, et rendent la bande lisible.
+ *
+ * Les mots de deux lettres sont écartés : « FC », « AC », « de », « la » ne
+ * distinguent aucun club, et « FC Barcelone » doit donner BA et non FB.
+ */
+export function clubInitials(clubName: string): string {
+  const words = clubName.split(/[\s-]+/).filter((word) => word.length > 2)
+  const [first, second] = words
+
+  if (first === undefined) return clubName.slice(0, 2).toUpperCase()
+
+  return (
+    second === undefined ? first.slice(0, 2) : first.charAt(0) + second.charAt(0)
+  ).toUpperCase()
+}
