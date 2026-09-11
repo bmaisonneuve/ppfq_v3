@@ -86,7 +86,7 @@ export async function getCurationDossier(
       clubEnName: clubs.enName,
       // The crest, shown next to the club so a 1894 team photograph where a
       // crest should be is caught on the screen the admin already has open.
-      clubCrestKey: clubs.crestKey,
+      crestKey: clubs.crestKey,
       isLoan: playerClubs.isLoan,
       startYear: playerClubs.startYear,
       endYear: playerClubs.endYear,

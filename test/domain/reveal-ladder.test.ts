@@ -33,6 +33,7 @@ const club = (over: Partial<PlayerClub> = {}): PlayerClub => ({
   id: 'p1',
   clubId: 'c1',
   clubName: 'AS Cannes',
+  crestKey: null,
   isLoan: false,
   startYear: 1988,
   endYear: 1992,
@@ -144,8 +145,28 @@ describe('the hints themselves', () => {
     expect(hints(2, { playerClubs: passages })[1]).toEqual({
       tier: 2,
       durations: [
-        { clubName: 'AS Cannes', figure: 1 },
-        { clubName: 'Juventus', figure: 6 },
+        { clubName: 'AS Cannes', crestKey: null, figure: 1 },
+        { clubName: 'Juventus', crestKey: null, figure: 6 },
+      ],
+    })
+  })
+
+  it('carries the crest of each club onto its hint line', () => {
+    // The hint is read in the same window as the parcours, a few centimetres
+    // below it: a line that lost its crest reads as a line about another club.
+    // Public either way — the club is named on that very line.
+    const passages = [
+      club({ id: 'p1', clubName: 'AS Cannes', crestKey: 'a'.repeat(64) }),
+      club({ id: 'p2', clubName: 'Juventus', crestKey: null, startYear: 1996, endYear: 2001 }),
+    ]
+
+    const durations = hints(2, { playerClubs: passages })[1]
+
+    expect(durations).toEqual({
+      tier: 2,
+      durations: [
+        { clubName: 'AS Cannes', crestKey: 'a'.repeat(64), figure: 5 },
+        { clubName: 'Juventus', crestKey: null, figure: 6 },
       ],
     })
   })
@@ -157,7 +178,7 @@ describe('the hints themselves', () => {
     const passages = [club({ startYear: 2020, endYear: null })]
     expect(hints(2, { playerClubs: passages })[1]).toEqual({
       tier: 2,
-      durations: [{ clubName: 'AS Cannes', figure: 7 }],
+      durations: [{ clubName: 'AS Cannes', crestKey: null, figure: 7 }],
     })
   })
 
@@ -168,7 +189,7 @@ describe('the hints themselves', () => {
     const passages = [club({ startYear: 2015, endYear: 2012 })]
     expect(hints(2, { playerClubs: passages })[1]).toEqual({
       tier: 2,
-      durations: [{ clubName: 'AS Cannes', figure: 1 }],
+      durations: [{ clubName: 'AS Cannes', crestKey: null, figure: 1 }],
     })
   })
 
@@ -195,22 +216,22 @@ describe('the hints themselves', () => {
     expect(hints(4, { playerClubs: passages })[3]).toEqual({
       tier: 4,
       matches: [
-        { clubName: 'AS Cannes', figure: 61 },
-        { clubName: 'Juventus', figure: 151 },
+        { clubName: 'AS Cannes', crestKey: null, figure: 61 },
+        { clubName: 'Juventus', crestKey: null, figure: 151 },
       ],
     })
   })
 
   it('gives the league goals last', () => {
-    expect(hints(5)[4]).toEqual({ tier: 5, goals: [{ clubName: 'AS Cannes', figure: 6 }] })
+    expect(hints(5)[4]).toEqual({ tier: 5, goals: [{ clubName: 'AS Cannes', crestKey: null, figure: 6 }] })
   })
 
   it('passes a figure the catalogue does not have through as missing', () => {
     const passages = [club({ matches: null, goals: null })]
     const revealed = hints(5, { playerClubs: passages })
 
-    expect(revealed[3]).toEqual({ tier: 4, matches: [{ clubName: 'AS Cannes', figure: null }] })
-    expect(revealed[4]).toEqual({ tier: 5, goals: [{ clubName: 'AS Cannes', figure: null }] })
+    expect(revealed[3]).toEqual({ tier: 4, matches: [{ clubName: 'AS Cannes', crestKey: null, figure: null }] })
+    expect(revealed[4]).toEqual({ tier: 5, goals: [{ clubName: 'AS Cannes', crestKey: null, figure: null }] })
   })
 
   it('gives the tiers in the specs’ order and nothing beyond what was paid for', () => {

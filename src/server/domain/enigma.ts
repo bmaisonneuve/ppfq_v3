@@ -14,6 +14,10 @@ import { sortPlayerClubs } from './career'
  * is one operation: order the passages, keep the club and its loan annotation,
  * **drop everything else**.
  *
+ * The club's crest rides along with its name, and it is the one thing added to
+ * that pair since: it is the same public fact seen as an image, so it belongs
+ * on the side of the parcours rather than on the side of the ladder.
+ *
  * That last step is the reason this is a function and not a `map` inside a
  * query. The page of the grid is rendered once a day and served to everyone
  * from a shared cache, so a hint that reached the HTML would reach every player
@@ -27,11 +31,15 @@ import { sortPlayerClubs } from './career'
  *
  * The sort key rather than a whole `PlayerClub`, so the query behind this never
  * selects `matches` or `goals` — and the shown half is `EnigmaPassage` itself,
- * so the two fields a player sees are declared in one place.
+ * so what a player sees is declared in one place.
  */
 export type EnigmaPassageRow = PlayerClubOrderKey & EnigmaPassage
 
 /** One footballer's passages, posed as the enigma the player reads. */
 export function enigmaPassages(passages: readonly EnigmaPassageRow[]): EnigmaPassage[] {
-  return sortPlayerClubs(passages).map(({ clubName, isLoan }) => ({ clubName, isLoan }))
+  return sortPlayerClubs(passages).map(({ clubName, isLoan, crestKey }) => ({
+    clubName,
+    isLoan,
+    crestKey,
+  }))
 }

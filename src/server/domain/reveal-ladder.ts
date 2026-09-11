@@ -162,5 +162,9 @@ function lines(
   parcours: readonly PlayerClub[],
   figure: (passage: PlayerClub) => number | null,
 ): HintClubLine[] {
-  return parcours.map((passage) => ({ clubName: passage.clubName, figure: figure(passage) }))
+  return parcours.map((passage) => ({
+    clubName: passage.clubName,
+    crestKey: passage.crestKey,
+    figure: figure(passage),
+  }))
 }

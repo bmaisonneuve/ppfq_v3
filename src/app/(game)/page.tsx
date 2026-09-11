@@ -1,5 +1,6 @@
 import { getDailyGrid } from '@/server/services/grid.service'
-import { DailyGridView, NoGridView } from '@/ui/game/daily-grid'
+import { DailyGridView } from '@/ui/game/daily-grid'
+import { NoGridView } from '@/ui/game/no-grid'
 
 /**
  * La grille du jour : trois énigmes accessibles d'emblée — aucune n'attend

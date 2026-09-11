@@ -29,6 +29,17 @@ export type PlayerClub = {
   clubId: string
   /** Current French name of the club — what the game displays. */
   clubName: string
+  /**
+   * The club's crest, by content address, or null when the catalogue has none.
+   *
+   * Next to the name because it is the same fact seen as an image, and it
+   * travels wherever the name does: the parcours of an énigme shows it, and so
+   * do the per-club hints, which would otherwise print bare names right under
+   * a parcours that has crests. A key and never a URL — `crestUrl` in
+   * `shared/club.ts` is the one place that knows where the bytes are served
+   * from (ADR-0010).
+   */
+  crestKey: string | null
   /** An annotation next to the club, never a club of its own. */
   isLoan: boolean
   startYear: number

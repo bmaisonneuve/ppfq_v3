@@ -20,6 +20,7 @@ const passage = (over: Partial<EnigmaPassageRow> = {}): EnigmaPassageRow => ({
   id: '00000000-0000-4000-8000-000000000001',
   clubName: 'AS Cannes',
   isLoan: false,
+  crestKey: null,
   startYear: 1988,
   endYear: 1992,
   ...over,
@@ -39,7 +40,27 @@ describe('enigmaPassages', () => {
   it('carries the loan annotation', () => {
     const posed = enigmaPassages([passage({ clubName: 'Stade de Reims', isLoan: true })])
 
-    expect(posed).toEqual([{ clubName: 'Stade de Reims', isLoan: true }])
+    expect(posed).toEqual([{ clubName: 'Stade de Reims', isLoan: true, crestKey: null }])
+  })
+
+  it('carries the crest of each club, at its place in the parcours', () => {
+    // The crest is the same public fact as the name it sits next to — the
+    // parcours is shown whole — so it travels with the club rather than being
+    // fetched a second time by the page.
+    const posed = enigmaPassages([
+      passage({ id: 'b', clubName: 'Juventus', crestKey: 'b'.repeat(64), startYear: 1996 }),
+      passage({ id: 'a', clubName: 'AS Cannes', crestKey: 'a'.repeat(64), startYear: 1988 }),
+    ])
+
+    expect(posed.map((p) => p.crestKey)).toEqual(['a'.repeat(64), 'b'.repeat(64)])
+  })
+
+  it('leaves the crest null for a club the catalogue has none for', () => {
+    // An image missing, not a hole: most clubs have no crest the day they are
+    // imported, and the parcours is readable without one.
+    const [posed] = enigmaPassages([passage({ crestKey: null })])
+
+    expect(posed?.crestKey).toBeNull()
   })
 
   it('shows a club crossed twice twice, each at its place in the chronology', () => {
@@ -62,8 +83,8 @@ describe('enigmaPassages', () => {
     ])
 
     expect(posed).toEqual([
-      { clubName: 'Stade de Reims', isLoan: true },
-      { clubName: 'Olympique lyonnais', isLoan: false },
+      { clubName: 'Stade de Reims', isLoan: true, crestKey: null },
+      { clubName: 'Olympique lyonnais', isLoan: false, crestKey: null },
     ])
   })
 
@@ -76,13 +97,13 @@ describe('enigmaPassages', () => {
     expect(posed.map((p) => p.clubName)).toEqual(['FC Barcelone C', 'Levante UD'])
   })
 
-  it('gives back the club and the loan flag, and nothing else', () => {
+  it('gives back the club, its crest and the loan flag, and nothing else', () => {
     // Asserted on the keys rather than on the values: this is the barrier that
     // keeps a hint out of a page cached full and shared by everyone, and a
     // field riding along on a row would slip past an equality on two clubs.
     const [posed] = enigmaPassages([passage({ startYear: 1988, endYear: 1992 })])
 
-    expect(Object.keys(posed ?? {})).toEqual(['clubName', 'isLoan'])
+    expect(Object.keys(posed ?? {})).toEqual(['clubName', 'isLoan', 'crestKey'])
   })
 
   it('gives back nothing for a footballer with no passage', () => {

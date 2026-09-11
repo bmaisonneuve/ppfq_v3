@@ -31,7 +31,7 @@ import type { Nationality, PlayerClub } from './career'
 export type PassageFlag = 'likely-reserve' | 'overlap' | 'missing-figures'
 
 /**
- * A passage as curation reads it: the game's row, plus the two things about the
+ * A passage as curation reads it: the game's row, plus the one thing about the
  * club that only the back-office looks at.
  *
  * The English name is here for one reason, and it is measured: the reserve-team
@@ -39,17 +39,17 @@ export type PassageFlag = 'likely-reserve' | 'overlap' | 'missing-figures'
  * labels, and a French name can lose the marker the English one carries. The
  * model keeps `clubs.en_name` precisely as the admin's fallback.
  *
- * The crest key is here for the other half of the same job. The main image of a
- * Wikipedia article is not always a crest — London Caledonians FC answers with
- * a team photograph from 1894 — and the parcours is where the admin has the
- * clubs in front of him anyway. It is deliberately **not** on `PlayerClub`: the
- * grid is prerendered and cached whole (ADR-0008), and putting images into it
- * is a game decision, not a consequence of this one.
+ * The crest used to be the second of those things, under a name of its own, and
+ * it is no longer: it sits on `PlayerClub` now, because the game shows it. That
+ * was the open question at the time — putting images into a page prerendered
+ * and cached whole (ADR-0008) is a game decision — and the game has since made
+ * it. The back-office keeps the use it always had for it: the main image of a
+ * Wikipedia article is not always a crest (London Caledonians FC answers with a
+ * team photograph from 1894), and the parcours is where the admin has every
+ * club in front of him at once.
  */
 export type CuratedPassage = PlayerClub & {
   clubEnName: string | null
-  /** The club's crest, by content address. Null when it has none yet. */
-  clubCrestKey: string | null
 }
 
 /** One passage as the curation screen shows it: the row, plus what to look at. */

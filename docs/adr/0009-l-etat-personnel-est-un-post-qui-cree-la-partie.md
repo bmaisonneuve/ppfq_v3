@@ -59,3 +59,14 @@ La programmation ne remplace donc que ce qui change : une position dont le footb
 **Aucun contrôle des 13 mois hors de la CI.** La durée est affirmée deux fois : `test/domain/player-cookie.test.ts` sur la constante, et un `grep` du `Max-Age` de la vraie réponse dans `.github/workflows/ci.yml`. La seconde n'est pas reliée à la première — c'est un littéral dans du YAML — et c'est assumé : ce qu'elle vérifie est une propriété de la *réponse*, que rien dans la suite ne peut voir. Les deux se croisent par commentaire, et changer la durée demande de toucher les deux.
 
 **Aucun état personnel dans la page**, et c'est vérifié plutôt que retenu : `test/architecture/static-game-page.test.ts` échoue si la chaîne de segments de `/` importe `play.service`, `player.service` ou la politique de cookie. La règle qui interdisait déjà de lire un cookie l'aurait attrapé — on ne résout pas une identité sans en lire un — mais l'intention, elle, ne se lisait nulle part.
+
+## Mise à jour : le pli est devenu une carte et une fenêtre
+
+La décision tient entière — l'état personnel est un POST qui crée la partie, la file est sérielle, les statistiques ont leur porte — mais **le geste qui l'ouvre n'est plus le même**, et deux paragraphes ci-dessus décrivent une interface qui n'existe plus.
+
+Les trois énigmes ne sont plus des `<details>` : ce sont trois cartes, et un clic ouvre l'énigme dans un `<dialog>`. Ce qui change :
+
+- **Aucune énigme n'est ouverte à l'arrivée.** L'échauffement était déplié d'office, donc chaque visite créait une partie ; il fallait la compter comme jouée et la relire comme un échec si la grille tournait. Une carte ne crée rien tant qu'on ne clique pas, ce qui rapproche `played_count` de ce que le mot dit. Les compteurs d'avant et d'après ne portent donc pas sur la même population, et rien ne les réconcilie (ADR-0013).
+- **L'hydratation ne relit plus le DOM.** Le paragraphe « L'hydratation demande au DOM ce qui est déplié » existait parce qu'un `<details>` s'ouvre nativement, avant que JavaScript n'arrive. Un bouton n'a pas ce problème : avant l'hydratation, un clic ne fait rien — et rien est la bonne réponse, puisque rien n'a été enregistré non plus.
+
+Le parcours reste hors de la requête personnelle : il voyage dans la page prérendue (ADR-0008) et se peint à l'ouverture de la fenêtre, sans aller-retour.

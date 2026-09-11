@@ -251,13 +251,20 @@ segments de la page lit un cookie, un en-tête ou un paramètre de recherche, et
 nom, aucun identifiant et aucun chiffre n'y figure.
 
 Les trois énigmes sont accessibles d'emblée — bloquer sur l'échauffement ne
-prive pas du reste de la journée — mais **elles ne sont pas toutes dépliées** :
-une partie naît à l'*ouverture* d'une énigme, et trois parties nées ensemble
-mesureraient trois exposés là où il y en avait un. Le pli **est** donc le geste
-qui crée la partie, ce qui a un prix depuis #8 : la liste des énigmes est un
-composant client, là où le `<details>` ne coûtait aucun JavaScript. Le parcours
-reste dans le premier rendu — un composant client est rendu côté serveur lui
-aussi — et ce qui attend l'hydratation n'est que la conséquence de l'ouverture.
+prive pas du reste de la journée — mais **aucune n'est ouverte** : une partie
+naît à l'*ouverture* d'une énigme, et trois parties nées ensemble mesureraient
+trois exposés là où il y en avait un. L'écran est donc trois cartes, chacune
+annonçant sa position, ses clubs en blasons et où le joueur en est ; le clic
+sur une carte ouvre l'énigme dans une fenêtre **et** crée la partie, d'un même
+geste. C'est ce qui fait de la grille un composant client. Le parcours, lui,
+voyage dans la page prérendue — un composant client est rendu côté serveur
+aussi — donc il est peint à l'instant où la fenêtre s'ouvre, sans requête ; ce
+qui attend l'hydratation n'est que la conséquence de l'ouverture.
+
+Une arrivée sur la page n'ouvre donc plus rien. C'est un changement de mesure
+autant que d'interface : avant, l'échauffement était déplié d'office et chaque
+visite créait une partie — comptée comme jouée, et lue comme un échec si la
+grille tournait avant qu'on y revienne.
 
 La date de grille est une date Europe/Paris, calculée paresseusement à la
 lecture, jamais par un job : la bascule de minuit est un `SELECT WHERE date =`

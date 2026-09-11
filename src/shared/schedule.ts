@@ -58,6 +58,18 @@ export const POSITION_LABELS: Record<Position, string> = {
 }
 
 /**
+ * Comment une énigme s'annonce à l'écran : « 1. échauffement ».
+ *
+ * Le rang et son nom, jamais l'un sans l'autre — la position *est* l'ordre de
+ * difficulté (CONTEXT.md), et la carte comme la fenêtre l'annoncent donc de la
+ * même façon. Une seule définition, sinon les deux se répondent de travers le
+ * jour où l'une des deux change de ponctuation.
+ */
+export function positionHeading(position: Position): string {
+  return `${position}. ${POSITION_LABELS[position]}`
+}
+
+/**
  * A grid's date, as `YYYY-MM-DD`.
  *
  * A *date*, never a timestamp: the grid of the day is a `SELECT WHERE date =

@@ -132,8 +132,12 @@ async function readPassages(
       id: playerClubs.id,
       footballerId: playerClubs.footballerId,
       // The current French name of the club, never the name of its time
-      // (specs §11) — one column, and the only text a player is shown.
+      // (specs §11) — the only text a player is shown.
       clubName: clubs.frName,
+      // The crest by content address, next to the name it belongs to: the
+      // parcours is public whole, so its clubs may be read as images too. Null
+      // when the catalogue has none, and the page draws the gap.
+      crestKey: clubs.crestKey,
       isLoan: playerClubs.isLoan,
       startYear: playerClubs.startYear,
       endYear: playerClubs.endYear,

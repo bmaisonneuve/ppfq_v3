@@ -20,21 +20,22 @@ import type { PlayerStats } from '@/shared/stats'
  *
  * ## Opening an enigma is what creates the partie
  *
- * Not the first essai (`docs/modele-donnees.md` §4). So `open` is called on
- * hydration for the enigma that starts unfolded, and again each time the joueur
- * unfolds another one — never for all three at once, or one arrival would
- * measure three people exposed. The server answers the state of the whole grid
- * every time, which is what makes a reload cheap: one request, and the parties
- * already there come back with the one being opened.
+ * Not the first essai (`docs/modele-donnees.md` §4). So the request made on
+ * hydration opens **nothing**: the page shows three cards and no enigma, and an
+ * arrival is an arrival. `open` is called when the joueur opens one, and never
+ * for all three at once, or one arrival would measure three people exposed. The
+ * server answers the state of the whole grid every time, which is what makes a
+ * reload cheap: one request, and every partie already there comes back with the
+ * one being opened.
  *
  * ## The requests are chained, and that is not tidiness
  *
  * It is the difference between one joueur and two. A first visitor carries no
  * cookie, so *every* request in flight without one is a joueur being created:
- * unfold the titulaire before the first answer lands and the browser ends up
- * with two `players` rows, keeps whichever `Set-Cookie` arrived last, and loses
- * the partie attached to the other — on the very reload this ticket exists to
- * make work. Nothing on the server can see that two cookie-less requests are
+ * open the titulaire before the first answer lands and the browser ends up with
+ * two `players` rows, keeps whichever `Set-Cookie` arrived last, and loses the
+ * partie attached to the other — on the very reload this ticket exists to make
+ * work. Nothing on the server can see that two cookie-less requests are
  * one browser, so the fix is here: one request at a time, in order, the first
  * one establishing the identity the rest carry.
  *
@@ -77,7 +78,7 @@ import type { PlayerStats } from '@/shared/stats'
  * the joueur has no partie either — those two are indistinguishable from an
  * empty answer, and one of them is a lie. So it says `unavailable`, the
  * interface says so too, and the enigma is forgotten rather than remembered as
- * asked: unfolding it again is then a real retry.
+ * asked: opening it again is then a real retry.
  *
  * A **refused** essai is not that kind of failure. The seventh essai, a grid
  * that has turned, an enigma reprogrammed under an open page: the server knows
@@ -100,31 +101,31 @@ export type PersonalState =
 const LOADING: PersonalState = { status: 'loading' }
 
 /**
- * The personal state of one grid, and the one action that changes it.
+ * The personal state of one grid, and the two actions that change it.
  *
- * `first` is the enigma that starts unfolded, and it is opened on hydration.
- * It is optional because a grid with no enigma is a state the database allows
- * and the page renders (`grid.service.ts`): there is then nothing to open, and
- * nothing to open it with.
+ * It opens nothing of its own accord. The hydration request reads the day and
+ * that is all: which enigma becomes a partie is the joueur's gesture, and this
+ * hook learns of it through `open`.
  */
-export function useDayPlays(
-  date: ChallengeDate,
-  first: Position | undefined,
-): {
+export function useDayPlays(date: ChallengeDate): {
   state: PersonalState
   open: (position: Position) => void
   /** One essai: a footballer proposed, or `null` for a tour passé. */
   submit: (position: Position, footballerId: string | null) => void
   /** The enigmas with an essai in flight — what disables a form. */
   pending: ReadonlySet<Position>
-  /** Les agrégats du joueur, ou `undefined` tant qu'on ne les a pas. */
-  stats: PlayerStats | undefined
+  /**
+   * Les agrégats du joueur. Trois états et non deux : `undefined` tant qu'on ne
+   * les a pas lus, `null` quand la lecture a échoué. « Pas encore » et « pas
+   * pu » se ressemblent à l'écran et ne se disent pas pareil.
+   */
+  stats: PlayerStats | null | undefined
 } {
   const [state, setState] = useState<PersonalState>(LOADING)
   // Undefined plutôt que des zéros : « pas encore lu » et « rien joué » se
-  // ressemblent à l'écran et l'un des deux serait un mensonge. Le panneau ne
-  // s'affiche pas tant qu'on ne sait pas.
-  const [stats, setStats] = useState<PlayerStats | undefined>(undefined)
+  // ressemblent à l'écran et l'un des deux serait un mensonge. Le panneau dit
+  // laquelle des deux il est en train de montrer.
+  const [stats, setStats] = useState<PlayerStats | null | undefined>(undefined)
   // Counted rather than flagged: the queue is serial, so a second essai on the
   // same enigma waits behind the first — and a flag would be cleared by the
   // first one finishing while the second is still in flight, re-enabling a
@@ -134,9 +135,9 @@ export function useDayPlays(
   // One request at a time, in the order they were asked for. See above: this
   // is what keeps a first visitor from becoming two joueurs.
   const queue = useRef<Promise<void>>(Promise.resolve())
-  // What has already been asked for, so unfolding an enigma twice is one
-  // request — and a request that failed is dropped from it, so a second
-  // unfolding retries.
+  // What has already been asked for, so opening an enigma twice is one request
+  // — and a request that failed is dropped from it, so opening it again
+  // retries.
   const asked = useRef(new Set<Position>())
   // The hydration request, once. React runs an effect twice in development.
   const started = useRef(false)
@@ -155,13 +156,17 @@ export function useDayPlays(
   )
 
   // Elle avale son propre échec, contrairement aux deux autres lectures : des
-  // statistiques absentes ne sont pas une panne — le panneau ne s'affiche pas,
-  // et le jeu ne dépend de rien de ce qu'elles disent.
+  // statistiques absentes ne sont pas une panne, et le jeu ne dépend de rien de
+  // ce qu'elles disent. Elle le dit quand même — `null` et non `undefined` —
+  // parce qu'on ne les voit plus que dans une fenêtre qu'on a ouverte exprès :
+  // une question posée mérite une réponse, et « elles arrivent » en serait une
+  // fausse.
   const readStats = useCallback(async (): Promise<void> => {
     try {
       setStats(await post<PlayerStats>(GAME_STATS_PATH))
     } catch {
       // Hors ligne, un 500, une réponse mal formée.
+      setStats(null)
     }
   }, [])
 
@@ -184,17 +189,17 @@ export function useDayPlays(
 
   useEffect(() => {
     // After hydration, and only then: this is the request the page does not
-    // make. The enigma that starts unfolded is opened by the same call.
+    // make. It reads, and opens nothing — a partie is a gesture, not an
+    // arrival.
     if (started.current) return
     started.current = true
 
-    if (first !== undefined) asked.current.add(first)
-    load(first)
+    load(undefined)
 
     // Derrière l'état, jamais à côté : la première requête est celle qui établit
     // l'identité, et celle-ci la porte.
     queue.current = queue.current.then(readStats)
-  }, [first, load, readStats])
+  }, [load, readStats])
 
   const open = useCallback(
     (position: Position): void => {

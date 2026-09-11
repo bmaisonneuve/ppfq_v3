@@ -52,7 +52,7 @@ export function EnigmaEssai({
   if (play === undefined) return null
 
   return (
-    <div className="flex flex-col gap-3 border-t border-neutral-100 px-4 py-3">
+    <div className="flex flex-col gap-3 border-t border-neutral-100 px-5 py-4">
       <RevealedHints hints={play.hints} />
 
       {play.status === 'in_progress' ? (

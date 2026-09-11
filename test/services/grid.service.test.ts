@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
 
-import { clubs, dailyChallenges, footballers, playerClubs } from '@/server/db/schema'
+import { clubCrests, clubs, dailyChallenges, footballers, playerClubs } from '@/server/db/schema'
 import { getDailyGrid, getGridOfDate } from '@/server/services/grid.service'
 import { scheduleGrid } from '@/server/services/schedule.service'
 
 import { db } from '@test/setup/db'
 import { CLUB_IDS, FOOTBALLER_IDS, seedCatalogue } from '@test/fixtures/catalogue'
+import { ONE_PIXEL_PNG, OTHER_PNG } from '@test/fixtures/crest'
 
 /**
  * La grille du jour, read the way the player's page reads it, against a real
@@ -20,6 +21,14 @@ import { CLUB_IDS, FOOTBALLER_IDS, seedCatalogue } from '@test/fixtures/catalogu
  * contain is as much the subject as what it contains. No name, no identifier,
  * no year, no figure, no personal state.
  */
+
+/**
+ * Two content addresses, written out rather than hashed here: the key is the
+ * SHA-256 of the bytes for whatever *writes* a crest (ADR-0010), and this file
+ * writes none — it puts a row in front of the reader and checks it comes back.
+ */
+const CREST_KEY = 'a'.repeat(64)
+const OTHER_CREST_KEY = 'b'.repeat(64)
 
 /** Three footballers the fixture leaves fully schedulable. */
 const SCHEDULABLE = [
@@ -84,10 +93,10 @@ describe('getGridOfDate', () => {
     const today = await getGridOfDate('2026-09-09')
 
     expect(today?.enigmas[0]?.passages).toEqual([
-      { clubName: 'AS Cannes', isLoan: false },
-      { clubName: 'Girondins de Bordeaux', isLoan: false },
-      { clubName: 'Juventus', isLoan: false },
-      { clubName: 'Real Madrid', isLoan: false },
+      { clubName: 'AS Cannes', isLoan: false, crestKey: null },
+      { clubName: 'Girondins de Bordeaux', isLoan: false, crestKey: null },
+      { clubName: 'Juventus', isLoan: false, crestKey: null },
+      { clubName: 'Real Madrid', isLoan: false, crestKey: null },
     ])
   })
 
@@ -98,8 +107,8 @@ describe('getGridOfDate', () => {
 
     // Both passages start in 2015; the loan is the shorter one and comes first.
     expect(today?.enigmas[2]?.passages).toEqual([
-      { clubName: 'Stade de Reims', isLoan: true },
-      { clubName: 'Olympique lyonnais', isLoan: false },
+      { clubName: 'Stade de Reims', isLoan: true, crestKey: null },
+      { clubName: 'Olympique lyonnais', isLoan: false, crestKey: null },
     ])
   })
 
@@ -127,6 +136,46 @@ describe('getGridOfDate', () => {
       'FC Nantes',
       'Stade rennais',
     ])
+  })
+
+  it('carries the crest of a club that has one, and null for a club that has not', async () => {
+    // The crest travels with the parcours because it is the same public fact as
+    // the club's name: the parcours is shown whole from the first second, so an
+    // image of a club already named reveals nothing. Bordeaux gets one, the
+    // rest of Zidane's clubs keep none — the normal state of a freshly imported
+    // catalogue, and the gap the page has to draw.
+    await db
+      .insert(clubCrests)
+      .values({ key: CREST_KEY, bytes: ONE_PIXEL_PNG, contentType: 'image/png', byteSize: ONE_PIXEL_PNG.byteLength })
+    await db.update(clubs).set({ crestKey: CREST_KEY }).where(eq(clubs.id, CLUB_IDS.bordeaux))
+    await scheduleGrid(grid())
+
+    const today = await getGridOfDate('2026-09-09')
+
+    expect(today?.enigmas[0]?.passages.map((passage) => passage.crestKey)).toEqual([
+      null,
+      CREST_KEY,
+      null,
+      null,
+    ])
+  })
+
+  it('reads the crest on every read, so replacing one replaces it in the grid', async () => {
+    // Same reason as the club's name: an enigma designates a footballer and
+    // copies nothing from him (ADR-0001). The address is the content, so a new
+    // crest is a new URL and there is nothing to invalidate but the page cache.
+    await db.insert(clubCrests).values([
+      { key: CREST_KEY, bytes: ONE_PIXEL_PNG, contentType: 'image/png', byteSize: ONE_PIXEL_PNG.byteLength },
+      { key: OTHER_CREST_KEY, bytes: OTHER_PNG, contentType: 'image/png', byteSize: OTHER_PNG.byteLength },
+    ])
+    await db.update(clubs).set({ crestKey: CREST_KEY }).where(eq(clubs.id, CLUB_IDS.bordeaux))
+    await scheduleGrid(grid())
+
+    await db.update(clubs).set({ crestKey: OTHER_CREST_KEY }).where(eq(clubs.id, CLUB_IDS.bordeaux))
+
+    const today = await getGridOfDate('2026-09-09')
+
+    expect(today?.enigmas[0]?.passages[1]?.crestKey).toBe(OTHER_CREST_KEY)
   })
 
   it('carries no answer and no identifier at all', async () => {

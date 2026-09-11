@@ -95,6 +95,15 @@ export type HintNationality = {
 export type HintClubLine = {
   clubName: string
   /**
+   * The club's crest, exactly as the parcours of the grid carries it.
+   *
+   * Public, and the same value the cached page already holds: the club is
+   * named on this very line, so its image adds nothing to what the hint gives
+   * away. It is here so a hint reads like the parcours it sits under, rather
+   * than like a second list that lost its pictures.
+   */
+  crestKey: string | null
+  /**
    * Seasons, matchs or buts, depending on the tier. Null only for tiers 4 and
    * 5, where the catalogue may simply not know — an admin cannot schedule such
    * a footballer (`shared/schedule.ts`), but an import may empty a column after

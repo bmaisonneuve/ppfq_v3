@@ -27,6 +27,19 @@ export type EnigmaPassage = {
   /** Current French name of the club — never the name of its time (specs §11). */
   clubName: string
   isLoan: boolean
+  /**
+   * The club's crest, by content address, or null when the catalogue has none.
+   *
+   * Public like the rest of this type, and for the same reason: the parcours is
+   * shown whole, so the crest of a club already named reveals nothing a player
+   * cannot read on the line next to it. Null is an image missing, not a hole —
+   * a club with no crest is a club whose name stands alone, which is what the
+   * grid did for every club before this.
+   *
+   * A key and never a URL: `crestUrl` in `shared/club.ts` is the one place that
+   * knows where the bytes are served from (ADR-0010).
+   */
+  crestKey: string | null
 }
 
 /**

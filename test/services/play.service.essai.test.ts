@@ -159,29 +159,29 @@ describe('an essai that is wrong', () => {
       {
         tier: 2,
         durations: [
-          { clubName: 'AS Cannes', figure: 5 },
-          { clubName: 'Girondins de Bordeaux', figure: 5 },
-          { clubName: 'Juventus', figure: 6 },
-          { clubName: 'Real Madrid', figure: 6 },
+          { clubName: 'AS Cannes', crestKey: null, figure: 5 },
+          { clubName: 'Girondins de Bordeaux', crestKey: null, figure: 5 },
+          { clubName: 'Juventus', crestKey: null, figure: 6 },
+          { clubName: 'Real Madrid', crestKey: null, figure: 6 },
         ],
       },
       { tier: 3, nationality: { frName: 'France', flagKey: expect.any(String) as string } },
       {
         tier: 4,
         matches: [
-          { clubName: 'AS Cannes', figure: 61 },
-          { clubName: 'Girondins de Bordeaux', figure: 139 },
-          { clubName: 'Juventus', figure: 151 },
-          { clubName: 'Real Madrid', figure: 155 },
+          { clubName: 'AS Cannes', crestKey: null, figure: 61 },
+          { clubName: 'Girondins de Bordeaux', crestKey: null, figure: 139 },
+          { clubName: 'Juventus', crestKey: null, figure: 151 },
+          { clubName: 'Real Madrid', crestKey: null, figure: 155 },
         ],
       },
       {
         tier: 5,
         goals: [
-          { clubName: 'AS Cannes', figure: 6 },
-          { clubName: 'Girondins de Bordeaux', figure: 28 },
-          { clubName: 'Juventus', figure: 24 },
-          { clubName: 'Real Madrid', figure: 37 },
+          { clubName: 'AS Cannes', crestKey: null, figure: 6 },
+          { clubName: 'Girondins de Bordeaux', crestKey: null, figure: 28 },
+          { clubName: 'Juventus', crestKey: null, figure: 24 },
+          { clubName: 'Real Madrid', crestKey: null, figure: 37 },
         ],
       },
     ])

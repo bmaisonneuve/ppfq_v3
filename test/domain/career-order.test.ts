@@ -8,6 +8,7 @@ function passage(partial: Partial<PlayerClub> & Pick<PlayerClub, 'id'>): PlayerC
   return {
     clubId: `club-${partial.id}`,
     clubName: `Club ${partial.id}`,
+    crestKey: null,
     isLoan: false,
     startYear: 2000,
     endYear: 2001,

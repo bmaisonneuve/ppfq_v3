@@ -96,6 +96,9 @@ async function readPassages(
       id: playerClubs.id,
       clubId: playerClubs.clubId,
       clubName: clubs.frName,
+      // The crest travels with the club's name: the hints of tiers 2, 4 and 5
+      // are one line per passage, and they are read from here.
+      crestKey: clubs.crestKey,
       isLoan: playerClubs.isLoan,
       startYear: playerClubs.startYear,
       endYear: playerClubs.endYear,

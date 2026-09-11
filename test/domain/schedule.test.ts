@@ -23,6 +23,7 @@ const passage = (over: Partial<PlayerClub> = {}): PlayerClub => ({
   id: 'p1',
   clubId: 'c1',
   clubName: 'AS Cannes',
+  crestKey: null,
   isLoan: false,
   startYear: 1988,
   endYear: 1992,

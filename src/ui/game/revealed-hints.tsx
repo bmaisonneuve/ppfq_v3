@@ -2,6 +2,8 @@ import { HINT_LABELS } from '@/shared/play'
 import { flagUrl } from '@/shared/nationality'
 import type { HintClubLine, RevealedHint } from '@/shared/play'
 
+import { ClubCrest } from './club-crest'
+
 /**
  * L'échelle de dévoilement, as the joueur reads it.
  *
@@ -72,6 +74,10 @@ function HintValue({ hint }: Readonly<{ hint: RevealedHint }>) {
  * parcours above. It costs nothing — the parcours is public and already on
  * screen — and it is what keeps the hint readable on its own, whatever the
  * layout does. A club crossed twice appears twice, at its two places.
+ *
+ * Its crest comes with it for the same reason, and one of its own: the hint is
+ * read in the same window as the parcours, a few centimetres below it, so a
+ * list of bare names there reads as a different list about different clubs.
  */
 function ClubLines({
   lines,
@@ -83,8 +89,11 @@ function ClubLines({
         // A club crossed twice is two passages at two places in the chronology,
         // so the club name is not a key. The index is: the order is the
         // server's and this list is never reordered here.
-        <li key={index} className="flex items-baseline justify-between gap-3">
-          <span className="text-neutral-600">{line.clubName}</span>
+        <li key={index} className="flex items-center justify-between gap-3">
+          <span className="flex min-w-0 items-center gap-2">
+            <ClubCrest crestKey={line.crestKey} className="size-5" />
+            <span className="truncate text-neutral-600">{line.clubName}</span>
+          </span>
           <span className="font-medium">
             {line.figure === null ? UNKNOWN : unit(line.figure)}
           </span>

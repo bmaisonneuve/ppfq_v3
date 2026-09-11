@@ -57,7 +57,7 @@ export function PassageRow({
         <form action={save} className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="passageId" value={passage.id} />
 
-          <ClubCrest clubId={passage.clubId} crestKey={passage.clubCrestKey} />
+          <ClubCrest clubId={passage.clubId} crestKey={passage.crestKey} />
 
           <div className="min-w-56">
             <span className="block text-xs font-medium text-neutral-600">Club</span>
@@ -122,9 +122,10 @@ export function PassageRow({
  * else. The gap is a link too — a club with no crest is the other thing worth
  * noticing, and one click is the repair.
  *
- * Deliberately not on the player's side. The grid is prerendered and cached
- * whole (ADR-0008); putting images into it is a game decision, not a
- * consequence of the back-office having them.
+ * The player's side shows them too, since the grid became three cards and a
+ * parcours with its clubs pictured. That was a game decision and not a
+ * consequence of the back-office having the images — the note that used to
+ * stand here said so while it was still open.
  */
 function ClubCrest({
   clubId,

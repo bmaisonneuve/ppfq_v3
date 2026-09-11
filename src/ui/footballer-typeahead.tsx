@@ -116,6 +116,13 @@ export function FootballerTypeahead({
     }
 
     if (event.key === 'Escape') {
+      // Reached only with a list open — the guard at the top of this handler.
+      // Cancelling the event is what keeps the key: a close request belongs to
+      // whatever encloses the input, and `stopPropagation` would not hold it
+      // back — the browser watches the keydown being *cancelled*, not where it
+      // travels. Without this, one press closes the list and everything around
+      // it at once.
+      event.preventDefault()
       setLastAnswer([])
     }
   }
