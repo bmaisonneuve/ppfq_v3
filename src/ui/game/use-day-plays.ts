@@ -299,6 +299,19 @@ export function playAt(state: PersonalState, position: Position): EnigmaPlay | u
 }
 
 /**
+ * Toutes les parties de la grille — la liste dont le résumé partagé se dérive.
+ *
+ * Vide tant que l'état n'est pas lu, et vide aussi quand il n'a pas pu l'être :
+ * les deux disent « on ne sait pas », et le résumé ne se propose que sur ce
+ * qu'on sait (`shared/summary.ts`). Il n'y a donc rien de plus à distinguer
+ * ici — un partage offert sur une lecture ratée serait un bilan de trois
+ * échecs, exactement ce que le garde-fou existe pour empêcher.
+ */
+export function playsOf(state: PersonalState): readonly EnigmaPlay[] {
+  return state.status === 'ready' ? [...state.plays.values()] : []
+}
+
+/**
  * Whether the grid on screen is no longer the grid of the day.
  *
  * A real case rather than a defensive one: the page is served from a shared

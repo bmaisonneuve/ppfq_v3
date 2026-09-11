@@ -46,6 +46,12 @@ Les trois énigmes d'une même grille trouvées. Se calcule au niveau de la gril
 Le nombre de jours consécutifs où le titulaire (position 2) a été trouvé sur la grille du jour. L'échauffement, la légende et l'archive n'y entrent pas.
 _Avoid_: streak (nom des colonnes `current_streak` / `best_streak`, et rien d'autre)
 
+**Résumé partagé** :
+Les trois lignes de symboles qu'un joueur copie à la fin de sa grille du jour — une par position, le nombre d'essais consommés lisible, et aucun nom de footballeur. En en-tête, la date de la grille et son thème : une grille se nomme par sa date partout ailleurs, et un numéro aurait demandé un jour 1 arbitraire.
+
+**Jamais stocké** : il se dérive des trois parties et de la grille à chaque affichage, donc il n'a pas d'identifiant et rien ne s'invalide quand une partie bouge. Il n'est proposé qu'à partir du **premier essai consommé**, et non dès qu'une énigme a été ouverte : une partie naît à l'ouverture, donc une grille simplement dépliée aurait sinon produit un bilan de trois échecs.
+_Avoid_: partage, score du jour, board
+
 **Notoriété** :
 Le nombre d'éditions Wikipédia consacrées à un footballeur. Sert uniquement à classer les résultats de recherche et à départager les homonymes à l'import. Jamais affichée, jamais utilisée pour estimer la difficulté.
 _Avoid_: sitelinks (nom de la colonne), popularité

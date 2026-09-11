@@ -10,7 +10,8 @@ import { EnigmaDialog } from './enigma-dialog'
 import { Modal } from './modal'
 import { StaleGridNotice, UnavailableNotice } from './notices'
 import { PlayerStatsPanel } from './player-stats'
-import { isStaleGrid, playAt, useDayPlays } from './use-day-plays'
+import { ShareSummary } from './share-summary'
+import { isStaleGrid, playAt, playsOf, useDayPlays } from './use-day-plays'
 
 /**
  * La grille du jour, telle que le joueur la lit et la joue : son thème, ses
@@ -102,6 +103,13 @@ export function DailyGridView({ grid }: Readonly<{ grid: DailyGrid }>) {
       </ol>
 
       {state.status === 'unavailable' ? <UnavailableNotice /> : null}
+
+      {/* Sous les cartes et non dans une fenêtre : le résumé est ce qu'on lit
+          quand on a fini de jouer, et il ne se montre qu'une fois qu'il y a
+          quelque chose à partager (`share-summary.tsx`). Le thème et la date
+          lui viennent de la grille, les parties de la même file que tout le
+          reste du personnel — rien n'est dérivé deux fois. */}
+      <ShareSummary source={{ date: grid.date, theme: grid.theme, plays: playsOf(state) }} />
 
       <EnigmaDialog
         enigma={enigma}
