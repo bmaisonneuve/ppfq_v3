@@ -29,6 +29,9 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
             <Link href="/admin" className="text-sm text-neutral-600 underline underline-offset-2">
               Curation
             </Link>
+            <Link href="/admin/clubs" className="text-sm text-neutral-600 underline underline-offset-2">
+              Clubs
+            </Link>
             <Link
               href="/admin/schedule"
               className="text-sm text-neutral-600 underline underline-offset-2"

@@ -92,9 +92,33 @@ S'y ajoutent les **mots après le premier** de chaque nom, indexés comme des te
 | `wikidata_qid` | text | Unique, nullable |
 | `fr_name` | text | Nom **actuel** en français. C'est celui qu'affiche le jeu |
 | `en_name` | text | Nom actuel en anglais. Nullable, sert de repli et de recherche pour l'admin |
-| `logo_s3_key` | text | Nullable. **Clé** de l'objet S3, pas une URL complète : le domaine du bucket ou du CDN doit pouvoir changer sans réécrire la table |
+| `crest_key` | text | Nullable. → `club_crests.key`, `on delete set null`. **Clé**, jamais une URL : le domaine qui sert les octets doit pouvoir changer sans réécrire la table |
 
-Un club renommé au point d'être méconnaissable est une autre ligne : on ne modélise pas la succession.
+Un club renommé au point d'être méconnaissable est une autre ligne : on ne modélise pas la succession. Les deux noms sont en revanche **modifiables** depuis la fiche du club — un club que la source ne nomme dans aucune langue entre sous son identifiant Wikidata, et c'est le seul moyen de le rebaptiser.
+
+Un club créé à la main n'a pas de `wikidata_qid`, donc le jour où l'import rencontre le vrai club il insère une **seconde** ligne plutôt que d'adopter la première : une adoption silencieuse renommerait un club sous tous les footballeurs d'un coup. Le doublon se **fusionne** — les passages sont reportés sur le club conservé, qui adopte ce qui lui manque (identifiant, nom anglais, blason) sans que rien de déjà renseigné soit écrasé, puis le doublon est supprimé, le tout dans une transaction.
+
+### `club_crests`
+
+Le blason, octets compris, **adressé par son contenu** : la clé primaire est le SHA-256 des octets ([ADR-0010](./adr/0010-le-blason-en-base-adresse-par-son-contenu.md)).
+
+Mesuré : le ticket relève ~15-20 Ko par blason, et cette implémentation ~35 Ko de moyenne (extrêmes 51 et 98 Ko) à la largeur qu'elle demande. Quelques milliers de clubs : moins de ~200 Mo dans tous les cas, contre les 15-20 Go/an de `player_progress` au §9. Postgres sort un `bytea` de plus de 2 Ko vers TOAST tout seul, et le chemin de lecture (`/api/crests/<sha256>`) est `immutable` et caché indéfiniment derrière Cloudflare. Un stockage objet ferait entrer une **seconde histoire de sauvegarde**, alors que la procédure doit rester « on restaure Postgres ».
+
+| Colonne | Type | Description |
+|---|---|---|
+| `key` | text | Clé primaire. **SHA-256 des octets**, hexadécimal minuscule |
+| `bytes` | bytea | La vignette, telle que servie |
+| `content_type` | text | `image/png` pour tout ce que rend le thumbnailer. Matriciel uniquement : pas de SVG, qui est du balisage exécutable servi depuis notre origine |
+| `byte_size` | integer | |
+| `source_file` | text | Nullable. `Logo_Manchester_United_FC.svg`, ou le nom du fichier téléversé. **L'image principale d'un article n'est pas toujours le blason** : London Caledonians FC répond une photo d'équipe de 1894, et ce nom est ce qui rend l'erreur visible sur la fiche |
+| `source_url` | text | Nullable. La vignette effectivement téléchargée |
+| `source_wiki` | text | Nullable. `fr`, `en`, ou null pour un téléversement à la main |
+| `license` | text | Nullable. « marque déposée », pour l'essentiel. Le risque juridique est accepté (§11 du doc technique) ; ce qui est exigé en échange, c'est qu'un retrait soit **une ligne à supprimer** |
+| `created_at` | timestamptz | |
+
+Deux clubs au même blason partagent une ligne, et réécrire la même image est un `ON CONFLICT DO NOTHING`. Remplacer un blason écrit une **autre** clé, donc une autre URL : il n'y a rien à invalider, et c'est ce qui rend `Cache-Control: immutable` vrai plutôt qu'optimiste. Rien ne ramasse les lignes orphelines : quelques dizaines de kilo-octets, un autre club peut les pointer, et un ramasse-miettes qui se trompe efface une image curée.
+
+L'extraction (fr.wikipedia d'abord, en.wikipedia seulement à défaut) **ne remplace jamais** un blason déjà présent, et son échec est compté dans `job_runs` sans jamais faire échouer un import de parcours.
 
 ### `player_clubs`
 
@@ -357,8 +381,9 @@ Le **résumé partagé n'est pas stocké** : il se dérive des trois `player_pro
 | Série stockée, remise à zéro à la lecture | Une absence ne déclenche rien |
 | `player_stats` unique `(player_id, mode)` | L'archive est comptée séparément |
 | Thème de grille en champ libre | Ouvrir un format ne doit pas demander de migration |
-| Logo de club en clé S3, pas en URL | Le domaine du bucket ou du CDN doit pouvoir changer sans réécrire la table |
-| Blasons de clubs affichés | Risque juridique évalué et **accepté**. `logo_s3_key` est conservée et destinée à servir |
+| Blason en base, adressé par son contenu, et non en stockage objet | Moins de ~200 Mo, un chemin de lecture `immutable` que l'origine cesse de voir — et surtout une seule histoire de sauvegarde (ADR-0010) |
+| Blason en **clé**, jamais en URL | Le domaine qui sert les octets doit pouvoir changer sans réécrire la table. Le hash est aussi le nom d'objet du jour où un bucket se justifie |
+| Blasons de clubs affichés | Risque juridique évalué et **accepté**. Source et licence sont stockées avec les octets pour qu'un retrait soit une ligne à supprimer |
 | Cookie d'identité anonyme strictement nécessaire, 13 mois glissants | Il ne sert qu'à fournir le service demandé (retrouver sa partie) : pas de bandeau de consentement, et donc **aucun traceur analytique à cookie** sur le site. La purge de `players` s'aligne sur cette durée |
 | Résumé partagé jamais stocké, pas d'image OG en v1 | L'image OG dynamique est la seule fonctionnalité qui demanderait un identifiant de résumé en base |
 

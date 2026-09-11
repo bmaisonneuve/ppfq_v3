@@ -8,7 +8,8 @@ import {
   LATEST_FORM_YEAR,
   MAX_COUNT,
 } from '@/shared/curation'
-import type { ClubSearchAction, CurationAction } from '@/shared/curation'
+import type { ClubSearchAction } from '@/shared/club'
+import type { CurationAction } from '@/shared/curation'
 
 import { ActionStatus } from './action-status'
 import { ClubPicker } from './club-picker'

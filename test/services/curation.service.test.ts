@@ -1,16 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { clubs, footballers, jobRuns, playerClubs } from '@/server/db/schema'
+import { ClubNotFoundError } from '@/server/services/club.service'
 import {
-  ClubNotFoundError,
   FootballerNotFoundError,
   PassageNotFoundError,
   addPassage,
-  createClub,
   deletePassage,
   getCurationDossier,
   listNationalities,
-  searchClubs,
   setFootballerNationality,
   updatePassage,
 } from '@/server/services/curation.service'
@@ -473,79 +471,5 @@ describe('listNationalities', () => {
 
   it('is empty before any import has created one', async () => {
     expect(await listNationalities()).toEqual([])
-  })
-})
-
-describe('searchClubs', () => {
-  beforeEach(async () => {
-    await seedCatalogue(db)
-  })
-
-  it('finds a club by a piece of its French name', async () => {
-    expect((await searchClubs('borde')).map((c) => c.frName)).toEqual([
-      'Girondins de Bordeaux',
-    ])
-  })
-
-  it('finds a club by its English name, which is the admin fallback', async () => {
-    expect((await searchClubs('Rennais')).map((c) => c.frName)).toEqual(['Stade rennais'])
-  })
-
-  it('ignores case', async () => {
-    expect((await searchClubs('JUVENT')).map((c) => c.frName)).toEqual(['Juventus'])
-  })
-
-  it('answers nothing below two characters, like the typeahead', async () => {
-    expect(await searchClubs('j')).toEqual([])
-    expect(await searchClubs(' ')).toEqual([])
-  })
-
-  it('answers nothing when nothing matches', async () => {
-    expect(await searchClubs('zzzz')).toEqual([])
-  })
-
-  it('orders by French name so the list does not move between two keystrokes', async () => {
-    expect((await searchClubs('stade')).map((c) => c.frName)).toEqual([
-      'Stade de Reims',
-      'Stade rennais',
-    ])
-  })
-})
-
-describe('createClub', () => {
-  beforeEach(async () => {
-    await seedCatalogue(db)
-  })
-
-  it('creates the club the source simply does not have, without a Wikidata id', async () => {
-    const created = await createClub({ frName: 'Olympique de Marseille', enName: null })
-
-    expect(created).toMatchObject({ frName: 'Olympique de Marseille' })
-    expect((await searchClubs('marseille')).map((c) => c.id)).toEqual([created.id])
-  })
-
-  it('is immediately usable as the club of a passage', async () => {
-    const created = await createClub({ frName: 'Olympique de Marseille', enName: null })
-
-    await addPassage(FOOTBALLER_IDS.complete, {
-      clubId: created.id,
-      isLoan: false,
-      startYear: 1986,
-      endYear: 1988,
-      matches: 60,
-      goals: 10,
-    })
-
-    const dossier = await getCurationDossier(FOOTBALLER_IDS.complete)
-    expect(dossier?.passages[0]?.clubName).toBe('Olympique de Marseille')
-  })
-
-  it('does not collide with the Wikidata id of the clubs the import created', async () => {
-    // `clubs.wikidata_qid` is unique, and null does not conflict with null in
-    // Postgres — two hand-made clubs must both be insertable.
-    const first = await createClub({ frName: 'Olympique de Marseille', enName: null })
-    const second = await createClub({ frName: 'Racing Club de Lens', enName: 'RC Lens' })
-
-    expect(first.id).not.toBe(second.id)
   })
 })

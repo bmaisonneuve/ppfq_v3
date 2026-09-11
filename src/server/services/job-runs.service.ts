@@ -23,6 +23,14 @@ import { jobRuns } from '@/server/db/schema'
 /** `job_runs.job` for the career import. One row per footballer imported. */
 export const CAREER_IMPORT_JOB = 'career_import'
 
+/**
+ * `job_runs.job` for the crest extraction. One row per *pass*, not per club:
+ * the pass is what an admin runs and what he comes back to read — "1 842 clubs
+ * looked at, 1 391 crests, 6 downloads lost". A row per club would turn the
+ * catalogue backfill into thousands of rows saying nothing each.
+ */
+export const CLUB_CREST_JOB = 'club_crest_extraction'
+
 export type JobRun = {
   id: string
   job: string

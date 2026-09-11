@@ -10,12 +10,16 @@ import { NationalityForm } from '@/ui/admin/nationality-form'
 import { PassageRow } from '@/ui/admin/passage-row'
 import { ReimportButton } from '@/ui/admin/reimport-button'
 
+// The club search is the clubs module's door, imported rather than declared a
+// second time: two adapters over one service is how two screens start
+// disagreeing about what a club option is.
+import { searchClubsAction } from '../../clubs/actions'
+
 import {
   addPassageAction,
   createClubAction,
   deletePassageAction,
   reimportCareerAction,
-  searchClubsAction,
   setNationalityAction,
   updatePassageAction,
 } from './actions'

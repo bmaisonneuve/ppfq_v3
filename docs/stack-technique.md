@@ -98,6 +98,14 @@ app/api/health/challenge-today/route.ts
 > préchargement de lien ou un crawler, et chacun compterait comme une personne
 > exposée à l'énigme.
 
+> **Complété par l'[ADR-0010](./adr/0010-le-blason-en-base-adresse-par-son-contenu.md)** :
+> il y en a six. `app/api/crests/[key]/route.ts` sert les octets d'un blason à
+> une adresse qui **est** leur SHA-256. Un contrat HTTP, pour la raison
+> inverse de la précédente : `public, immutable`, un an de `max-age`, et rien à
+> invalider puisque remplacer un blason change son adresse. Publique et sans
+> `requireAdmin()` — un CDN ne cache pas ce qu'il doit authentifier, et il n'y
+> a rien à énumérer.
+
 ### L'essai
 
 Une Server Action **est** un endpoint : à la compilation, Next génère un POST vers l'URL courante avec un header `Next-Action`. Il y a bien un aller-retour réseau ; simplement on n'écrit pas la route, et le corps de la fonction ne part jamais dans le bundle client.
@@ -480,7 +488,7 @@ OpenTelemetry donnera le p95 par route : décider sur cette base, pas sur une in
 | Postgres au plus simple, pas d'entrepôt analytique | Le volume ne le justifie pas ; rollups nocturnes suffisent |
 | **Postgres auto-hébergé sur Coolify**, pas de managé | Le typeahead est le chemin critique (~35 requêtes par joueur) : colocalisé, il répond en sous-milliseconde là où un Postgres distant ajoute un aller-retour réseau à chaque frappe. Contrepartie assumée : les sauvegardes sont à notre charge, avec volume dédié et **restore testé avant la première grille publiée** — dès cette grille il y a de la progression joueur à perdre |
 | **Observabilité sur le même VPS**, pour l'instant | Une seule machine à administrer. Risque accepté et connu : Grafana et Loki tombent avec la machine qu'ils observent, et un pic de logs peut lui-même causer la saturation. Le second VPS (~6 €/mois) reste la parade disponible |
-| **Blasons de clubs affichés** | Risque juridique évalué et accepté. `clubs.logo_s3_key` est conservée et destinée à servir |
+| **Blasons de clubs affichés** | Risque juridique évalué et accepté. Les octets vivent dans Postgres, adressés par leur SHA-256, avec leur source et leur licence à côté pour qu'un retrait soit une ligne à supprimer ([ADR-0010](./adr/0010-le-blason-en-base-adresse-par-son-contenu.md)) |
 | **Cookie d'identité anonyme strictement nécessaire** | Il ne sert qu'à fournir le service demandé : base légale = exécution du service, **pas de bandeau de consentement**, 13 mois glissants, mention en politique de confidentialité. Contrainte qui en découle : aucun traceur analytique à cookie, sinon le bandeau revient et un refus casserait la progression |
 | **Résumé partagé en texte seul, pas d'image OG en v1** | L'OG dynamique ferait entrer un identifiant de résumé stocké dans un modèle conçu pour n'en avoir aucun. À décider après avoir vu si les gens partagent |
 | **Aucun avertissement quand le catalogue bouge sous une grille** | Une grille du jour modifiée par un import n'est pas grave ; on ne paie pas un mécanisme pour ça. D'autant que l'import est déclenché à la main, footballeur par footballeur |
@@ -510,4 +518,4 @@ Onze points ont été tranchés le 2026-09-09 et sont remontés en §11 : durée
 ### Sans objet désormais
 
 - **Formats en réserve** (specs §9 : mercato, hors-série) : le champ `theme` libre les accueille sans migration. Coût aujourd'hui : une colonne, déjà là.
-- **Licence des données** : Wikidata est en CC0, aucune contrainte d'attribution. Les blasons de clubs sont un risque assumé (§11).
+- **Licence des données** : Wikidata est en CC0, aucune contrainte d'attribution. Les blasons de clubs sont un risque assumé (§11) : ils viennent de fr.wikipedia, sont pour l'essentiel sous « marque déposée », et la licence est stockée avec les octets.

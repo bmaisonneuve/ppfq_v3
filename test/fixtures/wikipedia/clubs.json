@@ -1,0 +1,290 @@
+{
+  "clubs": {
+    "Q18656": "Manchester United — a local fr file, no P154 on Wikidata, « marque déposée »",
+    "Q483020": "Paris Saint-Germain — the same, and one of the four Wikidata misses",
+    "Q8682": "Real Madrid — the same again",
+    "Q10319637": "London Caledonians — en only, and its main image is a team photo from 1894",
+    "Q161774": "1. Bockenheimer FC 1899 — a French article with no main image at all",
+    "Q1000185": "FSV Schmalkalden — no article in either edition. Not an error: three quarters is the coverage"
+  },
+  "capturedAt": "2026-09-11",
+  "calls": [
+    {
+      "url": "https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q18656%7CQ483020%7CQ8682%7CQ10319637%7CQ161774%7CQ1000185&props=sitelinks&sitefilter=frwiki%7Cenwiki&format=json&formatversion=2",
+      "payload": {
+        "entities": {
+          "Q18656": {
+            "type": "item",
+            "id": "Q18656",
+            "sitelinks": {
+              "enwiki": {
+                "site": "enwiki",
+                "title": "Manchester United F.C.",
+                "badges": [
+                  "Q17437796"
+                ]
+              },
+              "frwiki": {
+                "site": "frwiki",
+                "title": "Manchester United Football Club",
+                "badges": []
+              }
+            }
+          },
+          "Q483020": {
+            "type": "item",
+            "id": "Q483020",
+            "sitelinks": {
+              "enwiki": {
+                "site": "enwiki",
+                "title": "Paris Saint-Germain FC",
+                "badges": []
+              },
+              "frwiki": {
+                "site": "frwiki",
+                "title": "Paris Saint-Germain Football Club",
+                "badges": []
+              }
+            }
+          },
+          "Q8682": {
+            "type": "item",
+            "id": "Q8682",
+            "sitelinks": {
+              "enwiki": {
+                "site": "enwiki",
+                "title": "Real Madrid CF",
+                "badges": []
+              },
+              "frwiki": {
+                "site": "frwiki",
+                "title": "Real Madrid Club de Fútbol",
+                "badges": []
+              }
+            }
+          },
+          "Q10319637": {
+            "type": "item",
+            "id": "Q10319637",
+            "sitelinks": {
+              "enwiki": {
+                "site": "enwiki",
+                "title": "London Caledonians F.C.",
+                "badges": []
+              }
+            }
+          },
+          "Q161774": {
+            "type": "item",
+            "id": "Q161774",
+            "sitelinks": {
+              "enwiki": {
+                "site": "enwiki",
+                "title": "1. Bockenheimer FC 1899",
+                "badges": []
+              },
+              "frwiki": {
+                "site": "frwiki",
+                "title": "1. Bockenheimer FC 1899",
+                "badges": []
+              }
+            }
+          },
+          "Q1000185": {
+            "type": "item",
+            "id": "Q1000185",
+            "sitelinks": {}
+          }
+        },
+        "success": 1
+      }
+    },
+    {
+      "url": "https://fr.wikipedia.org/w/api.php?action=query&prop=pageimages&piprop=thumbnail%7Cname&pithumbsize=128&titles=Manchester+United+Football+Club%7CParis+Saint-Germain+Football+Club%7CReal+Madrid+Club+de+F%C3%BAtbol%7C1.+Bockenheimer+FC+1899&format=json&formatversion=2",
+      "payload": {
+        "batchcomplete": true,
+        "query": {
+          "pages": [
+            {
+              "pageid": 93033,
+              "ns": 0,
+              "title": "Real Madrid Club de Fútbol",
+              "thumbnail": {
+                "source": "https://thumb.wikimedia.org/wikipedia/fr/thumb/c/c7/Logo_Real_Madrid.svg/250px-Logo_Real_Madrid.svg.png?utm_source=fr.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                "width": 128,
+                "height": 179
+              },
+              "pageimage": "Logo_Real_Madrid.svg"
+            },
+            {
+              "pageid": 162790,
+              "ns": 0,
+              "title": "Manchester United Football Club",
+              "thumbnail": {
+                "source": "https://thumb.wikimedia.org/wikipedia/fr/thumb/5/5b/Logo_Manchester_United_FC.svg/250px-Logo_Manchester_United_FC.svg.png?utm_source=fr.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                "width": 128,
+                "height": 130
+              },
+              "pageimage": "Logo_Manchester_United_FC.svg"
+            },
+            {
+              "pageid": 2947004,
+              "ns": 0,
+              "title": "Paris Saint-Germain Football Club",
+              "thumbnail": {
+                "source": "https://thumb.wikimedia.org/wikipedia/fr/thumb/f/ff/Logo_Paris_Saint-Germain_2024.svg/250px-Logo_Paris_Saint-Germain_2024.svg.png?utm_source=fr.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                "width": 128,
+                "height": 128
+              },
+              "pageimage": "Logo_Paris_Saint-Germain_2024.svg"
+            },
+            {
+              "pageid": 5152360,
+              "ns": 0,
+              "title": "1. Bockenheimer FC 1899"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "url": "https://fr.wikipedia.org/w/api.php?action=query&prop=imageinfo&iiprop=extmetadata&iiextmetadatafilter=LicenseShortName&titles=File%3ALogo_Real_Madrid.svg%7CFile%3ALogo_Manchester_United_FC.svg%7CFile%3ALogo_Paris_Saint-Germain_2024.svg&format=json&formatversion=2",
+      "payload": {
+        "batchcomplete": true,
+        "query": {
+          "normalized": [
+            {
+              "fromencoded": false,
+              "from": "File:Logo_Real_Madrid.svg",
+              "to": "Fichier:Logo Real Madrid.svg"
+            },
+            {
+              "fromencoded": false,
+              "from": "File:Logo_Manchester_United_FC.svg",
+              "to": "Fichier:Logo Manchester United FC.svg"
+            },
+            {
+              "fromencoded": false,
+              "from": "File:Logo_Paris_Saint-Germain_2024.svg",
+              "to": "Fichier:Logo Paris Saint-Germain 2024.svg"
+            }
+          ],
+          "pages": [
+            {
+              "pageid": 3994899,
+              "ns": 6,
+              "title": "Fichier:Logo Real Madrid.svg",
+              "imagerepository": "local",
+              "imageinfo": [
+                {
+                  "extmetadata": {
+                    "LicenseShortName": {
+                      "value": "marque déposée",
+                      "source": "commons-desc-page",
+                      "hidden": ""
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "pageid": 16377734,
+              "ns": 6,
+              "title": "Fichier:Logo Manchester United FC.svg",
+              "imagerepository": "local",
+              "imageinfo": [
+                {
+                  "extmetadata": {
+                    "LicenseShortName": {
+                      "value": "marque déposée",
+                      "source": "commons-desc-page",
+                      "hidden": ""
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "pageid": 16563435,
+              "ns": 6,
+              "title": "Fichier:Logo Paris Saint-Germain 2024.svg",
+              "imagerepository": "local",
+              "imageinfo": [
+                {
+                  "extmetadata": {
+                    "LicenseShortName": {
+                      "value": "marque déposée",
+                      "source": "commons-desc-page",
+                      "hidden": ""
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "url": "https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&piprop=thumbnail%7Cname&pithumbsize=128&titles=London+Caledonians+F.C.%7C1.+Bockenheimer+FC+1899&format=json&formatversion=2",
+      "payload": {
+        "batchcomplete": true,
+        "query": {
+          "pages": [
+            {
+              "pageid": 3800077,
+              "ns": 0,
+              "title": "London Caledonians F.C.",
+              "thumbnail": {
+                "source": "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a6/Labeled_group_photo_of_London_Caledonians_F.C._in_1894.png/250px-Labeled_group_photo_of_London_Caledonians_F.C._in_1894.png?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail",
+                "width": 128,
+                "height": 94
+              },
+              "pageimage": "Labeled_group_photo_of_London_Caledonians_F.C._in_1894.png"
+            },
+            {
+              "pageid": 7939428,
+              "ns": 0,
+              "title": "1. Bockenheimer FC 1899"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "url": "https://en.wikipedia.org/w/api.php?action=query&prop=imageinfo&iiprop=extmetadata&iiextmetadatafilter=LicenseShortName&titles=File%3ALabeled_group_photo_of_London_Caledonians_F.C._in_1894.png&format=json&formatversion=2",
+      "payload": {
+        "batchcomplete": true,
+        "query": {
+          "normalized": [
+            {
+              "fromencoded": false,
+              "from": "File:Labeled_group_photo_of_London_Caledonians_F.C._in_1894.png",
+              "to": "File:Labeled group photo of London Caledonians F.C. in 1894.png"
+            }
+          ],
+          "pages": [
+            {
+              "ns": 6,
+              "title": "File:Labeled group photo of London Caledonians F.C. in 1894.png",
+              "missing": true,
+              "known": true,
+              "imagerepository": "shared",
+              "imageinfo": [
+                {
+                  "extmetadata": {
+                    "LicenseShortName": {
+                      "value": "Public domain",
+                      "source": "commons-desc-page",
+                      "hidden": ""
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

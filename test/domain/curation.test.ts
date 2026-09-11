@@ -18,6 +18,7 @@ const passage = (
   clubId: `club-${fields.id}`,
   clubName: 'Un club',
   clubEnName: null,
+  clubCrestKey: null,
   isLoan: false,
   endYear: null,
   matches: 10,
