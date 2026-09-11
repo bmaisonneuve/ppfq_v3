@@ -8,12 +8,9 @@ import {
   LATEST_FORM_YEAR,
   MAX_COUNT,
 } from '@/shared/curation'
-import type {
-  ClubOption,
-  ClubSearchAction,
-  CurationAction,
-  FlaggedPassage,
-} from '@/shared/curation'
+import { crestUrl } from '@/shared/club'
+import type { ClubOption, ClubSearchAction } from '@/shared/club'
+import type { CurationAction, FlaggedPassage } from '@/shared/curation'
 
 import { ActionStatus } from './action-status'
 import { ClubPicker } from './club-picker'
@@ -59,6 +56,8 @@ export function PassageRow({
       <div className="flex flex-wrap items-end gap-3">
         <form action={save} className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="passageId" value={passage.id} />
+
+          <ClubCrest clubId={passage.clubId} crestKey={passage.clubCrestKey} />
 
           <div className="min-w-56">
             <span className="block text-xs font-medium text-neutral-600">Club</span>
@@ -111,6 +110,42 @@ export function PassageRow({
       <ActionStatus state={saveState} />
       <ActionStatus state={deleteState} />
     </li>
+  )
+}
+
+/**
+ * The club's crest, in the parcours, linking to its fiche.
+ *
+ * Here rather than only on the fiche because this is the screen where the
+ * clubs of a footballer are in front of the admin at once: a 1894 team
+ * photograph among eight crests is obvious in a row and invisible anywhere
+ * else. The gap is a link too — a club with no crest is the other thing worth
+ * noticing, and one click is the repair.
+ *
+ * Deliberately not on the player's side. The grid is prerendered and cached
+ * whole (ADR-0008); putting images into it is a game decision, not a
+ * consequence of the back-office having them.
+ */
+function ClubCrest({
+  clubId,
+  crestKey,
+}: Readonly<{ clubId: string; crestKey: string | null }>) {
+  return (
+    <a
+      href={`/admin/clubs/${clubId}`}
+      title="Ouvrir la fiche du club"
+      className="flex size-10 shrink-0 items-center justify-center self-center rounded border border-neutral-200 bg-white"
+    >
+      {crestKey === null ? (
+        <span className="text-[10px] text-neutral-400">?</span>
+      ) : (
+        // A plain `<img>`: the bytes are an already-rendered thumbnail behind a
+        // content-addressed, immutable URL, on an admin screen. See
+        // `club-crest-form.tsx`.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={crestUrl(crestKey)} alt="" className="max-h-8 max-w-8 object-contain" />
+      )}
+    </a>
   )
 }
 

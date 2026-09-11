@@ -45,6 +45,20 @@
       "breakpoints": true
     },
     {
+      "idx": 6,
+      "version": "7",
+      "when": 1789113075832,
+      "tag": "0006_club_crests",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789113083603,
+      "tag": "0007_drop_logo_s3_key",
+      "breakpoints": true
+    },
+    {
       "idx": 8,
       "version": "7",
       "when": 1789113604996,

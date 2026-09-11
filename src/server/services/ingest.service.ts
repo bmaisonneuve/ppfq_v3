@@ -25,6 +25,8 @@ import { fetchWikidataFootballer } from '@/server/ingest/wikidata-career'
 import type { WikidataFootballer } from '@/server/ingest/wikidata-career'
 import { nameSearchTerms } from '@/shared/search'
 
+import { extractClubCrests } from './crest.service'
+import type { CrestExtractionInput, CrestExtractionReport } from './crest.service'
 import { CAREER_IMPORT_JOB, finishJobRun, startJobRun } from './job-runs.service'
 
 /**
@@ -122,6 +124,15 @@ export type CareerImportReport = {
   passages: ExtractedPassage[]
   /** Clubs the catalogue did not have yet. The rest were left untouched. */
   clubsCreated: number
+  /**
+   * What fetching the crests of those new clubs came to, or null when there
+   * were none to fetch.
+   *
+   * Outside the transaction, with its own `job_runs` row, and it cannot fail
+   * this import: a half-written parcours is a false enigma, a missing crest is
+   * a missing image (#18).
+   */
+  crests: CrestExtractionReport | null
   /** Set when the source resolved one — and it is never unset. */
   nationality: { code: string; frName: string } | null
   /** Why no nationality was chosen. The footballer is then not schedulable. */
@@ -138,6 +149,12 @@ export type CareerImportInput = {
   qid: string
   /** The endpoint, injectable: the suite replays recorded answers. */
   runQuery?: SparqlQueryRunner
+  /**
+   * Where the crests of the new clubs come from, injectable for exactly the
+   * same reason — and here it is not only convenience: without it, importing a
+   * footballer in a test would reach fr.wikipedia for every club it created.
+   */
+  crestSource?: Pick<CrestExtractionInput, 'fetchJson' | 'fetchImage'>
 }
 
 /**
@@ -155,9 +172,16 @@ export async function importFootballerCareer(
   const jobRunId = await startJobRun({ job: CAREER_IMPORT_JOB, target: input.qid })
 
   try {
-    const report = await importIntoCatalogue(input.qid, runQuery, jobRunId)
+    const { clubIdsCreated, ...report } = await importIntoCatalogue(
+      input.qid,
+      runQuery,
+      jobRunId,
+    )
     await finishJobRun(jobRunId, { items: report.passagesWritten, errors: 0 })
-    return report
+    // After the trace is closed, and deliberately so: what follows belongs to
+    // the crest extraction's own run, and a crest nobody could download must
+    // not make a written parcours read as a failed import.
+    return { ...report, crests: await fetchCrestsOf(clubIdsCreated, input.crestSource) }
   } catch (error) {
     // The reason, and not only the fact: `errors = 1` alone leaves the
     // diagnostic screen with nothing to show, and a refused import — the wrong
@@ -171,11 +195,57 @@ export async function importFootballerCareer(
   }
 }
 
+/**
+ * The crests of the clubs this import just created.
+ *
+ * Only the new ones: an existing club's crest is curated data, and the
+ * extraction refuses to touch one anyway. It never throws — the import has
+ * already committed and already answered, and an image is not worth undoing
+ * either.
+ *
+ * It is also **bounded**, and that is not a detail. This runs inside the
+ * admin's own request, after the transaction has committed, and a footballer
+ * can bring a dozen new clubs with him: at the catch-up command's patience —
+ * three attempts, twenty seconds each, one club at a time — a single
+ * unreachable article would leave the admin watching a successful import look
+ * like a hung one. So: one attempt, a short timeout, and a budget that stops
+ * the pass starting new downloads. What it leaves behind is counted as skipped
+ * and picked up by `pnpm crests:backfill`.
+ */
+const IMPORT_CREST_BUDGET_MS = 10_000
+const IMPORT_CREST_FETCH: CrestExtractionInput['fetchOptions'] = {
+  maxAttempts: 1,
+  timeoutMs: 5_000,
+}
+
+async function fetchCrestsOf(
+  clubIds: readonly string[],
+  source: CareerImportInput['crestSource'],
+): Promise<CrestExtractionReport | null> {
+  if (clubIds.length === 0) return null
+
+  try {
+    return await extractClubCrests({
+      budgetMs: IMPORT_CREST_BUDGET_MS,
+      fetchOptions: IMPORT_CREST_FETCH,
+      ...source,
+      clubIds,
+    })
+  } catch {
+    return null
+  }
+}
+
+/** The report, plus the one thing only this half knows: which clubs are new. */
+type CatalogueImport = Omit<CareerImportReport, 'crests'> & {
+  clubIdsCreated: string[]
+}
+
 async function importIntoCatalogue(
   qid: string,
   runQuery: SparqlQueryRunner,
   jobRunId: string,
-): Promise<CareerImportReport> {
+): Promise<CatalogueImport> {
   const source = await fetchWikidataFootballer(qid, runQuery)
   if (!source.isFootballer) throw new NotAFootballerError(qid)
 
@@ -214,7 +284,8 @@ async function importIntoCatalogue(
       statementsRead: source.statements.length,
       passagesWritten: career.passages.length,
       passages: career.passages,
-      clubsCreated: clubIds.created,
+      clubsCreated: clubIds.created.length,
+      clubIdsCreated: clubIds.created,
       nationality:
         choice.nationality === null
           ? null
@@ -331,7 +402,7 @@ async function lockFootballer(tx: Tx, qid: string) {
 async function upsertClubs(
   tx: Tx,
   passages: readonly ExtractedPassage[],
-): Promise<{ byQid: Map<string, string>; created: number }> {
+): Promise<{ byQid: Map<string, string>; created: string[] }> {
   const wanted = new Map<string, ExtractedPassage>()
   for (const passage of passages) wanted.set(passage.clubQid, passage)
 
@@ -360,7 +431,7 @@ async function upsertClubs(
     if (row.wikidataQid !== null) byQid.set(row.wikidataQid, row.id)
   }
 
-  return { byQid, created: inserted.length }
+  return { byQid, created: inserted.map((row) => row.id) }
 }
 
 /** The club row `upsertClubs` just guaranteed for this qid. */

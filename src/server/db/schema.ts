@@ -68,7 +68,8 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
  * nothing. Postgres moves a `bytea` over 2 kB out of the table into TOAST on
  * its own, and the read path is cached indefinitely. An object store would
  * bring an account, keys, a development service and a **second backup story**,
- * where the procedure has to stay "restore Postgres".
+ * where the procedure has to stay "restore Postgres". Same decision, same
+ * reasons and same shape as `club_crests`: see ADR-0010.
  *
  * The indirection the model wanted is kept: a **key**, never a URL. The day the
  * volume justifies a bucket, the same hash is the object name.
@@ -116,6 +117,58 @@ export const nationalities = pgTable(
   (t) => [uniqueIndex('nationalities_code_key').on(t.code)],
 )
 
+/**
+ * A club crest, the bytes themselves, addressed by their content.
+ *
+ * **The key is the SHA-256 of `bytes`**, and that one fact carries the whole
+ * design. Two clubs sharing a crest share a row. Replacing a crest writes a
+ * *different* key, so the URL that serves it changes and the old one may be
+ * cached for ever — which is exactly what `Cache-Control: immutable` on the
+ * read path claims, and what makes the claim true rather than hopeful.
+ *
+ * ## Why the bytes are in Postgres and not in a bucket
+ *
+ * Measured: the ticket counts ~15-20 kB a crest, and this implementation ~35 kB
+ * on average at the width it asks for. A few thousand clubs at the very most —
+ * under ~200 MB either way, against the 15-20 GB a year `player_progress` is
+ * sized for (`docs/modele-donnees.md` §9). Postgres moves a `bytea` over 2 kB out of the
+ * table into TOAST on its own, and the read path is cached indefinitely behind
+ * Cloudflare, so this is not a hot path. An object store would bring an
+ * account, keys, a development service and — the reason that actually decides
+ * it — a **second backup story**, while #17 asks for one verified full restore.
+ * The procedure has to stay "restore Postgres". See ADR-0010.
+ *
+ * The indirection the model wanted is kept: a **key**, never a URL. The day the
+ * volume justifies a bucket, the same hash is the object name.
+ *
+ * ## What sits next to the bytes, and why
+ *
+ * `source_file` is the Wikipedia file the image came from, and it is not
+ * decoration: the main image of an article is **not always the crest** — the
+ * English article of London Caledonians FC answers with a team photograph from
+ * 1894 — so the name is what makes a wrong pick visible on the club's fiche.
+ * `license` and `source_url` are the takedown story: the legal risk is the one
+ * already assessed and accepted (`docs/stack-technique.md` §11), and a removal
+ * has to be one row to delete.
+ */
+export const clubCrests = pgTable('club_crests', {
+  /** SHA-256 of `bytes`, lower-case hex. The content address, and the row key. */
+  key: text('key').primaryKey(),
+  bytes: bytea('bytes').notNull(),
+  /** What the read path serves. `image/png` for everything the thumbnailer renders. */
+  contentType: text('content_type').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  /** `Logo_Manchester_United_FC.svg`, or the name of the file an admin uploaded. */
+  sourceFile: text('source_file'),
+  /** The thumbnail actually fetched. Null for a hand upload. */
+  sourceUrl: text('source_url'),
+  /** `fr`, `en`, or null when an admin uploaded it himself. */
+  sourceWiki: text('source_wiki'),
+  /** As the source states it — « marque déposée », for most of them. */
+  license: text('license'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export const clubs = pgTable(
   'clubs',
   {
@@ -124,10 +177,23 @@ export const clubs = pgTable(
     /** Current French name — the one the game displays. */
     frName: text('fr_name').notNull(),
     enName: text('en_name'),
-    /** S3 object *key*, never a full URL. */
-    logoS3Key: text('logo_s3_key'),
+    /**
+     * The crest, by content address — **not** an S3 key, which is what the
+     * column used to be called and never was (ADR-0010). Still a key and never
+     * a URL: where the bytes are served from must be free to move.
+     *
+     * `set null` on delete, because deleting a crest row is the takedown
+     * procedure: it must not be blocked by the clubs that point at it, and a
+     * club with no crest is a club with a missing image, not a broken row.
+     */
+    crestKey: text('crest_key').references(() => clubCrests.key, { onDelete: 'set null' }),
   },
-  (t) => [uniqueIndex('clubs_wikidata_qid_key').on(t.wikidataQid)],
+  (t) => [
+    uniqueIndex('clubs_wikidata_qid_key').on(t.wikidataQid),
+    // What the backfill walks: the clubs that have no crest yet. Also the
+    // index that makes "which clubs point at this crest" cheap on a takedown.
+    index('clubs_crest_key_idx').on(t.crestKey),
+  ],
 )
 
 /**

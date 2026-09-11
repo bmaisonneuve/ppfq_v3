@@ -1,20 +1,14 @@
 import 'server-only'
 
-import { asc, eq, ilike, or } from 'drizzle-orm'
+import { asc, eq } from 'drizzle-orm'
 
 import { db } from '@/server/db/client'
 import { clubs, footballers, nationalities, playerClubs } from '@/server/db/schema'
 import { flagPassages } from '@/server/domain/curation'
 import type { Nationality } from '@/shared/career'
-import { MIN_CLUB_QUERY_LENGTH } from '@/shared/curation'
-import type {
-  ClubOption,
-  CurationDossier,
-  CurationImportTrace,
-  NewClubInput,
-  PassageInput,
-} from '@/shared/curation'
+import type { CurationDossier, CurationImportTrace, PassageInput } from '@/shared/curation'
 
+import { assertClubExists } from './club.service'
 import { CAREER_IMPORT_JOB, findLastJobRun, jobRunFailed } from './job-runs.service'
 
 /**
@@ -62,13 +56,6 @@ export class PassageNotFoundError extends Error {
   }
 }
 
-export class ClubNotFoundError extends Error {
-  constructor(readonly clubId: string) {
-    super(`No club ${clubId} in the catalogue. Create it before using it.`)
-    this.name = 'ClubNotFoundError'
-  }
-}
-
 /**
  * Everything the curation screen shows for one footballer, read from the
  * catalogue on every call.
@@ -97,6 +84,9 @@ export async function getCurationDossier(
       // Not decoration: the reserve-team signal was measured on English labels,
       // and a French name can have lost the marker the English one carries.
       clubEnName: clubs.enName,
+      // The crest, shown next to the club so a 1894 team photograph where a
+      // crest should be is caught on the screen the admin already has open.
+      clubCrestKey: clubs.crestKey,
       isLoan: playerClubs.isLoan,
       startYear: playerClubs.startYear,
       endYear: playerClubs.endYear,
@@ -247,58 +237,6 @@ export async function listNationalities(): Promise<Nationality[]> {
   return rows.map(toNationality)
 }
 
-/**
- * The club picker behind "add a passage".
- *
- * A plain substring match on both names, ordered by the French one so the list
- * does not move under the cursor between two keystrokes. It is not the player
- * typeahead and does not pretend to be: no normalised terms, no trigram rescue,
- * no notoriety — the catalogue holds a few thousand clubs, one admin uses this,
- * and `clubs` has no term column to index. The English name is searched because
- * the model keeps it precisely as the admin's fallback.
- *
- * The two-character floor is the typeahead's, for the same reason: below it the
- * answer is noise.
- */
-export async function searchClubs(query: string): Promise<ClubOption[]> {
-  const trimmed = query.trim()
-  if (trimmed.length < MIN_CLUB_QUERY_LENGTH) return []
-
-  // `%`, `_` and `\` would otherwise be wildcards in the admin's own query.
-  const escaped = trimmed.replace(/[\\%_]/g, (char) => `\\${char}`)
-  const pattern = `%${escaped}%`
-
-  return await db
-    .select({ id: clubs.id, frName: clubs.frName, enName: clubs.enName })
-    .from(clubs)
-    .where(or(ilike(clubs.frName, pattern), ilike(clubs.enName, pattern)))
-    .orderBy(asc(clubs.frName), asc(clubs.id))
-    .limit(CLUB_SUGGESTION_LIMIT)
-}
-
-const CLUB_SUGGESTION_LIMIT = 20
-
-/**
- * Creates a club the source does not have, so a hand-typed passage has
- * something to point at.
- *
- * `wikidata_qid` stays null, which is the model's own marker for a row entered
- * by hand. Two such clubs never collide: Postgres does not consider two nulls
- * equal in a unique index. The day the source does know this club, the import
- * creates a *second* row rather than adopting this one — a deliberate
- * consequence of matching clubs on their Wikidata id, and a duplicate the admin
- * can see and merge, where a silent adoption would rename a club under every
- * footballer at once.
- */
-export async function createClub(input: NewClubInput): Promise<ClubOption> {
-  const [created] = await db
-    .insert(clubs)
-    .values({ frName: input.frName, enName: input.enName })
-    .returning({ id: clubs.id, frName: clubs.frName, enName: clubs.enName })
-
-  return created as ClubOption
-}
-
 async function assertFootballerExists(footballerId: string): Promise<void> {
   const [row] = await db
     .select({ id: footballers.id })
@@ -307,16 +245,6 @@ async function assertFootballerExists(footballerId: string): Promise<void> {
     .limit(1)
 
   if (!row) throw new FootballerNotFoundError(footballerId)
-}
-
-async function assertClubExists(clubId: string): Promise<void> {
-  const [row] = await db
-    .select({ id: clubs.id })
-    .from(clubs)
-    .where(eq(clubs.id, clubId))
-    .limit(1)
-
-  if (!row) throw new ClubNotFoundError(clubId)
 }
 
 function toNationality(row: typeof nationalities.$inferSelect): Nationality {

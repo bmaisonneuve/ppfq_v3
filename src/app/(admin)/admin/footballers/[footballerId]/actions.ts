@@ -4,21 +4,21 @@ import { refresh } from 'next/cache'
 import { z } from 'zod'
 
 import { requireAdmin } from '@/server/services/admin-auth.service'
+import { createClub } from '@/server/services/club.service'
 import {
-  ClubNotFoundError,
-  FootballerNotFoundError,
-  PassageNotFoundError,
   addPassage,
-  createClub,
   deletePassage,
-  searchClubs,
   setFootballerNationality,
   updatePassage,
 } from '@/server/services/curation.service'
 import { importFootballerCareer } from '@/server/services/ingest.service'
+import type { CareerImportReport } from '@/server/services/ingest.service'
 import { adminActionFailed, adminActionOk, firstZodMessage, textField } from '@/shared/admin'
-import { NewClubInput, PassageInput } from '@/shared/curation'
-import type { ClubOption, CurationActionState } from '@/shared/curation'
+import { NewClubInput } from '@/shared/club'
+import { PassageInput } from '@/shared/curation'
+import type { CurationActionState } from '@/shared/curation'
+
+import { explainServiceError } from '../../service-errors'
 
 /**
  * The curation adapters: parse, call the service, answer.
@@ -41,6 +41,10 @@ import type { ClubOption, CurationActionState } from '@/shared/curation'
 const ok = adminActionOk
 const failed = adminActionFailed
 const firstMessage = firstZodMessage
+// One table of refusals for every admin screen: `ClubNotFoundError` is raised
+// by a passage form and by a club fiche alike, and two adapters each writing
+// their own sentence is how one refusal starts reading two different ways.
+const explain = explainServiceError
 
 /** `FormData` gives strings; an untouched number field gives the empty one. */
 const optionalNumber = z
@@ -212,7 +216,12 @@ export async function reimportCareerAction(
     const report = await importFootballerCareer({ qid })
     refresh()
     const created = report.clubsCreated > 0 ? `, ${report.clubsCreated} club(s) créé(s)` : ''
-    return ok(`Import terminé : ${report.passagesWritten} passage(s) écrit(s)${created}.`)
+    // The crests are a separate run with a separate trace, and what did *not*
+    // arrive is said out loud too: a club whose image is missing is a fiche to
+    // open, not a parcours to redo, and silence would read as "there was none".
+    return ok(
+      `Import terminé : ${report.passagesWritten} passage(s) écrit(s)${created}${crestOutcome(report.crests)}.`,
+    )
   } catch (error) {
     // The refusals of ADR-0005 land here — not a footballer, no club passage,
     // unnamed footballer — and each of them wrote nothing. The trace in
@@ -222,30 +231,23 @@ export async function reimportCareerAction(
   }
 }
 
+
 /**
- * The club picker's data source.
+ * What the crest run that followed the import came to.
  *
- * A Server Action rather than a route handler: it is admin-only, so there is
- * nothing to cache and nothing to expose publicly, and going through the action
- * keeps the guard on it.
+ * Failures and leftovers are named rather than folded into the count: the crest
+ * pass runs on a budget inside this very request, so "3 blasons" out of eight
+ * clubs is a normal outcome that the admin has to be able to act on — the
+ * catch-up command, or the club's own fiche.
  */
-export async function searchClubsAction(query: string): Promise<ClubOption[]> {
-  await requireAdmin()
+function crestOutcome(crests: CareerImportReport['crests']): string {
+  if (crests === null) return ''
 
-  return await searchClubs(query)
-}
+  const left = [
+    `${crests.fetched} blason(s)`,
+    crests.errors > 0 ? `${crests.errors} en échec` : null,
+    crests.skipped > 0 ? `${crests.skipped} à reprendre` : null,
+  ].filter((part) => part !== null)
 
-
-/** Service refusals in the admin's words; anything else stays the raw message. */
-function explain(error: unknown): string {
-  if (error instanceof ClubNotFoundError) {
-    return 'Ce club n’existe plus dans le catalogue.'
-  }
-  if (error instanceof PassageNotFoundError) {
-    return 'Ce passage n’existe plus : il a peut-être été supprimé dans un autre onglet.'
-  }
-  if (error instanceof FootballerNotFoundError) {
-    return 'Ce footballeur n’est pas dans le référentiel.'
-  }
-  return error instanceof Error ? error.message : String(error)
+  return `, ${left.join(', ')}`
 }

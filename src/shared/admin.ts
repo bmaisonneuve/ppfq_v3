@@ -67,6 +67,19 @@ export function textField(form: FormData, name: string): string {
   return typeof value === 'string' ? value : ''
 }
 
+/**
+ * A file field, read out of a `FormData` — the mirror of `textField`, and the
+ * reason that one exists.
+ *
+ * An untouched `<input type="file">` still submits: the browser sends a `File`
+ * with an empty name and no bytes. That is "no file", not a file of length
+ * zero, so it reads as null and every caller is spared the distinction.
+ */
+export function fileField(form: FormData, name: string): File | null {
+  const value = form.get(name)
+  return value instanceof File && value.size > 0 ? value : null
+}
+
 /** The same narrowing for a field submitted several times, in document order. */
 export function textFields(form: FormData, name: string): string[] {
   return form.getAll(name).map((value) => (typeof value === 'string' ? value : ''))

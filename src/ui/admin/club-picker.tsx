@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from 'react'
 
-import { MIN_CLUB_QUERY_LENGTH, type ClubOption, type ClubSearchAction } from '@/shared/curation'
+import { MIN_CLUB_QUERY_LENGTH, type ClubOption, type ClubSearchAction } from '@/shared/club'
 import { SEARCH_DEBOUNCE_MS } from '@/shared/search'
 
 /**
@@ -17,15 +17,19 @@ import { SEARCH_DEBOUNCE_MS } from '@/shared/search'
  * floor and the debounce, held on the server side too.
  *
  * The selected id travels in a hidden field, so the surrounding form submits
- * with or without JavaScript once a club is chosen.
+ * with or without JavaScript once a club is chosen. The field is named by the
+ * caller: a passage form sends a `clubId`, and the merge form sends the club
+ * that is about to disappear under a name that says so.
  */
 export function ClubPicker({
   searchClubsAction,
   defaultClub,
+  fieldName = 'clubId',
 }: Readonly<{
   searchClubsAction: ClubSearchAction
   /** The club a passage already points at. Absent when adding one. */
   defaultClub?: ClubOption | null
+  fieldName?: string
 }>) {
   const [selected, setSelected] = useState<ClubOption | null>(defaultClub ?? null)
   const [query, setQuery] = useState('')
@@ -64,7 +68,7 @@ export function ClubPicker({
 
   return (
     <div className="flex flex-col gap-1">
-      <input type="hidden" name="clubId" value={selected?.id ?? ''} />
+      <input type="hidden" name={fieldName} value={selected?.id ?? ''} />
 
       {selected === null ? null : (
         <p className="text-sm">

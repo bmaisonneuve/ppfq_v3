@@ -1,5 +1,16 @@
 import 'server-only'
 
+// The contact string and the retry policy are shared with the MediaWiki client
+// in `wikipedia.ts` (`wikimedia.ts`): two of either would drift, and the one
+// that drifts is the one nobody notices until an endpoint starts refusing it.
+import {
+  MAX_ATTEMPTS,
+  RETRYABLE_STATUSES,
+  RETRY_BASE_DELAY_MS,
+  WIKIMEDIA_USER_AGENT,
+  sleepFor,
+} from './wikimedia'
+
 /**
  * The SPARQL gateway: one function that sends a query and gives back rows.
  *
@@ -47,26 +58,12 @@ export type SparqlQueryRunner = (query: string) => Promise<SparqlRow[]>
 const DEFAULT_ENDPOINT = 'https://qlever.dev/api/wikidata'
 
 /**
- * Wikimedia's policy asks for a contact in the User-Agent, and an endpoint that
- * sees an anonymous client is entitled to refuse it. The repository is the
- * contact: it outlives any one address.
- */
-const USER_AGENT = 'PPFQ/1.0 (+https://github.com/bmaisonneuve/ppfq_v3)'
-
-/**
  * Client-side ceiling, above QLever's own 30 s: a query that hits the server
  * ceiling must come back as its error rather than as our timeout, because the
  * two say different things — "this query is too heavy" against "the network is
  * gone".
  */
 const REQUEST_TIMEOUT_MS = 45_000
-
-/** Three attempts, ~0.5 s then ~1.5 s apart. An admin is waiting for this. */
-const MAX_ATTEMPTS = 3
-const RETRY_BASE_DELAY_MS = 500
-
-/** Retried: the endpoint is busy or briefly broken. Anything else is our bug. */
-const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504])
 
 /** Raised when the endpoint could not be reached or refused the query. */
 export class SparqlError extends Error {
@@ -113,11 +110,7 @@ export async function runSparqlQuery(
   const endpoint =
     options.endpoint ?? process.env.WIKIDATA_SPARQL_ENDPOINT ?? DEFAULT_ENDPOINT
   const maxAttempts = options.maxAttempts ?? MAX_ATTEMPTS
-  const sleep =
-    options.sleep ??
-    (async (ms: number) => {
-      await new Promise((resolve) => setTimeout(resolve, ms))
-    })
+  const sleep = options.sleep ?? sleepFor
   const url = `${endpoint}?query=${encodeURIComponent(query)}`
 
   let lastError: unknown
@@ -148,7 +141,10 @@ function isRetryable(error: unknown): boolean {
 
 async function fetchRows(url: string, timeoutMs: number): Promise<SparqlRow[]> {
   const response = await fetch(url, {
-    headers: { Accept: 'application/sparql-results+json', 'User-Agent': USER_AGENT },
+    headers: {
+      Accept: 'application/sparql-results+json',
+      'User-Agent': WIKIMEDIA_USER_AGENT,
+    },
     signal: AbortSignal.timeout(timeoutMs),
   })
 

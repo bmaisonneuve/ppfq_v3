@@ -43,6 +43,13 @@ export default defineConfig({
           name: 'architecture',
           include: ['test/architecture/**/*.test.ts'],
           environment: 'node',
+          // `layering.test.ts` runs the real ESLint over a probe file, and the
+          // config is type-aware: the first case pays for TypeScript's project
+          // service booting a program over the whole repo. That is seconds, it
+          // grows with the repo, and the default 5 s budget turned a rule check
+          // into a machine-load check — green alone, red right after a
+          // `pnpm lint`. The test measures a rule; the clock is not the point.
+          testTimeout: 60_000,
         },
       },
       {

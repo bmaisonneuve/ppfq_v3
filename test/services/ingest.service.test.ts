@@ -8,12 +8,17 @@ import {
   UnnamedFootballerError,
   importFootballerCareer,
 } from '@/server/services/ingest.service'
-import { CAREER_IMPORT_JOB, listRecentJobRuns } from '@/server/services/job-runs.service'
+import {
+  CAREER_IMPORT_JOB,
+  CLUB_CREST_JOB,
+  listRecentJobRuns,
+} from '@/server/services/job-runs.service'
 import { searchFootballers } from '@/server/services/search.service'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@test/setup/db'
 import { FOOTBALLER_IDS, FRANCE_FLAG_KEY, seedCatalogue } from '@test/fixtures/catalogue'
+import { ONE_PIXEL_PNG, fakeWikipedia } from '@test/fixtures/crest'
 import {
   RECORDED,
   careerRow,
@@ -31,8 +36,22 @@ import {
  * afterwards, never the queries it went through. The live counterpart of these
  * tests, the one that really talks to Wikidata, is `test/live/`.
  */
+/**
+ * The import, with both sources replaced.
+ *
+ * The crest source matters as much as the SPARQL one: an import fetches the
+ * crests of the clubs it creates, so a test that left it at its default would
+ * go to fr.wikipedia for every club of every career. This one answers for
+ * nothing, which is the shape of a club whose article has no image — the case
+ * the extraction is built around.
+ */
+const silentCrests = () => {
+  const wikipedia = fakeWikipedia({})
+  return { fetchJson: wikipedia.fetchJson, fetchImage: wikipedia.fetchImage }
+}
+
 const importCareer = async (qid: string, runQuery: ReturnType<typeof wikidataRunner>) =>
-  await importFootballerCareer({ qid, runQuery })
+  await importFootballerCareer({ qid, runQuery, crestSource: silentCrests() })
 
 const careerOf = async (footballerId: string) => await getFootballerCareer(footballerId)
 
@@ -463,5 +482,131 @@ describe('the trace every run leaves', () => {
 
   it('says nothing about a job that never ran', async () => {
     expect(await listRecentJobRuns({ job: 'cache_revalidate' })).toEqual([])
+  })
+})
+
+describe('the crests of the clubs an import creates', () => {
+  /** Manchester United, one of the nine clubs Cantona's import creates. */
+  const MANCHESTER_UNITED = 'Q18656'
+
+  const crestSource = () =>
+    fakeWikipedia({
+      [MANCHESTER_UNITED]: {
+        wiki: 'fr',
+        article: 'Manchester United Football Club',
+        fileName: 'Logo_Manchester_United_FC.svg',
+        license: 'marque déposée',
+        bytes: ONE_PIXEL_PNG,
+      },
+    })
+
+  it('fetches them, and says so in the report', async () => {
+    const wikipedia = crestSource()
+
+    const report = await importFootballerCareer({
+      qid: RECORDED.cantona,
+      runQuery: recordedRunner(RECORDED.cantona),
+      crestSource: wikipedia,
+    })
+
+    expect(report.clubsCreated).toBeGreaterThan(0)
+    expect(report.crests).toMatchObject({ fetched: 1, errors: 0 })
+
+    const [united] = await db
+      .select()
+      .from(clubs)
+      .where(eq(clubs.wikidataQid, MANCHESTER_UNITED))
+    expect(united?.crestKey).not.toBeNull()
+  })
+
+  it('leaves its own trace, separate from the import’s', async () => {
+    const wikipedia = crestSource()
+
+    const report = await importFootballerCareer({
+      qid: RECORDED.cantona,
+      runQuery: recordedRunner(RECORDED.cantona),
+      crestSource: wikipedia,
+    })
+
+    const runs = await listRecentJobRuns()
+    const crestRun = runs.find((run) => run.id === report.crests?.jobRunId)
+    expect(crestRun?.job).toBe(CLUB_CREST_JOB)
+    // And the import's own row is untouched by it: a crest is not a passage.
+    const importRun = runs.find((run) => run.job === CAREER_IMPORT_JOB)
+    expect(importRun).toMatchObject({ errors: 0, items: report.passagesWritten })
+  })
+
+  it('does not fail the import when a download fails, and keeps the parcours', async () => {
+    // The rule the ticket states outright: a half-written parcours is a false
+    // enigma, a missing crest is a missing image.
+    const wikipedia = fakeWikipedia({
+      [MANCHESTER_UNITED]: {
+        wiki: 'fr',
+        article: 'Manchester United Football Club',
+        fileName: 'Logo_Manchester_United_FC.svg',
+      },
+    })
+
+    const report = await importFootballerCareer({
+      qid: RECORDED.cantona,
+      runQuery: recordedRunner(RECORDED.cantona),
+      crestSource: wikipedia,
+    })
+
+    expect(report.passagesWritten).toBeGreaterThan(0)
+    expect(report.crests).toMatchObject({ fetched: 0, errors: 1 })
+    expect((await careerOf(report.footballerId))?.playerClubs.length).toBe(
+      report.passagesWritten,
+    )
+  })
+
+  it('does not fail the import when the whole source is unreachable', async () => {
+    const report = await importFootballerCareer({
+      qid: RECORDED.cantona,
+      runQuery: recordedRunner(RECORDED.cantona),
+      crestSource: {
+        fetchJson: async () => {
+          await Promise.resolve()
+          throw new Error('Wikimedia is gone.')
+        },
+      },
+    })
+
+    expect(report.passagesWritten).toBeGreaterThan(0)
+    expect(report.crests).toMatchObject({ fetched: 0, errors: 1 })
+  })
+
+  it('asks for nothing when it created no club', async () => {
+    // Zidane is seeded with all four of his clubs, so the import creates none
+    // and there is nothing to go and fetch.
+    await seedCatalogue(db)
+
+    const report = await importCareer(RECORDED.zidane, recordedRunner(RECORDED.zidane))
+
+    expect(report.clubsCreated).toBe(0)
+    expect(report.crests).toBeNull()
+  })
+
+  it('leaves a club it did not create alone', async () => {
+    await seedCatalogue(db)
+    // Bordeaux is in the fixture already, so Cantona's import does not create
+    // it — and an existing club is never handed to the extraction at all.
+    const wikipedia = fakeWikipedia({
+      Q172476: {
+        wiki: 'fr',
+        article: 'Football Club des Girondins de Bordeaux',
+        fileName: 'Logo_Girondins.svg',
+        bytes: ONE_PIXEL_PNG,
+      },
+    })
+
+    await importFootballerCareer({
+      qid: RECORDED.cantona,
+      runQuery: recordedRunner(RECORDED.cantona),
+      crestSource: wikipedia,
+    })
+
+    const [bordeaux] = await db.select().from(clubs).where(eq(clubs.wikidataQid, 'Q172476'))
+    expect(bordeaux?.crestKey).toBeNull()
   })
 })

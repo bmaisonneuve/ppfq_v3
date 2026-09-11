@@ -88,8 +88,12 @@ Le nombre de saisons affiché au 2e palier d'indices, compté comme `end_year - 
 **Nationalité** :
 La nationalité sportive d'un footballeur, une seule même pour un binational. Table à part, avec son nom localisé et son drapeau.
 
+**Blason** :
+L'écusson d'un club. Vit dans Postgres, adressé par le SHA-256 de ses octets : la même image est une seule ligne, et remplacer le blason d'un club change son adresse donc son URL. Extrait de l'image principale de l'article fr.wikipedia du club, en.wikipedia seulement à défaut ; l'extraction ne remplace jamais celui qui est déjà là. Affiché au back-office, pas au joueur. En base : `club_crests`, pointé par `clubs.crest_key`.
+_Avoid_: logo, écusson, crest (dans les textes français)
+
 **Curation** :
-Le travail de l'admin sur un footballeur : relire ce que l'import a produit, corriger ce que la source donne mal ou pas du tout, ajouter le passage qu'elle ignore, saisir matchs, buts et nationalité. Rien ne l'enregistre — « curé » reste le fait d'avoir des passages, et il n'y a ni statut de vérification ni date. Ce qu'un écran de curation lit sur un footballeur est un `CurationDossier`, recomposé à chaque lecture depuis les tables.
+Le travail de l'admin sur un footballeur : relire ce que l'import a produit, corriger ce que la source donne mal ou pas du tout, ajouter le passage qu'elle ignore, saisir matchs, buts et nationalité. Elle a un pendant côté club — renommer, donner un blason, fusionner un doublon — qui se fait sur la **fiche du club** et vaut pour tous les footballeurs qui y sont passés. Rien ne l'enregistre — « curé » reste le fait d'avoir des passages, et il n'y a ni statut de vérification ni date. Ce qu'un écran de curation lit sur un footballeur est un `CurationDossier`, recomposé à chaque lecture depuis les tables.
 _Avoid_: validation, vérification (rien n'est tracé), modération
 
 **Indice** :
