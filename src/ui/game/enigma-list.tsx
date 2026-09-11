@@ -10,6 +10,7 @@ import type { EnigmaPlay } from '@/shared/play'
 import type { Position } from '@/shared/schedule'
 
 import { EnigmaEssai } from './enigma-essai'
+import { PlayerStatsPanel } from './player-stats'
 import { isStaleGrid, playAt, useDayPlays } from './use-day-plays'
 
 /**
@@ -45,6 +46,13 @@ import { isStaleGrid, playAt, useDayPlays } from './use-day-plays'
  * partie carries what it has earned and nothing else — the hints its erreurs
  * paid for, and the name of the footballer only once it is over
  * (`shared/play.ts`).
+ *
+ * Les statistiques du joueur sont rendues sous la liste par ce même composant,
+ * et c'est la file qui l'impose plutôt que la mise en page : elles arrivent par
+ * une porte à elles (ADR-0013) mais **sur la file de ce hook**, parce qu'une
+ * requête personnelle hors de cette file est un second joueur qui se crée
+ * (ADR-0009). Ce qui les fetch est donc ici, et ce qui les dessine est
+ * `player-stats.tsx`, qui ne calcule rien non plus.
  */
 export function EnigmaList({ grid }: Readonly<{ grid: DailyGrid }>) {
   // The first by its rank in the list rather than by `position === 1`: a grid
@@ -52,7 +60,7 @@ export function EnigmaList({ grid }: Readonly<{ grid: DailyGrid }>) {
   // parcours has to be visible from the start.
   const first = grid.enigmas[0]?.position
 
-  const { state, open, submit, pending } = useDayPlays(grid.date, first)
+  const { state, open, submit, pending, stats } = useDayPlays(grid.date, first)
   const [unfolded, setUnfolded] = useState<ReadonlySet<Position>>(
     () => new Set(first === undefined ? [] : [first]),
   )
@@ -112,6 +120,8 @@ export function EnigmaList({ grid }: Readonly<{ grid: DailyGrid }>) {
           </li>
         ))}
       </ol>
+
+      <PlayerStatsPanel stats={stats} />
 
       {state.status === 'unavailable' ? <UnavailableNotice /> : null}
     </div>

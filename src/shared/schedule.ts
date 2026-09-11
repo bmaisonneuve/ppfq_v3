@@ -27,6 +27,17 @@ export type Position = 1 | 2 | 3
 export const POSITIONS: readonly Position[] = [1, 2, 3]
 
 /**
+ * Le titulaire — la position dont la série compte les jours.
+ *
+ * Nommée parce qu'elle porte une règle et non un rang : « la série compte les
+ * jours consécutifs où le joueur a trouvé **le titulaire** », l'échauffement et
+ * la légende n'y entrant pas (specs §5). Un `2` écrit en clair dans le service
+ * qui compte la série serait la seule trace de cette règle, et il ne dirait pas
+ * laquelle.
+ */
+export const TITULAIRE: Position = 2
+
+/**
  * A stored integer read back as a position, or null when it is not one.
  *
  * Nothing in this codebase writes a position outside 1..3 and the unique index

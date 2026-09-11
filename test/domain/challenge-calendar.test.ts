@@ -5,6 +5,7 @@ import {
   monthOfDate,
   parseChallengeDate,
   parseChallengeMonth,
+  previousDate,
   shiftMonth,
   todayInParis,
 } from '@/server/domain/challenge-calendar'
@@ -74,6 +75,33 @@ describe('shiftMonth', () => {
 
   it('stays inside a year', () => {
     expect(shiftMonth('2026-09', 1)).toBe('2026-10')
+  })
+})
+
+describe('previousDate', () => {
+  it('recule d’un jour', () => {
+    expect(previousDate('2026-09-09')).toBe('2026-09-08')
+  })
+
+  it('remonte au mois précédent', () => {
+    expect(previousDate('2026-09-01')).toBe('2026-08-31')
+  })
+
+  it('remonte à l’année précédente', () => {
+    expect(previousDate('2026-01-01')).toBe('2025-12-31')
+  })
+
+  it('connaît les années bissextiles', () => {
+    expect(previousDate('2028-03-01')).toBe('2028-02-29')
+    expect(previousDate('2026-03-01')).toBe('2026-02-28')
+  })
+
+  it('traverse le changement d’heure sans perdre ni doubler un jour', () => {
+    // Les deux dimanches où une journée de Paris ne fait pas 24 heures. Compter
+    // en millisecondes sur une date locale donnerait ici le même jour deux
+    // fois — c'est la raison pour laquelle cette fonction existe.
+    expect(previousDate('2026-03-29')).toBe('2026-03-28')
+    expect(previousDate('2026-10-25')).toBe('2026-10-24')
   })
 })
 

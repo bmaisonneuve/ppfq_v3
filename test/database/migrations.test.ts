@@ -58,6 +58,7 @@ describe('migrations', () => {
         'nationality_flags',
         'player_clubs',
         'player_progress',
+        'player_stats',
         'players',
       ])
 

@@ -71,6 +71,20 @@
       "when": 1789113610901,
       "tag": "0009_drop_flag_s3_key",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789128754436,
+      "tag": "0010_optimal_hammerhead",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789130048835,
+      "tag": "0011_backfill_player_stats",
+      "breakpoints": true
     }
   ]
 }

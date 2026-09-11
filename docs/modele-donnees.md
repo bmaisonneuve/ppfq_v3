@@ -261,6 +261,24 @@ La répartition par nombre d'essais (specs §5) n'est pas stockée : c'est un `G
 
 Il n'y a **pas** de job de réconciliation : cette table est écrite dans la **même transaction** que la fin de partie. Conséquence à connaître : un agrégat faux ne se répare pas tout seul la nuit suivante, donc cette écriture est à couvrir par les tests comme une règle de jeu, pas comme un détail. Ce qui vit ici est ce qui doit être lu en O(1) ou survivre à une purge — le jour où les vieilles `player_progress` seront purgées, la répartition par nombre d'essais ne portera plus que sur la période conservée.
 
+> **Précisé par l'[ADR-0013](./adr/0013-les-agregats-s-ecrivent-avec-la-partie-et-se-lisent-a-part.md).**
+> La règle exacte est « dans la même transaction que l'écriture qu'elle
+> compte », dont la fin de partie est le cas le plus visible et non le seul :
+> **`played_count` s'écrit à l'ouverture**, parce que « toute partie ouverte
+> compte » (ci-dessus, specs §5) et qu'une partie abandonnée n'a pas de fin à
+> laquelle se compter. `openPlay` gagne donc une transaction là où il n'en avait
+> pas. Tout le reste — réussites, carton plein, série — s'écrit bien à la fin, et
+> la ligne d'agrégat y est verrouillée par l'upsert sur l'index unique
+> `(player_id, mode)`, sans quoi deux énigmes terminées en même temps perdraient
+> le carton plein entre leurs deux transactions.
+>
+> Le « pas de réconciliation » connaît **une** exception, et elle est bornée :
+> `drizzle/0011_backfill_player_stats.sql` reconstruit les compteurs depuis
+> `player_progress` au moment où la table apparaît. C'est la seule
+> reconstruction que le modèle autorise — celle du jour zéro, sans quoi les
+> parties déjà ouvertes ne seraient jamais comptées et un `solved_count`
+> supérieur à `played_count` donnerait un taux au-dessus de 100 %.
+
 ### `pending_claims`
 
 Reprise de progression quand le lien magique s'ouvre dans un autre navigateur que celui où l'on jouait.

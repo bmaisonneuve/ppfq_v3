@@ -89,3 +89,13 @@ export const db = lazy(() => resolveHandles().db)
 export type Db = typeof db
 
 export const pool = lazy(() => resolveHandles().pool)
+
+/**
+ * A transaction handle — what `db.transaction` hands its callback.
+ *
+ * Derived from `db` rather than written out, so it cannot drift from the
+ * handle, and named here rather than in each service that takes one: a service
+ * whose writes belong inside somebody else's transaction takes this, and there
+ * is one spelling of it.
+ */
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]

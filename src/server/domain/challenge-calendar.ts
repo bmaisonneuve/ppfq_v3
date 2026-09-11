@@ -53,6 +53,24 @@ export function datesInMonth(month: ChallengeMonth): ChallengeDate[] {
   return Array.from({ length: lastDay }, (_, index) => `${month}-${pad(index + 1)}`)
 }
 
+/**
+ * The day before, as text — what the série counts back on.
+ *
+ * `Date.UTC` and not a local `Date`: this is a Paris *date*, and subtracting 24
+ * hours from a local one would give the same day back twice a year. UTC has no
+ * such day, so the arithmetic is exact — which is the whole reason this is a
+ * function and not a subtraction written wherever a streak is computed.
+ */
+export function previousDate(date: ChallengeDate): ChallengeDate {
+  const [year, month] = splitMonth(date)
+  const day = Number(date.slice(8, 10))
+  // Day 0 of a month is the last day of the one before, so 1 January needs no
+  // special case: `Date.UTC` normalises it on its own.
+  const before = new Date(Date.UTC(year, month - 1, day - 1))
+
+  return `${before.getUTCFullYear()}-${pad(before.getUTCMonth() + 1)}-${pad(before.getUTCDate())}`
+}
+
 /** The month `delta` months away, crossing years correctly. */
 export function shiftMonth(month: ChallengeMonth, delta: number): ChallengeMonth {
   const [year, monthNumber] = splitMonth(month)

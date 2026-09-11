@@ -44,7 +44,7 @@ Les trois énigmes d'une même grille trouvées. Se calcule au niveau de la gril
 
 **Série** :
 Le nombre de jours consécutifs où le titulaire (position 2) a été trouvé sur la grille du jour. L'échauffement, la légende et l'archive n'y entrent pas.
-_Avoid_: streak
+_Avoid_: streak (nom des colonnes `current_streak` / `best_streak`, et rien d'autre)
 
 **Notoriété** :
 Le nombre d'éditions Wikipédia consacrées à un footballeur. Sert uniquement à classer les résultats de recherche et à départager les homonymes à l'import. Jamais affichée, jamais utilisée pour estimer la difficulté.

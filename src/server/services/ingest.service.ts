@@ -3,7 +3,7 @@ import 'server-only'
 import { eq, inArray } from 'drizzle-orm'
 
 import { db } from '@/server/db/client'
-import type { Db } from '@/server/db/client'
+import type { Tx } from '@/server/db/client'
 import {
   clubs,
   footballerNames,
@@ -297,9 +297,6 @@ async function importIntoCatalogue(
     }
   })
 }
-
-/** A transaction handle. `db.transaction` hands over the same interface. */
-type Tx = Parameters<Parameters<Db['transaction']>[0]>[0]
 
 /**
  * Finds the footballer, or creates him, and holds his row for the transaction.

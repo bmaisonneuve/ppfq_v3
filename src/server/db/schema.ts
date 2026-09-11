@@ -12,10 +12,10 @@
  *
  * Scope: the catalogue, the grid and its enigmas — scheduling is what makes
  * the last two exist (#6) — plus `job_runs`, because the career import has to
- * leave a trace somewhere (#4), and `players` and `player_progress`, which are
- * the joueur and his partie (#8). The tables that aggregate a joueur's history
- * arrive with the tickets that read them: `player_stats` with the série and the
- * cartons pleins (#10), `pending_claims` with the account (#13).
+ * leave a trace somewhere (#4), `players` and `player_progress`, which are the
+ * joueur and his partie (#8), and `player_stats`, which is what his history
+ * comes to (#10). The tables that aggregate a joueur's history arrive with the
+ * tickets that read them: `pending_claims` with the account (#13).
  */
 import {
   boolean,
@@ -573,5 +573,67 @@ export const playerProgress = pgTable(
     ),
     // Personal history and statistics (#10, #12), read by joueur.
     index('player_progress_player_id_opened_at_idx').on(t.playerId, t.openedAt.desc()),
+  ],
+)
+
+/**
+ * Les agrégats d'un joueur, un par mode (`docs/modele-donnees.md` §5).
+ *
+ * **Écrite dans la même transaction que la partie qu'elle compte**, et il n'y a
+ * pas de job de réconciliation. La conséquence est à connaître plutôt qu'à
+ * découvrir : un agrégat faux ne se répare pas tout seul la nuit suivante, donc
+ * cette écriture se couvre par les tests comme une règle de jeu et non comme un
+ * détail. C'est `server/services/play.service.ts` qui la tient, aux deux seuls
+ * moments où une partie bouge — son ouverture et sa fin.
+ *
+ * ## Ce qui vit ici, et ce qui n'y vit pas
+ *
+ * Ce qui doit se lire en O(1) ou survivre à une purge. La **répartition par
+ * nombre d'essais** n'est donc pas ici : c'est un `GROUP BY tries_used` sur les
+ * `player_progress` résolues du joueur, qui en a au plus trois par jour (§9).
+ * Le jour où les vieilles parties seront purgées, cette répartition ne portera
+ * plus que sur la période conservée — et ces colonnes-ci, si.
+ *
+ * ## `mode` est dans la clé, et c'est la règle des specs §7
+ *
+ * L'archive est comptée séparément : « sinon une série de 200 jours se
+ * reconstruit en une soirée ». Deux lignes par joueur au plus, et rien ne les
+ * additionne jamais — il faudrait choisir laquelle des deux séries afficher.
+ */
+export const playerStats = pgTable(
+  'player_stats',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    /** Pas de défaut, comme sur la partie : rien ne doit pouvoir oublier de dire. */
+    mode: playMode('mode').notNull(),
+    /** Toute partie ouverte compte, abandonnée comprise. Écrit à l'ouverture. */
+    playedCount: integer('played_count').notNull().default(0),
+    solvedCount: integer('solved_count').notNull().default(0),
+    /** Les grilles dont les trois énigmes ont été trouvées. Indépendant de la série. */
+    perfectChallenges: integer('perfect_challenges').notNull().default(0),
+    /**
+     * Les jours consécutifs où le **titulaire** a été trouvé — et seulement lui
+     * (specs §5). Stockée, mais **remise à zéro à la lecture** : elle n'a de
+     * sens qu'avec la colonne suivante, et rien ne la répare la nuit.
+     */
+    currentStreak: integer('current_streak').notNull().default(0),
+    bestStreak: integer('best_streak').notNull().default(0),
+    /**
+     * La date de la dernière grille dont le titulaire a été trouvé — ce qui
+     * porte la remise à zéro. Une `date` et non un timestamp, la même que
+     * `daily_challenges.date` : on y compare des jours de Paris, jamais des
+     * instants (`server/domain/stats.ts`).
+     */
+    lastSolvedChallenge: date('last_solved_challenge', { mode: 'string' }),
+  },
+  (t) => [
+    // Un agrégat par joueur et par mode, et c'est cette contrainte qui fait de
+    // l'upsert un verrou : deux parties du même joueur qui se terminent en même
+    // temps se sérialisent sur cette ligne, donc le carton plein ne se perd pas
+    // entre deux transactions qui se seraient chacune vue avant l'autre.
+    uniqueIndex('player_stats_player_id_mode_key').on(t.playerId, t.mode),
   ],
 )

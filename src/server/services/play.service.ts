@@ -8,6 +8,7 @@ import { todayInParis } from '@/server/domain/challenge-calendar'
 import { needsCareer, readPlay, readPlayStatus } from '@/server/domain/play'
 import { isExhausted } from '@/server/domain/reveal-ladder'
 import { getFootballerCareer, getFootballerCareers } from '@/server/services/catalogue.service'
+import { countFinish, countOpening } from '@/server/services/stats.service'
 import { DOUBLE_SUBMIT_MS, MAX_TRIES, isGridOfDay } from '@/shared/play'
 import { asPosition } from '@/shared/schedule'
 import type { ChallengeDate, Position } from '@/shared/schedule'
@@ -86,10 +87,20 @@ export async function getDayPlays({ playerId, date, open }: DayPlaysQuery): Prom
 /**
  * Opens an enigma: writes the partie, or does nothing at all.
  *
- * Two statements and no transaction. The `on conflict do nothing` is the whole
- * guard against a second partie — a reload, a second tab, a double request —
- * and it is the unique index `(challenge_item_id, player_id)` doing the work
- * rather than a read-then-write, which is exactly what a race slips between.
+ * The `on conflict do nothing` is the whole guard against a second partie — a
+ * reload, a second tab, a double request — and it is the unique index
+ * `(challenge_item_id, player_id)` doing the work rather than a read-then-write,
+ * which is exactly what a race slips between.
+ *
+ * **The write is a transaction because opening is what counts a partie as
+ * played.** « Une partie ouverte compte comme jouée, même abandonnée »
+ * (specs §5), and an abandoned partie has by definition no end at which to
+ * count itself — so the aggregate moves here, and it moves with the row or not
+ * at all. There is no nightly reconciliation to repair a count that got away
+ * (`docs/modele-donnees.md` §5), which is exactly why it may not get away.
+ *
+ * The `RETURNING` is what tells the two apart: an empty one is the enigma
+ * already opened, and it must count nothing.
  *
  * An enigma that is not there is not an error. The client sends a position it
  * read off the grid, so the only ways to get here are a grid that has since
@@ -110,12 +121,19 @@ async function openPlay(args: {
   const enigma = found[0]
   if (enigma === undefined) return
 
-  await db
-    .insert(playerProgress)
-    // `daily`, and stated rather than defaulted: the column has no default so
-    // that the archive (#14) cannot forget to say which mode it is playing in.
-    .values({ challengeItemId: enigma.id, playerId: args.playerId, mode: 'daily' })
-    .onConflictDoNothing()
+  await db.transaction(async (tx) => {
+    const created = await tx
+      .insert(playerProgress)
+      // `daily`, and stated rather than defaulted: the column has no default so
+      // that the archive (#14) cannot forget to say which mode it is playing in.
+      .values({ challengeItemId: enigma.id, playerId: args.playerId, mode: 'daily' })
+      .onConflictDoNothing()
+      .returning({ id: playerProgress.id })
+
+    if (created[0] === undefined) return
+
+    await countOpening(tx, { playerId: args.playerId, mode: 'daily' })
+  })
 }
 
 /**
@@ -422,6 +440,14 @@ function repeatedSubmission(partie: Partie, command: TryCommand): boolean {
  * `finished_at` is written here and only here. Nothing writes it at midnight:
  * a partie the day took away is read as a failure and its row is never touched
  * (`docs/modele-donnees.md` §4).
+ *
+ * **And the aggregates are written in this same transaction**, which is the
+ * whole of « les agrégats sont écrits dans la transaction qui termine la
+ * partie ». There is no nightly reconciliation (`docs/modele-donnees.md` §5),
+ * so a série or a carton plein that fell between two statements would stay
+ * wrong for ever — there is nothing to notice it and nothing to repair it.
+ * Which makes the compare-and-set do double duty: the request that loses the
+ * row writes nothing *and counts nothing*, so a retry cannot count twice.
  */
 async function spendTry(
   partie: Partie & { progressId: string },
@@ -433,29 +459,46 @@ async function spendTry(
   const status = outcome(correct, triesUsed)
   const now = new Date()
 
-  const updated = await db
-    .update(playerProgress)
-    .set({
-      triesUsed,
-      status,
-      finishedAt: status === 'in_progress' ? null : now,
-      lastGuessFootballerId: command.footballerId,
-      lastGuessAt: now,
-    })
-    .where(
-      and(
-        eq(playerProgress.id, partie.progressId),
-        eq(playerProgress.triesUsed, partie.triesUsed),
-        eq(playerProgress.status, 'in_progress'),
-      ),
-    )
-    .returning({ triesUsed: playerProgress.triesUsed, status: playerProgress.status })
+  return await db.transaction(async (tx) => {
+    const updated = await tx
+      .update(playerProgress)
+      .set({
+        triesUsed,
+        status,
+        finishedAt: status === 'in_progress' ? null : now,
+        lastGuessFootballerId: command.footballerId,
+        lastGuessAt: now,
+      })
+      .where(
+        and(
+          eq(playerProgress.id, partie.progressId),
+          eq(playerProgress.triesUsed, partie.triesUsed),
+          eq(playerProgress.status, 'in_progress'),
+        ),
+      )
+      .returning({ triesUsed: playerProgress.triesUsed, status: playerProgress.status })
 
-  const written = updated[0]
+    const written = updated[0]
 
-  // Lost the row when nothing came back: somebody wrote between this request's
-  // read and its update.
-  return written === undefined ? null : { ...partie, ...written }
+    // Lost the row when nothing came back: somebody wrote between this
+    // request's read and its update.
+    if (written === undefined) return null
+
+    // La garde est ici et non dans le service qui compte : c'est l'endroit où
+    // l'issue vient d'être écrite, et `FinishedPartie` ne sait nommer que les
+    // deux issues d'une partie terminée.
+    if (written.status !== 'in_progress') {
+      await countFinish(tx, {
+        playerId: command.playerId,
+        mode: partie.mode,
+        date: command.date,
+        position: command.position,
+        status: written.status,
+      })
+    }
+
+    return { ...partie, ...written }
+  })
 }
 
 /**

@@ -108,6 +108,21 @@ app/api/health/challenge-today/route.ts
 > sans cookie, chaque requête en vol crée un joueur, et une Server Action est
 > hors de cette file. C'est donc `app/api/game/try/route.ts`.
 
+> **Corrigé par l'[ADR-0013](./adr/0013-les-agregats-s-ecrivent-avec-la-partie-et-se-lisent-a-part.md)** :
+> il y en a huit, et **les statistiques ne sont pas un Server Component**. La
+> ligne « Server Component | Toute lecture | … **stats** » du tableau ci-dessus
+> ne tient pas, pour la raison même qui a sorti l'état personnel de la page :
+> elles appartiennent à une personne, et la page qui les afficherait est
+> prérendue et servie depuis un cache partagé (ADR-0008). Un rendu ne peut pas
+> davantage poser le cookie dont elles dépendent. `app/api/game/stats/route.ts` sert les statistiques d'un
+> joueur — série, cartons pleins, répartition par nombre d'essais. Une porte à
+> elle plutôt qu'un champ de plus sur l'état personnel, parce que `POST
+> /api/game/state` est le chemin du pic et qu'un `GROUP BY` sur toute l'histoire
+> du joueur y serait payé à chaque pli d'énigme, pour un panneau que la plupart
+> des requêtes n'affichent pas. POST pour la raison de l'ADR-0009 : sans cookie,
+> elle crée un joueur. Elle ne lit aucun corps, et elle passe par la **même file
+> cliente** que les deux autres — une file, une identité.
+
 > **Complété par l'[ADR-0010](./adr/0010-le-blason-en-base-adresse-par-son-contenu.md)** :
 > il y en a six. `app/api/crests/[key]/route.ts` sert les octets d'un blason à
 > une adresse qui **est** leur SHA-256. Un contrat HTTP, pour la raison

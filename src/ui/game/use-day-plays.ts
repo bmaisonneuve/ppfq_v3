@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GAME_STATE_PATH, GAME_TRY_PATH, isGridOfDay } from '@/shared/play'
 import type { DayPlays, EnigmaPlay } from '@/shared/play'
 import type { ChallengeDate, Position } from '@/shared/schedule'
+import { GAME_STATS_PATH } from '@/shared/stats'
+import type { PlayerStats } from '@/shared/stats'
 
 /**
  * L'état personnel of the grid on screen, fetched after hydration.
@@ -53,6 +55,22 @@ import type { ChallengeDate, Position } from '@/shared/schedule'
  * it carries are the ones already earned. The client counts nothing, decides
  * nothing, and therefore cannot disagree with the server about a partie.
  *
+ * ## Les statistiques passent par la même file, et c'est pour ça qu'elles sont ici
+ *
+ * Elles ont leur propre porte — `POST /api/game/stats`, ADR-0013 — parce que le
+ * chemin du pic ne doit pas payer un `GROUP BY` pour un panneau que la plupart
+ * des requêtes n'affichent pas. Mais elles ne peuvent pas avoir leur propre
+ * file : cette porte-là crée elle aussi un joueur pour un appelant sans cookie,
+ * donc une requête de statistiques lancée à côté de la première requête d'état
+ * ferait exactement les deux lignes `players` que tout ce qui précède existe
+ * pour éviter. Une file, une identité — les statistiques s'y rangent comme le
+ * reste.
+ *
+ * Elles sont relues quand une partie **se termine**, et à ce moment-là
+ * seulement : c'est le seul essai qui bouge un agrégat (`stats.service.ts`).
+ * Trouver le titulaire fait donc avancer la série sous les yeux du joueur, sans
+ * qu'une partie perdue ou un simple faux coûte une requête.
+ *
  * ## What a failure must not do
  *
  * It must not leave the personal zones spinning for ever, and it must not claim
@@ -99,8 +117,14 @@ export function useDayPlays(
   submit: (position: Position, footballerId: string | null) => void
   /** The enigmas with an essai in flight — what disables a form. */
   pending: ReadonlySet<Position>
+  /** Les agrégats du joueur, ou `undefined` tant qu'on ne les a pas. */
+  stats: PlayerStats | undefined
 } {
   const [state, setState] = useState<PersonalState>(LOADING)
+  // Undefined plutôt que des zéros : « pas encore lu » et « rien joué » se
+  // ressemblent à l'écran et l'un des deux serait un mensonge. Le panneau ne
+  // s'affiche pas tant qu'on ne sait pas.
+  const [stats, setStats] = useState<PlayerStats | undefined>(undefined)
   // Counted rather than flagged: the queue is serial, so a second essai on the
   // same enigma waits behind the first — and a flag would be cleared by the
   // first one finishing while the second is still in flight, re-enabling a
@@ -130,6 +154,17 @@ export function useDayPlays(
     [date],
   )
 
+  // Elle avale son propre échec, contrairement aux deux autres lectures : des
+  // statistiques absentes ne sont pas une panne — le panneau ne s'affiche pas,
+  // et le jeu ne dépend de rien de ce qu'elles disent.
+  const readStats = useCallback(async (): Promise<void> => {
+    try {
+      setStats(await post<PlayerStats>(GAME_STATS_PATH))
+    } catch {
+      // Hors ligne, un 500, une réponse mal formée.
+    }
+  }, [])
+
   const load = useCallback(
     (open: Position | undefined): void => {
       queue.current = queue.current.then(async () => {
@@ -155,7 +190,11 @@ export function useDayPlays(
 
     if (first !== undefined) asked.current.add(first)
     load(first)
-  }, [first, load])
+
+    // Derrière l'état, jamais à côté : la première requête est celle qui établit
+    // l'identité, et celle-ci la porte.
+    queue.current = queue.current.then(readStats)
+  }, [first, load, readStats])
 
   const open = useCallback(
     (position: Position): void => {
@@ -181,6 +220,11 @@ export function useDayPlays(
               ? { ...current, plays: new Map(current.plays).set(play.position, play) }
               : current,
           )
+
+          // Une partie qui se termine est le seul essai qui bouge un agrégat.
+          // On est déjà dans la file, donc c'est un `await` et non un appel qui
+          // s'y range : la relecture suit l'essai qui l'a provoquée.
+          if (play.status !== 'in_progress') await readStats()
         } catch (error) {
           // A refusal is not a breakdown: the server knows why — the seventh
           // essai, a grid that turned — and re-reading says so on screen.
@@ -190,7 +234,7 @@ export function useDayPlays(
         }
       })
     },
-    [date, readState],
+    [date, readState, readStats],
   )
 
   return {
@@ -198,6 +242,7 @@ export function useDayPlays(
     open,
     submit,
     pending: new Set([...inFlight.keys()]),
+    stats,
   }
 }
 
@@ -226,11 +271,15 @@ class RefusedTry extends Error {}
  * share this rather than each carrying its own `fetch`. A 409 is the only
  * status either of them gives a meaning to.
  */
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    // Les statistiques n'ont rien à demander : le joueur est dans le cookie.
+    // Un corps vide plutôt qu'un `{}` de politesse, et donc pas d'en-tête de
+    // type à annoncer.
+    ...(body === undefined
+      ? {}
+      : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
   })
 
   if (response.status === 409) throw new RefusedTry()
