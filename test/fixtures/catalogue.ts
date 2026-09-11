@@ -27,6 +27,7 @@ import {
   footballerNames,
   footballers,
   nationalities,
+  nationalityFlags,
   playerClubs,
 } from '@/server/db/schema'
 import type { Db } from '@/server/db/client'
@@ -75,9 +76,42 @@ export const PASSAGE_IDS = {
   loanReims: uuid('4012'),
 } as const
 
+/**
+ * The real rendering of `fr.svg` by `scripts/flags.ts`, 88 bytes of lossless
+ * WebP, and its real SHA-256.
+ *
+ * Real rather than invented because the key **is** the hash: a made-up pair
+ * would let a bug that stores the wrong address pass every test in the suite.
+ * It is also why the bytes are worth their line of base64 — a `bytea` round
+ * trip that mangles them is exactly what this catches.
+ */
+export const FRANCE_FLAG_KEY = 'f44557152d018d2baa4e873d4aca445a1e8fb2dd89fe8c71f8aca899ec7e7c30'
+
+const FRANCE_FLAG_BYTES = Buffer.from(
+  'UklGRlAAAABXRUJQVlA4TEQAAAAvv8AjACdAkG2zzZ/51yDItpnK/K0G8gtIiLLAZcvNf/w3BTDboJiRJGgUZlgWYf29+r9HRP8noOkSHtPvv/ff+29EAw==',
+  'base64',
+)
+
+const NATIONALITY_FLAG_ROWS = [
+  {
+    key: FRANCE_FLAG_KEY,
+    bytes: FRANCE_FLAG_BYTES,
+    contentType: 'image/webp',
+    byteSize: FRANCE_FLAG_BYTES.byteLength,
+    sourceFile: 'flag-icons/fr.svg',
+    license: 'flag-icons (MIT)',
+  },
+]
+
+/**
+ * Two nationalities, and deliberately only one flag: a nationality the seed has
+ * not reached yet is the normal state of a freshly imported row, and a test
+ * that only ever saw dressed rows would not notice the day `flag_key` stopped
+ * being nullable in practice.
+ */
 const NATIONALITY_ROWS = [
-  { id: NATIONALITY_IDS.fr, code: 'FR', frName: 'France', enName: 'France', flagS3Key: 'flags/fr.svg' },
-  { id: NATIONALITY_IDS.es, code: 'ES', frName: 'Espagne', enName: 'Spain', flagS3Key: 'flags/es.svg' },
+  { id: NATIONALITY_IDS.fr, code: 'FR', frName: 'France', enName: 'France', flagKey: FRANCE_FLAG_KEY },
+  { id: NATIONALITY_IDS.es, code: 'ES', frName: 'Espagne', enName: 'Spain', flagKey: null },
 ]
 
 /**
@@ -217,6 +251,8 @@ const NAME_ROWS = [
  * wants an empty catalogue simply does not call it.
  */
 export async function seedCatalogue(executor: Db): Promise<void> {
+  // Flags before nationalities: `flag_key` is a foreign key at them.
+  await executor.insert(nationalityFlags).values(NATIONALITY_FLAG_ROWS)
   await executor.insert(nationalities).values(NATIONALITY_ROWS)
   await executor.insert(clubs).values(CLUB_ROWS)
   await executor.insert(footballers).values(FOOTBALLER_ROWS)

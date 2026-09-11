@@ -62,7 +62,7 @@ export async function getFootballerCareer(
             id: nationality.id,
             code: nationality.code,
             frName: nationality.frName,
-            flagS3Key: nationality.flagS3Key,
+            flagKey: nationality.flagKey,
           },
     playerClubs: sortPlayerClubs(rows),
   }

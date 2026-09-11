@@ -17,7 +17,7 @@ import { describeRefusal } from '@/shared/schedule'
  * by omission, no query detects it, and the only guard is the admin's eye.
  */
 
-const nationality = { id: 'n1', code: 'FR', frName: 'France', flagS3Key: null }
+const nationality = { id: 'n1', code: 'FR', frName: 'France', flagKey: null }
 
 const passage = (over: Partial<PlayerClub> = {}): PlayerClub => ({
   id: 'p1',

@@ -19,6 +19,7 @@
  */
 import {
   boolean,
+  customType,
   date,
   index,
   integer,
@@ -30,6 +31,62 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
+/**
+ * `bytea`, which drizzle-kit has no builder for.
+ *
+ * `pg` hands a `bytea` back as a `Buffer` and takes one on the way in, so the
+ * mapping is the identity and the only thing this declares is the SQL type the
+ * migration has to write.
+ */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType: () => 'bytea',
+})
+
+/**
+ * A flag, the bytes themselves, addressed by their content.
+ *
+ * **The key is the SHA-256 of `bytes`**, which is what lets the read path
+ * promise `immutable` and mean it: replacing a flag writes different bytes,
+ * therefore a different key, therefore a different URL, and there is nothing to
+ * invalidate. Two nationalities that end up with byte-identical flags share the
+ * row, which is a consequence and not a goal.
+ *
+ * ## Why a table and not a column on `nationalities`
+ *
+ * `catalogue.service.ts` reads a nationality as `select({ nationality:
+ * nationalities })` — every column. A `bytea` sitting there would travel with
+ * every career read, for the benefit of the one screen that shows an image. A
+ * 64-character key does not, and the bytes are fetched only by the route that
+ * serves them.
+ *
+ * ## Why the bytes are in Postgres and not in a bucket
+ *
+ * Measured by seeding the whole source: 274 nationalities dressed, **260 rows**
+ * — fourteen flags turn out to be byte-identical to another and share one —
+ * 1,3 kB the median, 12 kB the worst, **491 kB the lot**. Against the 15-20 GB
+ * a year `player_progress` is sized for (`docs/modele-donnees.md` §9) that is
+ * nothing. Postgres moves a `bytea` over 2 kB out of the table into TOAST on
+ * its own, and the read path is cached indefinitely. An object store would
+ * bring an account, keys, a development service and a **second backup story**,
+ * where the procedure has to stay "restore Postgres".
+ *
+ * The indirection the model wanted is kept: a **key**, never a URL. The day the
+ * volume justifies a bucket, the same hash is the object name.
+ */
+export const nationalityFlags = pgTable('nationality_flags', {
+  /** SHA-256 of `bytes`, lower-case hex. The content address, and the row key. */
+  key: text('key').primaryKey(),
+  bytes: bytea('bytes').notNull(),
+  /** What the read path serves. `image/webp` for everything the seed renders. */
+  contentType: text('content_type').notNull(),
+  byteSize: integer('byte_size').notNull(),
+  /** `fr.svg`, `gb-eng.svg` — the source file the bytes were rendered from. */
+  sourceFile: text('source_file'),
+  /** `flag-icons 7.5.0 (MIT)`, or what an admin states for one he uploaded. */
+  license: text('license'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 /** Sporting nationality. One per footballer, even for a dual national. */
 export const nationalities = pgTable(
   'nationalities',
@@ -39,8 +96,22 @@ export const nationalities = pgTable(
     code: text('code').notNull(),
     frName: text('fr_name').notNull(),
     enName: text('en_name'),
-    /** S3 object *key*, never a full URL: the bucket domain must be free to move. */
-    flagS3Key: text('flag_s3_key'),
+    /**
+     * The flag, by content address — **not** an S3 key, which is what the
+     * column used to be called and never was. Still a key and never a URL:
+     * where the bytes are served from must be free to move.
+     *
+     * `set null` on delete, so removing a flag is one row to delete and is not
+     * blocked by the nationalities pointing at it. A nationality with no flag
+     * is a missing image, not a broken row — and, once hint 3 exists, a
+     * footballer who is simply not schedulable.
+     *
+     * No index on it, unlike `clubs.crest_key`: there are ~200 nationalities,
+     * and a sequential scan over 200 rows is faster than the index would be.
+     */
+    flagKey: text('flag_key').references(() => nationalityFlags.key, {
+      onDelete: 'set null',
+    }),
   },
   (t) => [uniqueIndex('nationalities_code_key').on(t.code)],
 )

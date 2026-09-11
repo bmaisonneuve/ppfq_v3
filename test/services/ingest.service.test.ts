@@ -13,7 +13,7 @@ import { searchFootballers } from '@/server/services/search.service'
 import { eq } from 'drizzle-orm'
 
 import { db } from '@test/setup/db'
-import { FOOTBALLER_IDS, seedCatalogue } from '@test/fixtures/catalogue'
+import { FOOTBALLER_IDS, FRANCE_FLAG_KEY, seedCatalogue } from '@test/fixtures/catalogue'
 import {
   RECORDED,
   careerRow,
@@ -110,7 +110,7 @@ describe('a footballer already in the search referential', () => {
 
     // The flag key and the French name are curated; the import only ever
     // creates a nationality it does not find.
-    expect(france).toMatchObject({ frName: 'France', flagS3Key: 'flags/fr.svg' })
+    expect(france).toMatchObject({ frName: 'France', flagKey: FRANCE_FLAG_KEY })
     expect(await db.select().from(nationalities)).toHaveLength(2)
   })
 

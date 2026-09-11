@@ -53,10 +53,16 @@ export type PlayerClubOrderKey = Pick<PlayerClub, 'id' | 'startYear' | 'endYear'
 
 export type Nationality = {
   id: string
-  /** ISO 3166-1 alpha-2. */
+  /** ISO 3166-1 alpha-2 — except for the nations and the dead countries that
+   * carry no such code; see `server/ingest/nationality.ts`. */
   code: string
   frName: string
-  flagS3Key: string | null
+  /**
+   * The flag, by content address — `null` until the seed has run, or after the
+   * row it pointed at was deleted. `flagUrl` in `shared/nationality.ts` turns
+   * it into the URL that serves it.
+   */
+  flagKey: string | null
 }
 
 /**

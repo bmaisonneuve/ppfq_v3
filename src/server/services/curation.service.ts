@@ -324,6 +324,6 @@ function toNationality(row: typeof nationalities.$inferSelect): Nationality {
     id: row.id,
     code: row.code,
     frName: row.frName,
-    flagS3Key: row.flagS3Key,
+    flagKey: row.flagKey,
   }
 }

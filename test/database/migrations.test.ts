@@ -54,6 +54,7 @@ describe('migrations', () => {
         'footballers',
         'job_runs',
         'nationalities',
+        'nationality_flags',
         'player_clubs',
         'player_progress',
         'players',

@@ -60,7 +60,7 @@ Cette insertion manuelle, c'est l'**import de parcours par Q-id** : si le footba
 | `code` | text | Unique. ISO 3166-1 alpha-2 quand le pays en a un, sinon voir ci-dessous |
 | `fr_name` | text | Nom affiché par le jeu |
 | `en_name` | text | Nullable |
-| `flag_s3_key` | text | Nullable. **Clé** de l'objet S3, pas une URL complète |
+| `flag_key` | text | Nullable. → `nationality_flags.key`. **Clé**, jamais une URL |
 
 **Le code n'est pas toujours un alpha-2**, et c'est le football qui l'impose. La chaîne est `P297` (alpha-2), puis `P300` (subdivision ISO 3166-2), puis `P298` (alpha-3) :
 
@@ -68,6 +68,26 @@ Cette insertion manuelle, c'est l'**import de parcours par Q-id** : si le footba
 - les **pays disparus**, dont les joueurs sont exactement ceux qu'une grille rétro veut, ne gardent qu'un alpha-3 : `YUG`, `CSK`, `SUN`.
 
 Un pays qui n'a aucun des trois codes n'entre pas en base : le footballeur reste sans nationalité, donc non programmable, et l'import le signale. La colonne reste une clé naturelle unique ; ce qu'elle n'est plus, c'est strictement de l'alpha-2.
+
+### `nationality_flags`
+
+| Colonne | Type | Description |
+|---|---|---|
+| `key` | text | Clé primaire. **SHA-256 des `bytes`**, en hexadécimal minuscule |
+| `bytes` | bytea | L'image elle-même |
+| `content_type` | text | `image/webp` pour tout ce que le seed produit |
+| `byte_size` | integer | |
+| `source_file` | text | Nullable. `flag-icons/fr.svg`, `scripts/flags/yug.svg` |
+| `license` | text | Nullable. `flag-icons (MIT)`, `domaine public (Wikimedia Commons)` |
+| `created_at` | timestamptz | |
+
+**La clé est l'adresse du contenu**, et c'est ce qui fait tenir le reste : deux nationalités au drapeau identique partagent la ligne (mesuré : 274 nationalités pour 260 lignes), remplacer un drapeau écrit une clé *différente* donc une URL différente, et la route de lecture peut promettre `immutable` sans rien à invalider. Les octets sont servis par `/api/flags/<key>`, jamais inlinés dans une page.
+
+**Les octets sont en base et pas dans un bucket** : 491 Ko pour l'ensemble des drapeaux, à comparer aux 15-20 Go/an de `player_progress` (§9). Postgres sort de lui-même un `bytea` de plus de 2 Ko en TOAST, donc une requête qui ne lit pas la colonne ne la paie pas. Un magasin d'objets apporterait un compte, des clés, un service de développement et surtout une **deuxième histoire de sauvegarde**, alors que la procédure doit rester « restaurer Postgres ».
+
+**Table à part plutôt qu'une colonne sur `nationalities`** : `catalogue.service.ts` lit une nationalité en `select({ nationality: nationalities })`, donc toutes ses colonnes. Un `bytea` posé là voyagerait avec chaque lecture de parcours, au bénéfice du seul écran qui affiche une image.
+
+**D'où viennent les images** : le paquet `flag-icons` (MIT), dont le jeu de codes est exactement celui que produit la chaîne ci-dessus — alpha-2, plus `gb-eng`, `gb-sct`, `gb-wls`, `gb-nir`, et `gb-nir` sous l'Ulster Banner, la convention du football. Les trois pays disparus lui sont inconnus et vivent en SVG dans `scripts/flags/`. Wikidata `P41` a été écarté : voir ADR-0011.
 
 **La nationalité est choisie, jamais devinée** : `P1532` (« pays pour le sport ») s'il y en a un seul, sinon `P27` s'il y en a une seule, sinon rien. Un binational sans `P1532` est exactement le cas qu'aucune règle ne tranche, et l'indice 3 tombe au milieu d'une partie : un footballeur qu'il reste à curer est un footballeur non programmable, un mauvais drapeau est une énigme fausse. Une ligne existante n'est **jamais réécrite** par un import — son nom français et son drapeau sont curés — et la nationalité d'un footballeur n'est jamais effacée, seulement renseignée.
 
@@ -349,6 +369,8 @@ Le **résumé partagé n'est pas stocké** : il se dérive des trois `player_pro
 | Complétude contrôlée à la programmation | Un palier vide casse le jeu après quatre essais consommés. Contrôle ponctuel, pas garantie dans le temps |
 | Aucun statut de vérification (`verified_at` écarté) | « Curé » reste le fait d'avoir des `player_clubs`. Contrepartie assumée : un parcours peut être complet **et faux par omission**, et rien dans le modèle ne l'empêche d'être programmé (§4) |
 | Nationalité en table étrangère, unique par footballeur | Nom localisé et drapeau partagés ; un binational rendrait l'indice trompeur |
+| Drapeaux en base, adressés par le SHA-256 de leurs octets | 491 Ko pour tout le jeu ; la sauvegarde reste « restaurer Postgres », et l'adresse-contenu rend `immutable` honnête |
+| Drapeaux tirés de `flag-icons`, pas de Wikidata `P41` | `P41` est multivalué et historique : dix drapeaux pour la France, aucun pour l'Irlande du Nord. Voir ADR-0011 |
 | Table `players` propre | Évite une session d'auth par visiteur et la suppression automatique de la ligne anonyme à la liaison |
 | `player_progress` créée à l'ouverture | Mesure les gens exposés, ce que le calibrage de difficulté demande |
 | Non terminée = échec, par règle de lecture | Pas de job de minuit, qui tomberait au pic de trafic |

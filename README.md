@@ -35,12 +35,16 @@ pnpm db:up          # lève Postgres et attend qu'il réponde
 pnpm db:migrate     # applique les migrations de drizzle/
 pnpm db:import-referential   # charge les 382 703 footballeurs de .data/ (~50 s)
 pnpm ingest:career Q1835 Q170328   # deux parcours, depuis Wikidata
+pnpm db:seed-flags  # un drapeau pour chaque nationalité que l'import a créée
 pnpm dev            # http://localhost:3000, back-office sur /admin
 ```
 
 `ADMIN_PASSWORD` et `ADMIN_SESSION_SECRET` sont à remplir dans `.env.local` avant
 d'ouvrir `/admin` : sans elles, le back-office refuse tout le monde, y compris
 vous. `openssl rand -base64 32` fait l'affaire pour chacune.
+
+Le seed des drapeaux est à relancer après chaque import qui crée des
+nationalités ; sans effet la deuxième fois, il ne coûte rien de l'enchaîner.
 
 Sans l'import du référentiel, la barre de recherche répond correctement — elle
 ne trouve simplement personne. Sans import de parcours, le catalogue n'a aucun
@@ -63,6 +67,7 @@ passages.
 | `pnpm db:generate` | Génère le SQL depuis le schéma Drizzle, à relire et committer |
 | `pnpm db:import-referential` | Charge le référentiel de recherche depuis `.data/`. Idempotent : le relancer ne duplique rien |
 | `pnpm ingest:career Q1835 …` | Importe le parcours d'un ou plusieurs footballeurs depuis Wikidata. Le déclencheur à la main, sans worker |
+| `pnpm db:seed-flags` | Rend un drapeau pour chaque nationalité en base, depuis `flag-icons`. Idempotent ; `--force` remplace ceux qui y sont déjà |
 | `pnpm fixtures:wikidata` | Ré-enregistre les réponses Wikidata sur lesquelles la suite tourne. Le `git diff` est la revue |
 
 Il n'y a **pas** de `db:push`. Les migrations sont générées, relues par un humain

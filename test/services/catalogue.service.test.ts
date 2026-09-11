@@ -7,6 +7,7 @@ import { db, onlyRow } from '@test/setup/db'
 import {
   CLUB_IDS,
   FOOTBALLER_IDS,
+  FRANCE_FLAG_KEY,
   PASSAGE_IDS,
   seedCatalogue,
 } from '@test/fixtures/catalogue'
@@ -30,7 +31,7 @@ describe('getFootballerCareer', () => {
       id: expect.any(String) as string,
       code: 'FR',
       frName: 'France',
-      flagS3Key: 'flags/fr.svg',
+      flagKey: FRANCE_FLAG_KEY,
     })
     expect(career?.playerClubs.map((p) => p.clubName)).toEqual([
       'AS Cannes',

@@ -1,0 +1,1 @@
+ALTER TABLE "nationalities" DROP COLUMN "flag_s3_key";
