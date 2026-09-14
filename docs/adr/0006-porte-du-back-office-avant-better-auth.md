@@ -1,5 +1,22 @@
 # La porte du back-office : un secret partagé maintenant, le compte plus tard
 
+> **Périmé par [ADR-0014](./0014-le-compte-nos-portes-devant-better-auth.md).**
+> « Plus tard » a eu lieu : la porte est le compte sans mot de passe de #13, et
+> le rôle est `ADMIN_EMAILS` — une variable d'environnement plutôt qu'une
+> colonne, pour qu'il n'y ait pas d'écran capable de l'accorder.
+> `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `src/server/auth/admin-session.ts`
+> et le verrou anti-devinage en mémoire ont disparu ; la limite de fréquence du
+> compte remplace le dernier, en mieux, parce qu'elle compte aussi par adresse.
+> Les sept jours de session sont revenus aux 180 du joueur : ils compensaient un
+> secret partagé qui ne tourne pas, et il n'y en a plus.
+>
+> **Ce qui tient, et qui était le vrai contenu de cette décision** : le contrôle
+> n'est pas dans un middleware, il est `await requireAdmin()` en première ligne
+> de chaque page et de chaque action, et `test/architecture/admin-guard.test.ts`
+> le garde. Le remplacement a bien été un seul seam,
+> `services/admin-auth.service.ts`, et aucune page ni aucune action de curation
+> n'a changé. Ce qui tient aussi : sans variable, la porte reste fermée.
+
 Le back-office doit être fermé dès l'écran de curation (#5). Le compte sans mot de passe qui portera le rôle admin — code à six chiffres, lien magique, Better Auth — est #13, huit tickets plus loin, et il traîne derrière lui un provider d'email, un domaine avec SPF/DKIM/DMARC et un quota Scaleway à faire lever. L'éditeur ne peut pas attendre ça pour avoir une porte, et une porte ouverte « en attendant » est une porte qu'on oublie.
 
 **La porte est donc un secret partagé et un cookie signé.** `ADMIN_PASSWORD` ouvre la session, `ADMIN_SESSION_SECRET` la signe, la valeur du cookie est une date d'expiration et son HMAC — pas d'identité, pas de rôle, pas de table : il y a un seul admin, et une signature valide **est** le contrôle de rôle. Sept jours, contre 180 pour la session d'un joueur : celle-ci donne les clés du catalogue, elle est provisoire, et se reconnecter coûte un mot de passe.

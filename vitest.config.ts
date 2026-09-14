@@ -95,7 +95,18 @@ export default defineConfig({
           // One database shared by the suite, truncated between tests. Swap this
           // for a database per worker the day the suite gets slow.
           fileParallelism: false,
-          env: { DATABASE_URL: TEST_DATABASE_URL },
+          env: {
+            DATABASE_URL: TEST_DATABASE_URL,
+            // Le compte (#13) a besoin des deux : un secret, sans quoi il se
+            // tient fermé, et un relais SMTP — Mailpit, que `pnpm test`
+            // démarre — parce que le code à six chiffres est haché en base et
+            // que la seule façon de le connaître est de lire le message.
+            BETTER_AUTH_SECRET:
+              process.env.BETTER_AUTH_SECRET ?? 'secret-de-test-sans-valeur-ailleurs',
+            MAIL_SMTP_URL: process.env.MAIL_SMTP_URL ?? 'smtp://localhost:1025',
+            MAIL_FROM: 'Footguessr <jeu@localhost>',
+            APP_URL: 'http://localhost:3000',
+          },
           testTimeout: 20_000,
           hookTimeout: 30_000,
         },

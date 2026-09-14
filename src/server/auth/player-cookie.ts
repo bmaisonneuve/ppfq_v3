@@ -7,10 +7,11 @@ import { randomUUID } from 'node:crypto'
  *
  * ## Why there is nothing to sign
  *
- * Its neighbour in this directory, `admin-session.ts`, is a signed token
- * because a valid signature *is* the admin's role check. Here there is no role
- * and no claim: the value is an opaque, unguessable identifier, and holding it
- * simply *is* being that joueur. Signing it would protect nothing — the game
+ * Its neighbour in this directory, the session cookie Better Auth signs
+ * (`account-auth.ts`), is signed because it carries a claim: *this browser is
+ * that account*, and a forged one would be an impersonation. Here there is no
+ * claim: the value is an opaque, unguessable identifier, and holding it simply
+ * *is* being that joueur. Signing it would protect nothing — the game
  * has no ranking, and « quelqu'un qui rotate son cookie d'identité anonyme pour
  * forcer une réponse ne pénalise que lui » (`docs/stack-technique.md` §4). The
  * one thing worth checking is the shape, and that is `isPlayerCookieId`.
@@ -31,7 +32,11 @@ import { randomUUID } from 'node:crypto'
  * somebody has to remember to look at.
  */
 
-/** The name, once. `ppfq_admin` is the other one, and there are no others. */
+/**
+ * The name, once. The others are Better Auth's `ppfq.session_token` and its
+ * five-minute `ppfq.session_data` cache, and there are no others — no analytics
+ * tracker, ever, or the consent banner comes back.
+ */
 export const PLAYER_COOKIE = 'ppfq_player'
 
 /**

@@ -12,7 +12,8 @@ export default function AdminLoginPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-title text-white">Back-office</h1>
         <p className="text-body text-white/80">
-          Curation des parcours et programmation des grilles.
+          Curation des parcours et programmation des grilles. La connexion se
+          fait par un code à six chiffres reçu par email, comme côté jeu.
         </p>
       </div>
       <div className="panel max-w-sm">

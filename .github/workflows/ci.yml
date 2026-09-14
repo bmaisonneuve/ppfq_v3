@@ -28,8 +28,30 @@ jobs:
           --health-timeout 3s
           --health-retries 30
 
+      # La boîte mail du compte (#13). Sans mot de passe, l'email *est* le
+      # chemin de connexion : la suite lit le code à six chiffres dans le
+      # message reçu, parce qu'il est haché en base et qu'il n'y a pas d'autre
+      # façon honnête de le connaître.
+      mailpit:
+        image: axllent/mailpit:v1.28
+        env:
+          MP_SMTP_AUTH_ACCEPT_ANY: 'true'
+          MP_SMTP_AUTH_ALLOW_INSECURE: 'true'
+        ports:
+          - 1025:1025
+          - 8025:8025
+        options: >-
+          --health-cmd "/mailpit readyz"
+          --health-interval 1s
+          --health-timeout 3s
+          --health-retries 60
+
     env:
       TEST_DATABASE_URL: postgres://ppfq:ppfq@localhost:5433/ppfq_test
+      MAIL_SMTP_URL: smtp://localhost:1025
+      MAILPIT_URL: http://localhost:8025
+      BETTER_AUTH_SECRET: secret-de-ci-sans-valeur-ailleurs
+      APP_URL: http://127.0.0.1:3000
 
     steps:
       - uses: actions/checkout@v5
@@ -113,6 +135,24 @@ jobs:
           # And a GET creates nothing: a link prefetch or a crawler must never
           # count as somebody exposed to an enigma.
           test "$(curl -so /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/game/state)" = 405
+
+          # Le compte (#13), et les deux mêmes propriétés de *réponse* : ce qui
+          # nomme une personne n'est caché nulle part, et un GET n'y mène pas —
+          # une adresse email dans un cache partagé serait une fuite que rien
+          # dans la suite ne pourrait voir.
+          account=$(curl -sD - -o /dev/null -X POST http://127.0.0.1:3000/api/account/state)
+          echo "$account"
+          grep -qiE '^cache-control:.*private' <<<"$account"
+          grep -qiE '^cache-control:.*no-store' <<<"$account"
+          test "$(curl -so /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/account/state)" = 405
+
+          # Et le callback du lien magique est une page, pas un endpoint : il
+          # répond 200 à un GET et ne consomme rien, ce qui est exactement ce
+          # qui le rend insensible aux scanners de liens (§4bis).
+          test "$(curl -so /dev/null -w '%{http_code}' 'http://127.0.0.1:3000/compte/connexion?jeton=peu-importe')" = 200
+
           kill "$server"
         env:
           DATABASE_URL: postgres://ppfq:ppfq@localhost:5433/ppfq_test
+          BETTER_AUTH_SECRET: secret-de-ci-sans-valeur-ailleurs
+          APP_URL: http://127.0.0.1:3000

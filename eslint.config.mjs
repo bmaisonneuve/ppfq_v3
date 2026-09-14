@@ -49,6 +49,17 @@ export const LAYERING_ZONES = [
       'The Wikidata pipeline returns values; writing them is a service’s job. Go through src/server/services.',
   },
   {
+    // L'envoi d'un email lit un message et l'envoie. Il n'a rien à lire en
+    // base et rien à décider : ce qui décide d'envoyer est un service, et ce
+    // qui écrit le texte est `server/email` lui-même. La zone est là le jour
+    // où l'envoi sera tenté d'aller chercher lui-même l'adresse de quelqu'un.
+    target: './src/server/email',
+    from: './src/server',
+    except: ['./email'],
+    message:
+      'L’envoi d’un email prend ce qu’on lui donne. Ce qui le déclenche est un service.',
+  },
+  {
     target: './src/server/domain',
     from: './src/server',
     except: ['./domain'],

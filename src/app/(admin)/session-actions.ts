@@ -1,14 +1,16 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { z } from 'zod'
 
 import {
   ADMIN_HOME_PATH,
   ADMIN_LOGIN_PATH,
+  requestAdminCode,
   signInAdmin,
   signOutAdmin,
 } from '@/server/services/admin-auth.service'
+import { ACCOUNT_REFUSALS, EmailInput, SignInCodeInput } from '@/shared/account'
+import { firstZodMessage, textField } from '@/shared/forms'
 import type { AdminSignInState } from '@/shared/admin'
 
 /**
@@ -20,43 +22,54 @@ import type { AdminSignInState } from '@/shared/admin'
  * the file still exists, so the exemption cannot outlive a rename.
  *
  * Adapters, like every door into the server: parse, call the service, answer.
+ *
+ * ## Une seule action pour les deux temps
+ *
+ * Depuis #13 la connexion est une adresse puis un code, et c'est **une** action
+ * et non deux : ce qui distingue les deux temps est la présence du champ `code`
+ * dans le formulaire, et un `useActionState` unique suffit alors à porter l'état
+ * de l'écran. Deux actions auraient demandé deux états et un moyen de dire
+ * lequel des deux est le vrai.
  */
-
-/**
- * The password is not length-capped by a schema on purpose beyond a sane bound:
- * a long passphrase is a good password, and the comparison is constant time.
- */
-const SignInForm = z.object({ password: z.string().min(1).max(512) })
-
 export async function signInAction(
-  _previous: AdminSignInState,
+  previous: AdminSignInState,
   form: FormData,
 ): Promise<AdminSignInState> {
-  const parsed = SignInForm.safeParse({ password: form.get('password') ?? '' })
-  if (!parsed.success) return { error: 'Mot de passe requis.' }
+  const email = EmailInput.safeParse(textField(form, 'email'))
+  if (!email.success) return { ...previous, error: firstZodMessage(email.error) }
 
-  const result = await signInAdmin(parsed.data.password)
+  const typed = textField(form, 'code')
+  if (typed === '') return await askForCode(email.data)
 
-  if (result === 'signed-in') redirect(ADMIN_HOME_PATH)
-
-  // A wrong password and an unconfigured back-office answer differently, and
-  // that is deliberate: the second is an operator's mistake, not an attacker's
-  // information — nobody can reach this page without already knowing where the
-  // back-office is.
-  if (result === 'not-configured') {
-    return {
-      error:
-        'Back-office non configuré : ADMIN_PASSWORD et ADMIN_SESSION_SECRET doivent être définis.',
-    }
-  }
-  if (result === 'locked-out') {
-    return { error: 'Trop de tentatives. Réessayez dans quelques minutes.' }
+  const code = SignInCodeInput.safeParse(typed)
+  if (!code.success) {
+    return { step: 'code', email: email.data, error: firstZodMessage(code.error) }
   }
 
-  return { error: 'Mot de passe incorrect.' }
+  const result = await signInAdmin(email.data, code.data)
+  if (result.ok) redirect(ADMIN_HOME_PATH)
+
+  return { step: 'code', email: email.data, error: ACCOUNT_REFUSALS[result.refusal] }
 }
 
 export async function signOutAction(): Promise<void> {
   await signOutAdmin()
   redirect(ADMIN_LOGIN_PATH)
+}
+
+/**
+ * Le premier temps.
+ *
+ * L'écran passe à l'attente du code **quoi qu'il arrive**, et c'est délibéré :
+ * une adresse qui n'est pas celle de l'admin ne reçoit rien et ne l'apprend pas
+ * (`admin-auth.service.ts`). Le seul refus qui s'affiche ici est celui qui
+ * parle de nous — un back-office non configuré — parce que c'est l'erreur d'un
+ * exploitant et non un renseignement pour un curieux (ADR-0006).
+ */
+async function askForCode(email: string): Promise<AdminSignInState> {
+  const result = await requestAdminCode(email)
+
+  if (!result.ok) return { step: 'email', email, error: ACCOUNT_REFUSALS[result.refusal] }
+
+  return { step: 'code', email, error: null }
 }

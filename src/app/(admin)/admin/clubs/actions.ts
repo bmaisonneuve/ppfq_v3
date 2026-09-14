@@ -11,7 +11,8 @@ import {
   extractClubCrests,
   setClubCrest,
 } from '@/server/services/crest.service'
-import { adminActionFailed, adminActionOk, fileField, firstZodMessage, textField } from '@/shared/admin'
+import { adminActionFailed, adminActionOk } from '@/shared/admin'
+import { fileField, firstZodMessage, textField } from '@/shared/forms'
 import { ClubNames, MergeClubsInput } from '@/shared/club'
 import type { ClubActionState, ClubOption } from '@/shared/club'
 

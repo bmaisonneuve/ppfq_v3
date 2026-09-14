@@ -42,9 +42,14 @@ export function ScrollBody({ children }: Readonly<{ children: ReactNode }>) {
  */
 export function GameHeader({
   onStats,
+  onAccount,
+  /** L'initiale de l'adresse connectée, ou rien : `?` tant qu'on est anonyme. */
+  accountInitial,
   children,
 }: Readonly<{
   onStats: () => void
+  onAccount: () => void
+  accountInitial?: string
   children?: ReactNode
 }>) {
   return (
@@ -70,14 +75,17 @@ export function GameHeader({
             <BarsIcon />
           </IconButton>
 
-          {/* De même pour le compte : l'identité est anonyme et en cookie
-              (ADR-0003), donc il n'y a encore ni nom ni initiale à afficher. */}
+          {/* Le compte (#13). Sans session il n'y a ni nom ni initiale à
+              montrer — l'identité est anonyme et en cookie (ADR-0003) — donc
+              le point d'interrogation n'est pas un défaut : c'est l'état du
+              joueur, et le bouton ouvre la fenêtre qui en change. */}
           <button
             type="button"
-            aria-label="Mon compte"
-            className="bg-ink font-display size-[30px] shrink-0 cursor-pointer rounded-full text-[12px] font-bold text-white"
+            aria-label={accountInitial === undefined ? 'Se connecter' : 'Mon compte'}
+            onClick={onAccount}
+            className="bg-ink font-display size-[30px] shrink-0 cursor-pointer rounded-full text-[12px] font-bold text-white uppercase"
           >
-            ?
+            {accountInitial ?? '?'}
           </button>
         </div>
       </div>

@@ -108,6 +108,22 @@ app/api/health/challenge-today/route.ts
 > sans cookie, chaque requête en vol crée un joueur, et une Server Action est
 > hors de cette file. C'est donc `app/api/game/try/route.ts`.
 
+> **Corrigé par l'[ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md)** :
+> il y en a douze, et **`app/api/auth/[...all]/route.ts` n'existe pas**. Le
+> compte a quatre portes à nous — `POST /api/account/{state,request,sign-in,sign-out}`
+> — qui appellent `auth.api.*` en direct. Trois raisons : la limite de fréquence
+> des specs est par IP *et* par adresse quand celle de Better Auth est par
+> chemin ; le callback du lien magique doit être GET → confirmation → POST quand
+> le sien consomme en GET ; et un `[...all]` contournerait la règle de layering
+> sans rien apporter, puisqu'il n'y a pas de client Better Auth dans ce jeu.
+> Better Auth reste le magasin des comptes, des sessions et des jetons ; il n'est
+> pas la politique.
+>
+> La confirmation du lien magique, elle, **est** une Server Action
+> (`/compte/connexion`) : la raison qui a sorti les autres portes du rendu ne
+> vaut pas pour une page qui n'est pas cachée, est visitée une fois, et dont le
+> geste est la soumission d'un formulaire.
+
 > **Corrigé par l'[ADR-0013](./adr/0013-les-agregats-s-ecrivent-avec-la-partie-et-se-lisent-a-part.md)** :
 > il y en a huit, et **les statistiques ne sont pas un Server Component**. La
 > ligne « Server Component | Toute lecture | … **stats** » du tableau ci-dessus
@@ -184,8 +200,16 @@ type TryResult =
 
 Pourquoi ça colle aux specs : inscription et connexion deviennent **une seule action**, conforme au §6 des specs (« proposée au moment où elle a une valeur évidente »). Pas de mot de passe stocké, pas de flow de réinitialisation, pas de credential stuffing sur un compte qui ne contient que des statistiques.
 
+> **Précisé par l'[ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md).**
+> Ce qui suit est juste dans ses valeurs et faux dans son chemin :
+> l'instance est `src/server/auth/account-auth.ts`, elle est **paresseuse**
+> (`next build` évalue chaque route sans base ni secret), le code **et** le
+> jeton sont stockés **hachés** — un dump de `verifications` ne doit pas être
+> une liste de codes valides — et les tables sont au pluriel, `user` étant un
+> mot réservé de Postgres.
+
 ```ts
-// src/server/auth.ts
+// src/server/auth/account-auth.ts
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: 'pg' }),
   session: { expiresIn: 60 * 60 * 24 * 180, updateAge: 60 * 60 * 24 },
@@ -225,6 +249,20 @@ databaseHooks: {
 
 Idempotent, et insensible au navigateur qui ouvre le lien.
 
+> **Corrigé par l'[ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md).**
+> La première moitié tient mot pour mot — l'association est écrite à la demande,
+> dans l'onglet du jeu, pendant que le cookie est là. La seconde n'est pas un
+> `databaseHook` : la reprise est dans `resolvePlayer`, donc elle se rejoue à
+> **chaque** requête personnelle. Un hook ne s'exécute qu'une fois, donc il ne
+> s'est pas exécuté quand il a raté, et il ne répare aucun des cas d'après — un
+> cookie effacé, un appareil de plus. Un `UPDATE … WHERE auth_user_id IS NULL`
+> est idempotent par construction, donc le rejouer est gratuit et suffit.
+>
+> Ce que le squelette ci-dessus oublie : **le cookie du joueur est réécrit** à
+> la connexion. La reprise peut désigner une autre ligne `players` que celle du
+> cookie présenté — celle qui portait la partie — et sans cela la requête
+> suivante repartirait sur l'ancienne.
+
 ### L'email devient une dépendance critique
 
 Sans mot de passe, un email qui n'arrive pas = **impossible de se connecter**.
@@ -232,6 +270,15 @@ Sans mot de passe, un email qui n'arrive pas = **impossible de se connecter**.
 - **Jamais le SMTP du VPS** : une IP fraîche part en spam, et Hetzner bloque le port 25 par défaut sur les nouveaux comptes.
 - Provider transactionnel : **Scaleway TEM**. Resend et Postmark stockent données et logs **aux États-Unis** et le disent eux-mêmes — le `eu-west-1` de Resend ne contrôle pas où résident les données, et Postmark annonce n'avoir « no plans to add servers in the EU ». Une adresse email est une donnée personnelle : les envoyer hors UE rouvrirait le dossier que la décision sur le cookie (§11) venait de fermer. Scaleway est aussi le moins cher (~25 €/mois à 100 k contre ~126 $ Postmark) et le seul chez qui une **IP dédiée** soit atteignable à ce volume, tout en interdisant le marketing par contrat — ce qui protège la réputation des magic links.
 - **Deux verrous Scaleway à lever d'avance** : le quota par défaut est de **10 000 emails/mois**, débloqué par ticket support avec vérification d'identité (plusieurs jours — à lancer tôt, pas la veille du lancement) ; et les **webhooks sont en bêta**, sans POST HTTP direct (passage imposé par Topics & Events, facturé à part, un webhook par domaine en Essential). En attendant, `email_events` est alimentée par un job nocturne qui interroge le statut des envois via l'API.
+- **Un relais SMTP authentifié, et le même code partout.** `MAIL_SMTP_URL`
+  pointe sur Mailpit en développement et sur le relais de Scaleway TEM en
+  production : un seul chemin de code, donc ce qui est exercé mille fois en
+  local est ce qui tourne là-bas. L'API HTTP de Scaleway reste nécessaire pour
+  ce que SMTP ne sait pas dire — statut d'un envoi, rebonds, `email_events` — et
+  c'est le sujet des jobs. Sans la variable, aucun email ne part et la demande
+  de code est **refusée** plutôt qu'avalée : sans mot de passe, un email qui
+  n'arrive pas est une connexion impossible, et le silence serait la pire des
+  réponses.
 - **SPF + DKIM + DMARC** sur le domaine, non négociable. Sous-domaine d'envoi dédié au transactionnel, séparé de tout envoi marketing.
 - **Webhooks bounce/complaint** → table `email_events` + GlitchTip. Une panne de délivrabilité silencieuse est une panne de connexion silencieuse. À surveiller comme un service.
 
@@ -246,6 +293,14 @@ Sans mot de passe, un email qui n'arrive pas = **impossible de se connecter**.
 ### Admin
 
 Avec du magic link seul, **qui contrôle la boîte mail contrôle le back-office**. C'est assumé : ni passkey, ni second facteur sur le compte admin. La conséquence à connaître est que la sécurité du back-office **est** celle de la boîte mail de l'admin — c'est donc là, et nulle part dans ce code, qu'il faut la renforcer. Le dispositif se limite au TTL de 10 minutes et à l'usage unique du token.
+
+> **Complété par l'[ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md).**
+> Le rôle est `ADMIN_EMAILS`, une variable d'environnement et non une colonne :
+> une colonne aurait demandé un écran pour la changer, donc une façon de plus de
+> se donner le rôle. Et **une adresse qui n'est pas dans la liste ne reçoit rien
+> et ne l'apprend pas** — le seul endroit du projet où l'on refuse sans le dire,
+> parce qu'envoyer un code apprendrait à qui essaie des adresses laquelle est
+> celle de l'admin.
 
 > **Corrigé par [ADR-0006](./adr/0006-porte-du-back-office-avant-better-auth.md).** « Check de rôle en middleware » ne tient pas sous Next 16 : une Server Action est joignable par un POST direct, et un layout ne décide pas si ses segments enfants s'affichent. Le contrôle est `await requireAdmin()` en première ligne de chaque page et de chaque action d'admin, tenu par un test d'architecture. En attendant #13, la porte est un secret partagé et un cookie signé.
 
@@ -521,7 +576,10 @@ OpenTelemetry donnera le p95 par route : décider sur cette base, pas sur une in
 | **`player_progress` non partitionnée à la création** | À 300 000 lignes/jour, les 100 M sont à ~11 mois *de la cible*, pas du lancement. Partitionner tout de suite compliquerait requêtes et migrations pendant un ou deux ans pour un seuil peut-être jamais atteint |
 | **Ordre du parcours par les années, pas de drag & drop dans l'admin** | Sans colonne d'ordre, un glisser-déposer mentirait : la ligne reviendrait à sa place au rechargement. L'éditeur trie et signale les chevauchements ; corriger un ordre, c'est ajuster une année |
 | **Coquille de grille statique, état personnel en second temps** | Lire un cookie rendrait toute la route dynamique et exposerait l'origine au pic de minuit (20 000 personnes en cinq minutes). La page ne lit aucun cookie : Cloudflare absorbe le pic, et aucun indice ne peut fuir par le cache partagé |
-| **Admin protégé par le seul magic link** | Ni passkey ni second facteur. La sécurité du back-office est celle de la boîte mail de l'admin, et c'est assumé. En attendant #13, un secret partagé et un cookie signé ([ADR-0006](./adr/0006-porte-du-back-office-avant-better-auth.md)) |
+| **Admin protégé par le seul code à six chiffres** | Ni passkey ni second facteur. La sécurité du back-office est celle de la boîte mail de l'admin, et c'est assumé. Le secret partagé de l'[ADR-0006](./adr/0006-porte-du-back-office-avant-better-auth.md) a servi de #5 à #13 ; le rôle est désormais `ADMIN_EMAILS` ([ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md)) |
+| **Portes du compte à nous, devant Better Auth** | Sa limite de fréquence compte par chemin là où les specs en veulent une par IP *et* par adresse, et son callback de lien magique consomme en GET là où il faut une confirmation explicite. Il reste le magasin des comptes, des sessions et des jetons ; il n'est pas la politique ([ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md)) |
+| **Reprise de progression rejouée à chaque requête**, pas au callback | Un hook ne s'exécute qu'une fois, donc il ne s'est pas exécuté quand il a raté, et il ne répare aucun des cas d'après. Un `UPDATE … WHERE auth_user_id IS NULL` est idempotent par construction |
+| **Un seul relais SMTP pour tous les environnements** | Mailpit en local, Scaleway TEM en production. Un seul chemin de code : ce qui est exercé mille fois en local est ce qui tourne là-bas. Ce que SMTP ne sait pas dire — rebonds, statut d'un envoi — reste à faire par l'API |
 | **Grafana + Prometheus + Loki + Alloy, pas SigNoz** | ClickHouse, moteur obligatoire de SigNoz, recommande 32 Go et lève des *memory exceptions* sous 16 Go : colocalisé (§11), il met le jeu à la merci de l'outil censé le surveiller. S'y ajoute la régénération du compose par `foundryctl forge` à chaque version, exactement le frottement qui fait qu'on arrête de mettre à jour |
 | **Scaleway TEM pour l'email transactionnel** | Seul des trois à héberger données et logs en UE, le moins cher, et le seul à rendre une IP dédiée atteignable à ce volume. Deux verrous connus : quota initial de 10 k/mois à faire lever, webhooks en bêta |
 | **Umami sans cookie pour l'analytics** | Cohérence avec la décision sur le cookie. Ce qu'on perd — funnels, replay de session — ne sert pas un jeu à un seul écran, dont le retour utile (taux de réussite par position) vient de notre propre base |

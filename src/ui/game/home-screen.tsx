@@ -25,11 +25,15 @@ import { isStaleGrid, playsOf } from './use-day-plays'
  * un geste, et le geste est ici un lien vers `/1`, `/2` ou `/3`.
  */
 export function HomeScreen() {
-  const { grid, state, stats, playAt, openStats } = useGame()
+  const { grid, state, stats, playAt, openStats, openAccount, account } = useGame()
 
   return (
     <>
-      <GameHeader onStats={openStats}>
+      <GameHeader
+        onStats={openStats}
+        onAccount={openAccount}
+        accountInitial={account.initial}
+      >
         <GridTitle date={formatGridDate(grid.date)} theme={grid.theme} />
       </GameHeader>
 

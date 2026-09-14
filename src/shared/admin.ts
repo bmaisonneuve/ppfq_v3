@@ -6,10 +6,13 @@
  * from `app/`, and the actions live under `app/(admin)/` — declaring these
  * shapes on each side is how the two start disagreeing. And the door's own
  * shape is deliberately not in `shared/curation.ts`: signing in is not
- * curation, and when #13 replaces the shared secret with the six-digit code,
- * this is the file that changes and that one does not.
+ * curation, and when #13 replaced the shared secret with the six-digit code,
+ * this is the file that changed and that one did not.
+ *
+ * Ce qui *lit* un formulaire — `textField`, `firstZodMessage` — est parti dans
+ * `shared/forms.ts` avec #13 : une page de connexion côté joueur en avait besoin
+ * et n'a rien à faire d'importer la couche du back-office.
  */
-import type { z } from 'zod'
 
 /**
  * What an admin edit answered.
@@ -47,48 +50,23 @@ export const adminActionFailed = (message: string): AdminActionState => ({
   message,
 })
 
-/** The first message of a Zod error — a form field has one thing wrong at a time. */
-export function firstZodMessage(error: z.ZodError): string {
-  return error.issues[0]?.message ?? 'Saisie invalide.'
-}
-
 /**
- * A text field, read out of a `FormData`.
+ * Où en est la connexion du back-office — et c'est un état à deux temps depuis
+ * #13, parce que la porte est devenue un code à six chiffres reçu par email.
  *
- * `FormData.get` answers `string | File | null`: a file input, or no field at
- * all, are as much a possible answer as the text the admin typed. Passing that
- * straight to `String()` turns an uploaded file into the id `"[object File]"`,
- * which then reaches a query as a perfectly well-formed nonsense value. This
- * is the one place that narrowing happens; a `File` reads as the empty string
- * and every caller already refuses that.
+ * `email` voyage d'un temps à l'autre dans l'état plutôt que dans un champ
+ * caché : c'est le serveur qui l'a normalisée, et la ressaisir au second temps
+ * serait une seconde adresse à valider.
  */
-export function textField(form: FormData, name: string): string {
-  const value = form.get(name)
-  return typeof value === 'string' ? value : ''
+export type AdminSignInState = {
+  /** `email` : on demande le code. `code` : il est parti, on l'attend. */
+  step: 'email' | 'code'
+  /** L'adresse telle que le serveur l'a retenue. Vide au premier temps. */
+  email: string
+  error: string | null
 }
 
-/**
- * A file field, read out of a `FormData` — the mirror of `textField`, and the
- * reason that one exists.
- *
- * An untouched `<input type="file">` still submits: the browser sends a `File`
- * with an empty name and no bytes. That is "no file", not a file of length
- * zero, so it reads as null and every caller is spared the distinction.
- */
-export function fileField(form: FormData, name: string): File | null {
-  const value = form.get(name)
-  return value instanceof File && value.size > 0 ? value : null
-}
-
-/** The same narrowing for a field submitted several times, in document order. */
-export function textFields(form: FormData, name: string): string[] {
-  return form.getAll(name).map((value) => (typeof value === 'string' ? value : ''))
-}
-
-/** What `signInAction` answers. `null` while nothing has gone wrong yet. */
-export type AdminSignInState = { error: string | null }
-
-export const IDLE_SIGN_IN: AdminSignInState = { error: null }
+export const IDLE_SIGN_IN: AdminSignInState = { step: 'email', email: '', error: null }
 
 /** The signature the login form takes as a prop. */
 export type AdminSignInAction = (

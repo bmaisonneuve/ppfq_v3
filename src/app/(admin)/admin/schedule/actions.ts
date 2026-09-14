@@ -5,13 +5,8 @@ import { refresh } from 'next/cache'
 import { requireAdmin } from '@/server/services/admin-auth.service'
 import { FootballerNotFoundError } from '@/server/services/curation.service'
 import { NotSchedulableError, scheduleGrid } from '@/server/services/schedule.service'
-import {
-  adminActionFailed,
-  adminActionOk,
-  firstZodMessage,
-  textField,
-  textFields,
-} from '@/shared/admin'
+import { adminActionFailed, adminActionOk } from '@/shared/admin'
+import { firstZodMessage, textField, textFields } from '@/shared/forms'
 import { POSITIONS, POSITION_LABELS, ScheduleInput } from '@/shared/schedule'
 import type { Position, ScheduleActionState } from '@/shared/schedule'
 

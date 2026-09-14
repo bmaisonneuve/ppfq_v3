@@ -4,22 +4,23 @@
  * Source of truth for the model: `docs/modele-donnees.md`. When this file and
  * that document disagree, the document wins and this file is the bug.
  *
- * This is the one file under `src/server/` without `import 'server-only'`:
- * drizzle-kit reads it from plain Node to generate migrations, and the
- * `server-only` marker throws outside a React Server Component graph. The
- * barrier is not lost — the ESLint boundary rule forbids `app/** -> server/db/**`
- * (see `eslint.config.mjs`), and nothing outside `server/` may import it.
+ * This file and `catalogue-schema.ts` beside it are the two under `src/server/`
+ * without `import 'server-only'`: drizzle-kit reads them from plain Node to
+ * generate migrations, and the `server-only` marker throws outside a React
+ * Server Component graph. The barrier is not lost — the ESLint boundary rule
+ * forbids `app/** -> server/db/**` (see `eslint.config.mjs`), and nothing
+ * outside `server/` may import them.
  *
- * Scope: the catalogue, the grid and its enigmas — scheduling is what makes
+ * Scope: the grid and its enigmas — scheduling is what makes
  * the last two exist (#6) — plus `job_runs`, because the career import has to
  * leave a trace somewhere (#4), `players` and `player_progress`, which are the
  * joueur and his partie (#8), and `player_stats`, which is what his history
  * comes to (#10). The tables that aggregate a joueur's history arrive with the
- * tickets that read them: `pending_claims` with the account (#13).
+ * tickets that read them — `pending_claims`, `users`, `sessions`, `accounts`
+ * and `verifications` with le compte (#13).
  */
 import {
   boolean,
-  customType,
   date,
   index,
   integer,
@@ -31,296 +32,16 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
-/**
- * `bytea`, which drizzle-kit has no builder for.
- *
- * `pg` hands a `bytea` back as a `Buffer` and takes one on the way in, so the
- * mapping is the identity and the only thing this declares is the SQL type the
- * migration has to write.
- */
-const bytea = customType<{ data: Buffer; driverData: Buffer }>({
-  dataType: () => 'bytea',
-})
+import { footballers } from './catalogue-schema'
 
 /**
- * A flag, the bytes themselves, addressed by their content.
- *
- * **The key is the SHA-256 of `bytes`**, which is what lets the read path
- * promise `immutable` and mean it: replacing a flag writes different bytes,
- * therefore a different key, therefore a different URL, and there is nothing to
- * invalidate. Two nationalities that end up with byte-identical flags share the
- * row, which is a consequence and not a goal.
- *
- * ## Why a table and not a column on `nationalities`
- *
- * `catalogue.service.ts` reads a nationality as `select({ nationality:
- * nationalities })` — every column. A `bytea` sitting there would travel with
- * every career read, for the benefit of the one screen that shows an image. A
- * 64-character key does not, and the bytes are fetched only by the route that
- * serves them.
- *
- * ## Why the bytes are in Postgres and not in a bucket
- *
- * Measured by seeding the whole source: 274 nationalities dressed, **260 rows**
- * — fourteen flags turn out to be byte-identical to another and share one —
- * 1,3 kB the median, 12 kB the worst, **491 kB the lot**. Against the 15-20 GB
- * a year `player_progress` is sized for (`docs/modele-donnees.md` §9) that is
- * nothing. Postgres moves a `bytea` over 2 kB out of the table into TOAST on
- * its own, and the read path is cached indefinitely. An object store would
- * bring an account, keys, a development service and a **second backup story**,
- * where the procedure has to stay "restore Postgres". Same decision, same
- * reasons and same shape as `club_crests`: see ADR-0010.
- *
- * The indirection the model wanted is kept: a **key**, never a URL. The day the
- * volume justifies a bucket, the same hash is the object name.
+ * Le catalogue vit dans son propre fichier et se réexporte ici : la dépendance
+ * ne va que dans un sens — une énigme désigne un footballeur, et le catalogue
+ * ne sait rien des grilles — donc la coupure ne crée pas de cycle. Rien d'autre
+ * ne change : `import { clubs } from '@/server/db/schema'` continue de marcher,
+ * et drizzle-kit voit les dix-huit tables d'un seul tenant.
  */
-export const nationalityFlags = pgTable('nationality_flags', {
-  /** SHA-256 of `bytes`, lower-case hex. The content address, and the row key. */
-  key: text('key').primaryKey(),
-  bytes: bytea('bytes').notNull(),
-  /** What the read path serves. `image/webp` for everything the seed renders. */
-  contentType: text('content_type').notNull(),
-  byteSize: integer('byte_size').notNull(),
-  /** `fr.svg`, `gb-eng.svg` — the source file the bytes were rendered from. */
-  sourceFile: text('source_file'),
-  /** `flag-icons 7.5.0 (MIT)`, or what an admin states for one he uploaded. */
-  license: text('license'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
-
-/** Sporting nationality. One per footballer, even for a dual national. */
-export const nationalities = pgTable(
-  'nationalities',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    /** ISO 3166-1 alpha-2, the natural key. */
-    code: text('code').notNull(),
-    frName: text('fr_name').notNull(),
-    enName: text('en_name'),
-    /**
-     * The flag, by content address — **not** an S3 key, which is what the
-     * column used to be called and never was. Still a key and never a URL:
-     * where the bytes are served from must be free to move.
-     *
-     * `set null` on delete, so removing a flag is one row to delete and is not
-     * blocked by the nationalities pointing at it. A nationality with no flag
-     * is a missing image, not a broken row — and, once hint 3 exists, a
-     * footballer who is simply not schedulable.
-     *
-     * No index on it, unlike `clubs.crest_key`: there are ~200 nationalities,
-     * and a sequential scan over 200 rows is faster than the index would be.
-     */
-    flagKey: text('flag_key').references(() => nationalityFlags.key, {
-      onDelete: 'set null',
-    }),
-  },
-  (t) => [uniqueIndex('nationalities_code_key').on(t.code)],
-)
-
-/**
- * A club crest, the bytes themselves, addressed by their content.
- *
- * **The key is the SHA-256 of `bytes`**, and that one fact carries the whole
- * design. Two clubs sharing a crest share a row. Replacing a crest writes a
- * *different* key, so the URL that serves it changes and the old one may be
- * cached for ever — which is exactly what `Cache-Control: immutable` on the
- * read path claims, and what makes the claim true rather than hopeful.
- *
- * ## Why the bytes are in Postgres and not in a bucket
- *
- * Measured: the ticket counts ~15-20 kB a crest, and this implementation ~35 kB
- * on average at the width it asks for. A few thousand clubs at the very most —
- * under ~200 MB either way, against the 15-20 GB a year `player_progress` is
- * sized for (`docs/modele-donnees.md` §9). Postgres moves a `bytea` over 2 kB out of the
- * table into TOAST on its own, and the read path is cached indefinitely behind
- * Cloudflare, so this is not a hot path. An object store would bring an
- * account, keys, a development service and — the reason that actually decides
- * it — a **second backup story**, while #17 asks for one verified full restore.
- * The procedure has to stay "restore Postgres". See ADR-0010.
- *
- * The indirection the model wanted is kept: a **key**, never a URL. The day the
- * volume justifies a bucket, the same hash is the object name.
- *
- * ## What sits next to the bytes, and why
- *
- * `source_file` is the Wikipedia file the image came from, and it is not
- * decoration: the main image of an article is **not always the crest** — the
- * English article of London Caledonians FC answers with a team photograph from
- * 1894 — so the name is what makes a wrong pick visible on the club's fiche.
- * `license` and `source_url` are the takedown story: the legal risk is the one
- * already assessed and accepted (`docs/stack-technique.md` §11), and a removal
- * has to be one row to delete.
- */
-export const clubCrests = pgTable('club_crests', {
-  /** SHA-256 of `bytes`, lower-case hex. The content address, and the row key. */
-  key: text('key').primaryKey(),
-  bytes: bytea('bytes').notNull(),
-  /** What the read path serves. `image/png` for everything the thumbnailer renders. */
-  contentType: text('content_type').notNull(),
-  byteSize: integer('byte_size').notNull(),
-  /** `Logo_Manchester_United_FC.svg`, or the name of the file an admin uploaded. */
-  sourceFile: text('source_file'),
-  /** The thumbnail actually fetched. Null for a hand upload. */
-  sourceUrl: text('source_url'),
-  /** `fr`, `en`, or null when an admin uploaded it himself. */
-  sourceWiki: text('source_wiki'),
-  /** As the source states it — « marque déposée », for most of them. */
-  license: text('license'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
-
-export const clubs = pgTable(
-  'clubs',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    wikidataQid: text('wikidata_qid'),
-    /** Current French name — the one the game displays. */
-    frName: text('fr_name').notNull(),
-    enName: text('en_name'),
-    /**
-     * The crest, by content address — **not** an S3 key, which is what the
-     * column used to be called and never was (ADR-0010). Still a key and never
-     * a URL: where the bytes are served from must be free to move.
-     *
-     * `set null` on delete, because deleting a crest row is the takedown
-     * procedure: it must not be blocked by the clubs that point at it, and a
-     * club with no crest is a club with a missing image, not a broken row.
-     */
-    crestKey: text('crest_key').references(() => clubCrests.key, { onDelete: 'set null' }),
-  },
-  (t) => [
-    uniqueIndex('clubs_wikidata_qid_key').on(t.wikidataQid),
-    // What the backfill walks: the clubs that have no crest yet. Also the
-    // index that makes "which clubs point at this crest" cheap on a takedown.
-    index('clubs_crest_key_idx').on(t.crestKey),
-  ],
-)
-
-/**
- * Search referential *and* curated catalogue in one table. "Curated" is not a
- * status: it is the fact of having `player_clubs`, so every curation column is
- * nullable.
- */
-export const footballers = pgTable(
-  'footballers',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    /** Null when the row was entered by hand rather than imported. */
-    wikidataQid: text('wikidata_qid'),
-    name: text('name').notNull(),
-    /** Opened by the admin on every curation — the only guard against a silent hole. */
-    wikiFrUrl: text('wiki_fr_url'),
-    wikiEnUrl: text('wiki_en_url'),
-    /** Wikipedia edition count. Search ranking only: never displayed, never difficulty. */
-    sitelinks: integer('sitelinks').notNull().default(0),
-    /** Nullable, but required to schedule: hint 3 would otherwise be empty. */
-    nationalityId: uuid('nationality_id').references(() => nationalities.id, {
-      onDelete: 'set null',
-    }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex('footballers_wikidata_qid_key').on(t.wikidataQid),
-    // The suggestion ranking, in the exact order the typeahead asks for it:
-    // notoriety, then name, then id — the last two only to make a tie
-    // repeatable. Carrying all three columns is what lets Postgres walk the
-    // referential in ranked order and stop at the tenth match, instead of
-    // aggregating the 28 000 names that start with "ma" and sorting them.
-    // Measured on the real extract: 117 ms before, 0.8 ms after.
-    // `nullsFirst` is not decoration: `ORDER BY sitelinks DESC` means DESC
-    // NULLS FIRST, and an index declared NULLS LAST cannot supply that order,
-    // so Postgres falls back to sorting the whole match set. The column is NOT
-    // NULL, which is exactly why the difference is invisible in the results and
-    // shows up only in the plan.
-    index('footballers_ranking_idx').on(
-      t.sitelinks.desc().nullsFirst(),
-      t.name.asc(),
-      t.id.asc(),
-    ),
-    index('footballers_nationality_id_idx').on(t.nationalityId),
-  ],
-)
-
-/**
- * Canonical names *and* aliases in one table, so the typeahead is one query and
- * not a union (docs/modele-donnees.md §3).
- *
- * `term` is stored normalised — lower case, unaccented, one space between words
- * — by `normalizeSearchTerm` in `src/shared/search.ts`. The query normalises
- * its input with the same function; that shared definition is the whole
- * contract, and a term normalised any other way is a footballer nobody finds.
- *
- * Aliases enter the index and never the display: a suggestion always carries
- * `footballers.name`, so `Chicharito` finds Javier Hernández and the list says
- * "Javier Hernández".
- *
- * Two indexes for two different jobs, and the pair is deliberate: btree
- * `text_pattern_ops` serves the prefix, which is the dominant case, and GIN
- * trigrams serve typo tolerance. Trigrams alone are bad on short prefixes
- * (docs/modele-donnees.md §7).
- */
-export const footballerNames = pgTable(
-  'footballer_names',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    footballerId: uuid('footballer_id')
-      .notNull()
-      .references(() => footballers.id, { onDelete: 'cascade' }),
-    /** Normalised. Never displayed — `footballers.name` is what a player sees. */
-    term: text('term').notNull(),
-    /** `false` = alias. Informational: the display never depends on it. */
-    isCanonical: boolean('is_canonical').notNull().default(false),
-  },
-  (t) => [
-    // What makes re-running the import a no-op, and what collapses the accent
-    // variants Wikidata ships ("Zinédine Zidane" and "Zinedine Zidane" are one
-    // term). Being led by `footballer_id`, it also serves the join and the
-    // cascade, so there is no separate index on that column.
-    uniqueIndex('footballer_names_footballer_id_term_key').on(t.footballerId, t.term),
-    index('footballer_names_term_prefix_idx').using(
-      'btree',
-      t.term.asc().op('text_pattern_ops'),
-    ),
-    index('footballer_names_term_trgm_idx').using('gin', t.term.op('gin_trgm_ops')),
-  ],
-)
-
-/**
- * One senior spell at one club. The same club crossed twice is two rows.
- *
- * There is deliberately no ordering column: a career sorts by
- * `(start_year, end_year, id)`. `id` is part of the key so the order is
- * *deterministic* — the sequence of clubs is part of the enigma, and two spells
- * starting the same year must not swap between two page loads.
- *
- * Years come from Wikidata raw and may overlap: a loan coexists with the parent
- * contract, so the durations can add up to more than the career. Assumed.
- */
-export const playerClubs = pgTable(
-  'player_clubs',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    footballerId: uuid('footballer_id')
-      .notNull()
-      .references(() => footballers.id, { onDelete: 'cascade' }),
-    clubId: uuid('club_id')
-      .notNull()
-      .references(() => clubs.id, { onDelete: 'restrict' }),
-    /** An annotation next to the club, never a club of its own. */
-    isLoan: boolean('is_loan').notNull().default(false),
-    startYear: integer('start_year').notNull(),
-    /** Null = career in progress. The displayed duration then keeps growing. */
-    endYear: integer('end_year'),
-    /** League matches only (`P1350`) — cups and European competitions excluded. */
-    matches: integer('matches'),
-    /** League goals only (`P1351`). */
-    goals: integer('goals'),
-  },
-  (t) => [
-    index('player_clubs_career_idx').on(t.footballerId, t.startYear, t.endYear),
-  ],
-)
+export * from './catalogue-schema'
 
 /**
  * The life of a grid (`docs/modele-donnees.md` §2).
@@ -494,8 +215,18 @@ export const players = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     /** The anonymous identity: the UUID the browser carries. Never displayed. */
     cookieId: text('cookie_id').notNull(),
-    /** Better Auth's user id, filled in at sign-up (#13). Null until then. */
-    authUserId: text('auth_user_id'),
+    /**
+     * Le compte, renseigné à l'inscription (#13). Null tant qu'il n'y en a pas,
+     * et c'est le cas de la quasi-totalité des lignes : le jeu est jouable
+     * entier sans compte (specs §6).
+     *
+     * `set null` à la suppression, et jamais une cascade : supprimer un compte
+     * ne doit pas emporter les parties jouées avec. Le joueur redevient
+     * l'anonyme qu'il était, ce qui est exactement ce que la colonne dit.
+     */
+    authUserId: text('auth_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     /** Bumped on every personal read. The only thing the purge can go on. */
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
@@ -635,5 +366,169 @@ export const playerStats = pgTable(
     // temps se sérialisent sur cette ligne, donc le carton plein ne se perd pas
     // entre deux transactions qui se seraient chacune vue avant l'autre.
     uniqueIndex('player_stats_player_id_mode_key').on(t.playerId, t.mode),
+  ],
+)
+
+/**
+ * Le compte, et les trois tables que Better Auth tient avec lui (#13).
+ *
+ * Elles sont déclarées ici et non générées par la CLI de Better Auth, pour la
+ * raison qui vaut pour tout le reste du modèle : le SQL des migrations est relu
+ * par un humain et commité (`docs/stack-technique.md` §11). L'adaptateur
+ * Drizzle reçoit ces quatre objets nommément — `usePlural`, ce qui aligne du
+ * même coup les noms sur ceux du reste du schéma et évite de nommer une table
+ * `user`, mot réservé que tout `psql` à la main devrait citer.
+ *
+ * **Aucune d'elles ne porte de progression.** Le joueur reste `players`, et le
+ * compte n'est qu'un `auth_user_id` posé dessus (ADR-0003) : c'est ce qui fait
+ * de la reprise un `UPDATE` d'une colonne, et c'est pour ça que le plugin
+ * `anonymous` de Better Auth — qui supprime la ligne anonyme après liaison — a
+ * été écarté.
+ *
+ * Les identifiants sont des `text` et non des `uuid` : Better Auth les fabrique
+ * lui-même, et leur forme lui appartient.
+ */
+export const users = pgTable(
+  'users',
+  {
+    id: text('id').primaryKey(),
+    /**
+     * Jamais demandé, jamais affiché. Better Auth écrit `''` à l'inscription
+     * par code comme par lien, et la colonne existe parce que son modèle la
+     * veut — l'adresse est tout ce que ce jeu sait d'une personne.
+     */
+    name: text('name').notNull().default(''),
+    email: text('email').notNull(),
+    /**
+     * Vraie dès l'inscription : le code et le lien sont tous deux la preuve que
+     * la boîte a été ouverte. Il n'y a pas de mot de passe, donc pas de compte
+     * créé avant sa vérification.
+     */
+    emailVerified: boolean('email_verified').notNull().default(false),
+    image: text('image'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('users_email_key').on(t.email)],
+)
+
+/**
+ * Une session ouverte — 180 jours glissants (`docs/stack-technique.md` §4bis).
+ *
+ * La durée est celle d'un jeu d'habitude quotidienne : redemander un email tous
+ * les quinze jours serait contre-productif, et le compte ne contient que des
+ * statistiques. `token` est ce que porte le cookie, et il est unique : c'est la
+ * seule chose qui fasse d'un porteur un titulaire.
+ */
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    token: text('token').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    uniqueIndex('sessions_token_key').on(t.token),
+    // Ce que lit une déconnexion « partout », et ce que suit la cascade.
+    index('sessions_user_id_idx').on(t.userId),
+  ],
+)
+
+/**
+ * Le lien entre un compte et le moyen de s'y connecter.
+ *
+ * Vide, ou presque, dans ce jeu : il n'y a ni mot de passe ni fournisseur
+ * social, et une connexion par code ou par lien n'en écrit pas. Elle est là
+ * parce que le modèle de Better Auth la suppose — supprimer un compte la lit —
+ * et parce qu'une table absente ne se découvre qu'au premier chemin qui la
+ * touche, en production.
+ */
+export const accounts = pgTable(
+  'accounts',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id').notNull(),
+    providerId: text('provider_id').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accessToken: text('access_token'),
+    refreshToken: text('refresh_token'),
+    idToken: text('id_token'),
+    accessTokenExpiresAt: timestamp('access_token_expires_at', { withTimezone: true }),
+    refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { withTimezone: true }),
+    scope: text('scope'),
+    password: text('password'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('accounts_user_id_idx').on(t.userId)],
+)
+
+/**
+ * Ce qui a été envoyé et attend d'être présenté : le code à six chiffres, le
+ * jeton du lien magique. Dix minutes, usage unique.
+ *
+ * `identifier` porte l'adresse (préfixée par le plugin), `value` le secret tel
+ * que Better Auth choisit de le ranger — haché, ici, des deux côtés : un dump
+ * de cette table ne doit pas être une liste de codes valides.
+ */
+export const verifications = pgTable(
+  'verifications',
+  {
+    id: text('id').primaryKey(),
+    identifier: text('identifier').notNull(),
+    value: text('value').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Toute lecture se fait par identifiant, et le balayage des expirés par
+    // date. Les deux sont ici plutôt qu'un seul : la table est écrite à chaque
+    // demande et lue à chaque validation.
+    index('verifications_identifier_idx').on(t.identifier),
+    index('verifications_expires_at_idx').on(t.expiresAt),
+  ],
+)
+
+/**
+ * La reprise de progression, enregistrée pendant que le cookie est encore là
+ * (`docs/modele-donnees.md` §5, `docs/stack-technique.md` §4bis).
+ *
+ * C'est la table qui fait marcher le cas que le lien magique crée et que le
+ * code évite : le lien s'ouvre dans le navigateur du client mail, pas dans
+ * celui où l'on jouait, donc le cookie d'identité anonyme n'est pas là au
+ * moment de la connexion. Une reprise faite « depuis le cookie au callback »
+ * perdrait exactement la progression que les specs §6 promettent de garder.
+ *
+ * Alors l'association est écrite **à la demande du code ou du lien**, dans
+ * l'onglet du jeu, où le cookie est présent. La connexion, ensuite, n'a qu'à
+ * lire : elle trouve le joueur par l'adresse, où qu'elle se produise.
+ *
+ * Une ligne par (adresse, joueur), et redemander un code ne fait que repousser
+ * son expiration : sans cela, un joueur indécis laisserait une ligne par envoi.
+ */
+export const pendingClaims = pgTable(
+  'pending_claims',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email').notNull(),
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    uniqueIndex('pending_claims_email_player_id_key').on(t.email, t.playerId),
+    // La lecture de la connexion : « quelle progression attend cette adresse ».
+    index('pending_claims_email_idx').on(t.email),
   ],
 )

@@ -95,13 +95,15 @@ describe('the layering rule', () => {
     expect(messages[0]).toMatch(/only reach the server through a service/)
   })
 
-  it('rejects routing that imports the session signer directly', async () => {
-    // The same whitelist, on the zone that appeared with #5: the back-office
-    // reaches its door through `services/admin-auth.service`, and nowhere else
-    // gets to decide what a valid session is.
+  it('rejects routing that reads a session without going through a service', async () => {
+    // The same whitelist, on the zone that appeared with #5 and that #13 made
+    // matter more: `server/auth` now holds the account's session as well as the
+    // player cookie, and nothing in `app/` gets to decide what a valid session
+    // is. The back-office reaches its door through `services/admin-auth.service`
+    // and the game through `services/account.service`.
     const messages = await violations(
       'src/app/(admin)/forbidden.ts',
-      `import { verifyAdminSession } from '@/server/auth/admin-session'\nexport const x = verifyAdminSession\n`,
+      `import { currentAccountIdentity } from '@/server/auth/account-session'\nexport const x = currentAccountIdentity\n`,
     )
 
     expect(messages).toHaveLength(1)

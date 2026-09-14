@@ -18,7 +18,7 @@ import {
  * carries an opaque identifier, nothing else, for no longer than 13 months.
  *
  * So the policy is a value with a test rather than an options object inlined at
- * the one place that sets it, the same trade as `admin-session.ts`: every
+ * the one place that sets it, the same trade `account.service.ts` makes: every
  * interesting case is a pure assertion instead of an HTTP response to inspect.
  */
 const THIRTEEN_MONTHS_IN_DAYS = 396

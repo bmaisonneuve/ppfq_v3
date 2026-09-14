@@ -117,3 +117,31 @@ _Avoid_: utilisateur, user
 **Identité anonyme** :
 L'UUID en cookie qui porte la progression d'un joueur sans compte. La progression est reprise sur le compte à l'inscription.
 _Avoid_: anon_id, visiteur (en base : `players.cookie_id`)
+
+**Compte** :
+Une adresse email, et rien d'autre. S'inscrire et se connecter sont **une seule action** : il n'y a ni mot de passe, ni nom, ni profil, donc aucun écran ne distingue les deux. Un compte ne porte pas de progression — il se pose sur un joueur, par `players.auth_user_id`. En base : `users`.
+
+« Inscription » reste le mot des specs §6 pour le moment où la progression est reprise, et il est bon là : ce qui n'existe pas est une inscription **comme geste séparé de la connexion**, donc pas d'écran, pas de formulaire et pas de fonction `signUp`.
+_Avoid_: utilisateur, profil, compte utilisateur
+
+**Session** :
+La preuve qu'un navigateur est celui d'un compte : un cookie `httpOnly`, 180 jours glissants. Le mot appartient à l'authentification et ne désigne jamais une partie. En base : `sessions`.
+_Avoid_: connexion (c'est le geste, pas l'état)
+
+**Code** :
+Les six chiffres envoyés par email pour se connecter. La voie **principale**, et non un secours : tapé dans l'onglet où l'on joue, il garde le cookie qui porte la partie en cours, là où un lien ouvre souvent un autre navigateur. Dix minutes, usage unique.
+_Avoid_: OTP, mot de passe à usage unique
+
+**Lien magique** :
+Le raccourci de ceux qui lisent leurs mails sur l'appareil où ils jouent. Son URL ne consomme rien : elle mène à une page qui demande confirmation, et c'est le clic qui ouvre la session — sans quoi un scanner de liens brûlerait le jeton avant l'humain.
+
+C'est le terme du code et des documents. Ce qu'un joueur lit dans sa boîte dit « lien de connexion » : « magique » ne décrit rien pour quelqu'un qui attend juste d'entrer.
+_Avoid_: magic link (dans les textes français)
+
+**Reprise de progression** :
+Le fait qu'un joueur retrouve ses parties et ses statistiques en se connectant. C'est un `UPDATE players SET auth_user_id`, jamais un déménagement de données : rien de ce qui désigne un joueur ne bouge. Elle est rejouée à chaque requête plutôt que faite une fois, ce qui la rend idempotente par construction.
+_Avoid_: fusion, merge, migration de progression
+
+**Association en attente** :
+La ligne qui retient, au moment où l'on demande un code, sous quel joueur une adresse est en train de jouer. Elle existe pour le seul cas que le code évite : le lien magique ouvert dans un navigateur qui ne porte pas le cookie du jeu. En base : `pending_claims`.
+_Avoid_: claim (dans les textes français), réclamation

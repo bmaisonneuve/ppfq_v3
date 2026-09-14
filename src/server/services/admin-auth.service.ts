@@ -1,61 +1,58 @@
 import 'server-only'
 
-import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
-import {
-  matchesSharedSecret,
-  mintAdminSession,
-  verifyAdminSession,
-} from '@/server/auth/admin-session'
+import { isAccountConfigured } from '@/server/auth/account-auth'
+import { currentAccountIdentity } from '@/server/auth/account-session'
+import type { AccountOutcome } from '@/shared/account'
+
+import { requestSignIn, signInWithCode, signOutAccount } from './account.service'
 
 /**
- * The door to the back-office.
+ * La porte du back-office : **le compte de #13, plus une variable qui dit qui
+ * est l'admin**.
  *
- * A shared secret and a signed cookie — the smallest thing that is a real
- * barrier, standing in until the passwordless account of #13 brings the role
- * check the technical document describes. The trade and the exit are in
- * `docs/adr/0006-porte-du-back-office-avant-better-auth.md`.
+ * C'est la sortie que l'ADR-0006 avait annoncée. Le secret partagé et le cookie
+ * signé qui tenaient la porte depuis #5 ont disparu avec `auth/admin-session.ts`
+ * : il n'y a plus de mot de passe à faire tourner, à partager ou à oublier, et
+ * le back-office se ferme désormais par le même code à six chiffres que le jeu.
  *
- * ## Where the check has to be
+ * ## Le rôle est dans l'environnement, pas dans une colonne
  *
- * On **every admin page and every admin Server Action**, and that is not a
- * style preference:
+ * `ADMIN_EMAILS` liste les adresses qui ouvrent `/admin`. Une colonne `role`
+ * aurait ajouté un état à administrer — et donc un écran pour le changer, et
+ * donc une façon de plus de se donner le rôle. Une variable d'environnement
+ * n'est modifiable que par qui déploie, ce qui est exactement la population
+ * qu'on veut. Le prix est qu'ajouter un admin demande un redéploiement ; il y
+ * en a un, et `docs/stack-technique.md` §6 n'en prévoit pas d'autre.
  *
- * - a Server Action is reachable by a direct POST, whatever the page around it
- *   does;
- * - a Next 16 layout does **not** control whether its child segments render.
- *   Route segments are rendered by the router, so a layout that swaps its
- *   children for a login form does not stop the page underneath from running
- *   its queries and reaching the RSC payload.
+ * ## Sans variable, la porte reste fermée
  *
- * So the layout's check is chrome, and the real gate is per page and per
- * action. A rule applied by hand in a dozen files is a rule someone forgets, so
- * `test/architecture/admin-guard.test.ts` fails the build when one of them
- * does — the same way the `server-only` marker is checked rather than
- * remembered.
+ * Repris tel quel de l'ADR-0006, et la raison n'a pas bougé : un back-office
+ * qui s'ouvre parce qu'une variable manque échoue en silence et du côté qui
+ * laisse entrer. Ici il faut les deux — le compte configuré (`BETTER_AUTH_SECRET`)
+ * et au moins une adresse — sans quoi `isAdmin()` répond non à tout le monde,
+ * l'exploitant compris, donc il s'en aperçoit.
+ *
+ * ## Où le contrôle doit être, et ça non plus n'a pas changé
+ *
+ * Sur **chaque page et chaque Server Action d'admin**, parce qu'une Server
+ * Action est joignable par un POST direct quelle que soit la page autour
+ * d'elle, et qu'un layout Next 16 ne décide pas si ses segments enfants
+ * s'affichent. `test/architecture/admin-guard.test.ts` fait échouer la CI quand
+ * un export nouveau l'oublie.
+ *
+ * ## Ce qui est assumé
+ *
+ * « Qui contrôle la boîte mail contrôle le back-office » (`docs/stack-technique.md`
+ * §4bis) : ni passkey, ni second facteur. La sécurité du back-office **est**
+ * celle de la boîte mail de l'admin, et c'est donc là — et nulle part dans ce
+ * code — qu'il faut la renforcer. Ce que ce fichier ajoute au-dessus du jeu est
+ * une seule chose : le jeton dure dix minutes et ne sert qu'une fois, comme
+ * pour tout le monde.
  */
 
-/**
- * Two variables, and **both** must be set for the door to open at all. An
- * unconfigured back-office stays shut: a missing variable must never be the
- * thing that lets someone in.
- */
-// The *name* of the variable to read, which is exactly why it is in the source
-// and the password is not.
-// eslint-disable-next-line sonarjs/no-hardcoded-passwords
-const ADMIN_PASSWORD_VAR = 'ADMIN_PASSWORD'
-const ADMIN_SESSION_SECRET_VAR = 'ADMIN_SESSION_SECRET'
-
-const SESSION_COOKIE = 'ppfq_admin'
-
-/**
- * Seven days, where a player's session is 180 (`docs/stack-technique.md`
- * §4bis). A player logs in to keep a streak; the admin holds the keys to the
- * catalogue, this gate is a placeholder, and the cost of signing in again is
- * one password.
- */
-const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000
+const ADMIN_EMAILS_VAR = 'ADMIN_EMAILS'
 
 /** Where an unauthenticated visitor is sent, and the one page not behind this. */
 export const ADMIN_LOGIN_PATH = '/admin/login'
@@ -63,38 +60,35 @@ export const ADMIN_LOGIN_PATH = '/admin/login'
 /** Where signing in lands. */
 export const ADMIN_HOME_PATH = '/admin'
 
-/**
- * Brute-force throttle, in memory, for the single replica the infrastructure
- * has (`docs/stack-technique.md` §4bis makes the same call for the magic link).
- * It resets when the process restarts, which is acceptable for a lockout meant
- * to make guessing slow rather than impossible.
- */
-const MAX_FAILED_ATTEMPTS = 10
-const LOCKOUT_WINDOW_MS = 15 * 60 * 1000
-
-let failedAttempts = 0
-let firstFailureAt = 0
-
-export type AdminSignInResult = 'signed-in' | 'wrong-password' | 'locked-out' | 'not-configured'
-
-/** True when both variables are set. The login page says so rather than lying. */
+/** Vraie quand le compte est configuré **et** qu'au moins une adresse est admin. */
 export function isAdminConfigured(): boolean {
-  return adminPassword() !== '' && sessionSecret() !== ''
+  return isAccountConfigured() && adminEmails().length > 0
 }
 
-/** Whether this request carries a valid admin session. Reads a cookie, nothing else. */
+/**
+ * Whether this request carries an admin session.
+ *
+ * Une session ouverte ne suffit pas : c'est un jeu, et la plupart des gens
+ * connectés sont des joueurs. Ce qui décide est l'adresse.
+ */
 export async function isAdmin(): Promise<boolean> {
-  const store = await cookies()
-  return verifyAdminSession(sessionSecret(), store.get(SESSION_COOKIE)?.value, Date.now())
+  if (!isAdminConfigured()) return false
+
+  const identity = await currentAccountIdentity()
+  return identity !== null && adminEmails().includes(identity.email)
 }
 
 /**
  * The gate. Called first in every admin page and every admin Server Action.
  *
- * It redirects rather than throwing a 403: there is one admin, and every way of
- * arriving here without a session — an expired cookie, a bookmark, a new
- * browser — is answered by the same thing, the login form. A direct POST to a
- * Server Action gets the redirect and no mutation, which is the point.
+ * It redirects rather than throwing a 403: every way of arriving here without
+ * the role — no session, a player's session, an expired cookie, a bookmark — is
+ * answered by the same thing, the login form. A direct POST to a Server Action
+ * gets the redirect and no mutation, which is the point.
+ *
+ * Un joueur connecté qui tombe sur `/admin` reçoit donc le formulaire de
+ * connexion, et c'est la bonne réponse : lui dire « vous êtes connecté mais pas
+ * admin » apprendrait à un curieux qu'il existe un rôle à viser.
  */
 export async function requireAdmin(): Promise<void> {
   if (await isAdmin()) return
@@ -102,70 +96,57 @@ export async function requireAdmin(): Promise<void> {
 }
 
 /**
- * Checks the password and, on success, opens a session.
+ * Envoie un code à cette adresse — si elle est celle d'un admin.
  *
- * The password is compared in constant time, and a failure moves the throttle
- * whether or not the back-office is configured — an unconfigured deployment
- * must not answer faster than a wrong password.
+ * Une adresse qui n'est pas dans la liste reçoit la **même réponse** et aucun
+ * email. C'est le seul endroit du projet où l'on refuse sans le dire, et c'est
+ * justifié ici et pas ailleurs : côté jeu, demander un code pour une adresse
+ * inconnue crée un compte, donc il n'y a rien à révéler ; ici, envoyer un code
+ * apprendrait à celui qui essaie des adresses laquelle est celle de l'admin.
  */
-export async function signInAdmin(password: string): Promise<AdminSignInResult> {
-  if (isLockedOut()) return 'locked-out'
+export async function requestAdminCode(email: string): Promise<AccountOutcome> {
+  if (!isAdminConfigured()) return { ok: false, refusal: 'not-configured' }
 
-  if (!isAdminConfigured()) {
-    recordFailure()
-    return 'not-configured'
-  }
+  // La limite de fréquence du jeu s'applique quand même : elle est dans
+  // `account.service.ts`, avant l'envoi, et c'est elle qui rend le devinage
+  // lent — ce que le verrou en mémoire de l'ADR-0006 faisait, en mieux, parce
+  // qu'elle compte aussi par adresse.
+  if (!adminEmails().includes(email)) return { ok: true, account: null }
 
-  if (!matchesSharedSecret(adminPassword(), password)) {
-    recordFailure()
-    return 'wrong-password'
-  }
-
-  failedAttempts = 0
-
-  const expiresAt = Date.now() + SESSION_DURATION_MS
-  const store = await cookies()
-  store.set(SESSION_COOKIE, mintAdminSession(sessionSecret(), expiresAt), {
-    httpOnly: true,
-    // Off in development, where the back-office is served over plain HTTP and a
-    // secure cookie would simply never come back.
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    expires: new Date(expiresAt),
-    path: '/',
-  })
-
-  return 'signed-in'
+  return await requestSignIn(email, 'code')
 }
 
-/** Drops the session cookie. Signing out twice is not an error. */
-export async function signOutAdmin(): Promise<void> {
-  const store = await cookies()
-  store.delete(SESSION_COOKIE)
-}
+/** Vérifie le code, ouvre la session, et refuse si l'adresse n'est pas admin. */
+export async function signInAdmin(email: string, code: string): Promise<AccountOutcome> {
+  if (!isAdminConfigured()) return { ok: false, refusal: 'not-configured' }
+  if (!adminEmails().includes(email)) return { ok: false, refusal: 'bad-code' }
 
-function isLockedOut(): boolean {
-  if (Date.now() - firstFailureAt > LOCKOUT_WINDOW_MS) {
-    failedAttempts = 0
-    return false
-  }
-  return failedAttempts >= MAX_FAILED_ATTEMPTS
-}
-
-function recordFailure(): void {
-  if (failedAttempts === 0) firstFailureAt = Date.now()
-  failedAttempts += 1
+  return await signInWithCode(email, code)
 }
 
 /**
- * Read at call time, not at module load: the standalone server reads its
- * environment when it starts, and a value captured in a module constant is a
- * value a restart is needed to change.
+ * Drops the session. Signing out twice is not an error.
+ *
+ * C'est la session du compte, la même que celle du jeu : un admin qui se
+ * déconnecte du back-office se déconnecte tout court. Il n'y en a qu'une, et
+ * deux sessions pour une personne auraient demandé de choisir laquelle fait foi.
  */
-function adminPassword(): string {
-  return process.env[ADMIN_PASSWORD_VAR] ?? ''
+export async function signOutAdmin(): Promise<void> {
+  await signOutAccount()
 }
 
-function sessionSecret(): string {
-  return process.env[ADMIN_SESSION_SECRET_VAR] ?? ''
+/**
+ * Les adresses qui ouvrent le back-office, lues à l'appel et non au chargement
+ * du module : le serveur standalone lit son environnement au démarrage, et une
+ * valeur capturée dans une constante est une valeur qu'un redémarrage est
+ * nécessaire pour changer.
+ *
+ * Normalisées comme les adresses du compte le sont — minuscules, sans espaces —
+ * sinon une majuscule dans la variable fermerait la porte sans rien dire.
+ */
+function adminEmails(): readonly string[] {
+  return (process.env[ADMIN_EMAILS_VAR] ?? '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter((email) => email !== '')
 }

@@ -39,9 +39,16 @@ pnpm db:seed-flags  # un drapeau pour chaque nationalité que l'import a créée
 pnpm dev            # http://localhost:3000, back-office sur /admin
 ```
 
-`ADMIN_PASSWORD` et `ADMIN_SESSION_SECRET` sont à remplir dans `.env.local` avant
-d'ouvrir `/admin` : sans elles, le back-office refuse tout le monde, y compris
-vous. `openssl rand -base64 32` fait l'affaire pour chacune.
+`BETTER_AUTH_SECRET` et `ADMIN_EMAILS` sont à remplir dans `.env.local` avant
+d'ouvrir `/admin` : sans le secret, la connexion par email reste fermée pour tout
+le monde, et sans au moins une adresse, le back-office refuse tout le monde — y
+compris vous. `openssl rand -base64 32` fait l'affaire pour le secret.
+
+Les emails de connexion partent vers Mailpit (`pnpm mail:ui`, puis
+<http://localhost:8025>) : le code à six chiffres est dans l'objet du message,
+lisible sans même l'ouvrir. Sans `MAIL_SMTP_URL`, rien ne part et la demande de
+code est refusée plutôt qu'avalée — sans mot de passe, un email qui n'arrive pas
+est une connexion impossible.
 
 Le seed des drapeaux est à relancer après chaque import qui crée des
 nationalités ; sans effet la deuxième fois, il ne coûte rien de l'enchaîner.
@@ -64,6 +71,7 @@ passages.
 | `pnpm test:db` | Ce qui a besoin d'un vrai Postgres |
 | `pnpm test:watch` | La suite en watch |
 | `pnpm test:live` | **Le vrai Wikidata**, hors de `pnpm test`. Ce que les enregistrements ne peuvent pas vérifier : que les requêtes sont toujours du SPARQL valide et que l'endpoint répond |
+| `pnpm mail:ui` | Lève Mailpit, la boîte mail locale : <http://localhost:8025> |
 | `pnpm db:generate` | Génère le SQL depuis le schéma Drizzle, à relire et committer |
 | `pnpm db:import-referential` | Charge le référentiel de recherche depuis `.data/`. Idempotent : le relancer ne duplique rien |
 | `pnpm ingest:career Q1835 …` | Importe le parcours d'un ou plusieurs footballeurs depuis Wikidata. Le déclencheur à la main, sans worker |
@@ -75,16 +83,22 @@ et committées (`docs/stack-technique.md` §11).
 
 ## Services locaux
 
-`docker-compose.yml` porte deux Postgres et un Adminer :
+`docker-compose.yml` porte deux Postgres, un Adminer et une boîte mail :
 
 | Service | Port | Données |
 |---|---|---|
 | `postgres` | 5432 | Base de développement, volume nommé, persistante |
 | `postgres-test` | 5433 | Base de test, **tmpfs et `fsync=off`** — jetable et rapide |
 | `adminer` | 8081 | Rien. Un navigateur sur les deux bases, levé à la demande par `pnpm db:ui` |
+| `mailpit` | 1025 / 8025 | Rien : les messages vivent en mémoire. SMTP sur 1025, boîte de réception sur 8025 |
 
-`POSTGRES_PORT`, `POSTGRES_TEST_PORT` et `ADMINER_PORT` déplacent les ports si
-5432/5433/8081 sont pris.
+`POSTGRES_PORT`, `POSTGRES_TEST_PORT`, `ADMINER_PORT`, `MAILPIT_SMTP_PORT` et
+`MAILPIT_HTTP_PORT` déplacent les ports s'ils sont pris.
+
+Mailpit est levé par `pnpm test` au même titre que Postgres, et ce n'est pas du
+confort : sans mot de passe, **l'email est le chemin de connexion**, et le code à
+six chiffres est haché en base exprès. La seule façon honnête de le connaître est
+celle du joueur — ouvrir le message — donc c'est ce que la suite fait.
 
 Adminer s'ouvre sur <http://localhost:8081>, identifiants `ppfq` / `ppfq`. Le
 serveur est prérempli sur `postgres` ; saisir `postgres-test` dans le champ
@@ -97,17 +111,21 @@ src/
   app/        routage + rendu. Aucune logique métier.
     (game)/   la grille du jour
     (admin)/  le back-office. Bundle séparé : il ne pèse pas sur le jeu
-    api/      ce qui a besoin d'un contrat HTTP : typeahead, état personnel
+    (account)/ la page où tombe le lien magique, et rien d'autre
+    api/      ce qui a besoin d'un contrat HTTP : typeahead, état personnel,
+              les quatre portes du compte
   server/     le back. Chaque fichier : import 'server-only'.
     db/       schéma Drizzle + client. Personne d'autre n'y touche.
     domain/   règles pures. Zéro DB, zéro service, zéro import Next.
     ingest/   le pipeline Wikidata : il lit la source et rend des valeurs.
-    auth/     les cookies du site : la session d'admin signée, l'identité
-              anonyme d'un joueur. Aucune table, aucune requête.
+    auth/     les cookies du site : l'identité anonyme d'un joueur, et la
+              configuration de Better Auth avec la lecture d'une session
+    email/    l'envoi d'un email, et les deux seuls que ce jeu envoie
     services/ cas d'usage + transactions. LA SEULE PORTE D'ENTRÉE.
   ui/         composants présentationnels
-    game/     ceux du jeu. La grille du jour, ses énigmes, et la seule
-              requête personnelle de la page
+    game/     ceux du jeu. La grille du jour, ses énigmes, les requêtes
+              personnelles de la page et la fenêtre du compte
+    account/  la confirmation du lien magique, hors du jeu
     admin/    ceux du back-office. Les Server Actions leur arrivent en props
   shared/     isomorphe : types, schémas Zod, formatters
 scripts/      outillage Node : migrations, référentiel, import d'un parcours
@@ -137,9 +155,10 @@ millisecondes.
 Quatre barrières, pas une :
 
 1. `import 'server-only'` en tête de chaque fichier de `server/` — **le build
-   casse** si un composant client le tire. Une seule exception :
-   `db/schema.ts`, que drizzle-kit lit depuis du Node nu. Tout le reste de
-   l'outillage qui doit tourner sous Node nu vit dans `scripts/`, hors de `src/`.
+   casse** si un composant client le tire. Deux exceptions, qui sont la même
+   chose en deux fichiers : `db/schema.ts` et `db/catalogue-schema.ts`, que
+   drizzle-kit lit depuis du Node nu. Tout le reste de l'outillage qui doit
+   tourner sous Node nu vit dans `scripts/`, hors de `src/`.
 2. `import/no-restricted-paths` dans `eslint.config.mjs` — **la CI refuse** le
    raccourci.
 3. `await requireAdmin()` en première ligne de chaque page et de chaque Server
@@ -315,6 +334,56 @@ plus que ce qui change**. Corriger un thème à quinze heures effacerait sinon
 toutes les parties du jour, pour tout le monde. Une position dont le footballeur
 change, en revanche, est une autre question, et ses parties s'en vont avec.
 
+## Le compte : un code à six chiffres
+
+Le jeu est **intégralement jouable sans inscription** (specs §6). Le compte est
+proposé au moment où il a une valeur évidente, et il ne sert qu'à trois choses :
+garder la série d'un appareil à l'autre, ouvrir l'archive complète, et ne pas
+perdre sa progression en changeant de téléphone.
+
+S'inscrire et se connecter sont **une seule action** : on tape une adresse, on
+reçoit six chiffres, on les saisit. Il n'y a ni mot de passe, ni nom, ni profil —
+donc ni réinitialisation, ni credential stuffing sur un compte qui ne contient
+que des statistiques.
+
+**Le code est la voie principale et le lien magique le raccourci**, ce qui est
+contre-intuitif et résout deux problèmes que le lien seul crée
+(`docs/stack-technique.md` §4bis) :
+
+- **le lien casse la reprise de progression.** Il est cliqué dans le client mail,
+  qui ouvre souvent un autre navigateur ; le cookie d'identité anonyme reste de
+  l'autre côté, et la progression se perd au moment précis où on promet de la
+  garder. Un code tapé dans l'onglet où l'on jouait ne quitte pas l'onglet ;
+- **les scanners de liens brûlent le jeton.** SafeLinks, les antivirus mail et
+  certains clients préchargent les URL. Le lien mène donc à une page à nous,
+  `/compte/connexion`, qui **ne consomme rien** : elle affiche un bouton, et
+  c'est son POST qui ouvre la session.
+
+**La reprise de progression n'est jamais lue depuis le seul cookie au callback.**
+L'association « cette adresse joue sous ce joueur » est écrite en base au moment
+de la demande, dans l'onglet du jeu où le cookie est encore là (`pending_claims`),
+et relue à la connexion — où qu'elle se produise. La reprise elle-même est un
+`UPDATE players SET auth_user_id` ([ADR-0003](./docs/adr/0003-identite-anonyme-hors-better-auth.md)) :
+rien de ce qui désigne un joueur ne bouge.
+
+Elle est **rejouée à chaque requête personnelle** plutôt que faite une fois à la
+connexion, et c'est la décision de
+[ADR-0014](./docs/adr/0014-le-compte-nos-portes-devant-better-auth.md) : un
+`UPDATE … WHERE auth_user_id IS NULL` est idempotent par construction, donc le
+rejouer est gratuit — là où un hook qui rate une fois ne se rattrape jamais, et
+ne répare aucun des cas d'après (un cookie effacé, un appareil de plus).
+
+Better Auth tient les comptes, les sessions et les jetons. Il ne tient **pas** la
+politique : `app/api/auth/[...all]` n'existe pas, et le compte a quatre portes à
+nous. Sa limite de fréquence compte par chemin là où les specs en veulent une par
+IP **et** par adresse — sans la seconde, on bombarde la boîte d'un tiers en tapant
+son adresse — et son callback de lien magique consomme en GET.
+
+Le cookie du joueur est **réécrit** à la connexion, et la connexion passe par la
+même file cliente que les trois portes du jeu : la reprise peut désigner une autre
+ligne `players` que celle du cookie présenté, et une requête d'état qui reviendrait
+après reposerait l'ancienne valeur. Une file, une identité.
+
 ## Le back-office : la curation d'un parcours
 
 `/admin` cherche un footballeur dans le référentiel, ouvre son dossier, et le
@@ -372,10 +441,21 @@ et le seul refus est qu'un passage finisse avant de commencer.
 
 ### La porte
 
-Un secret partagé (`ADMIN_PASSWORD`) et un cookie signé (`ADMIN_SESSION_SECRET`),
-en attendant le compte sans mot de passe de #13 — [ADR-0006](./docs/adr/0006-porte-du-back-office-avant-better-auth.md).
-Sans les deux variables, `/admin` refuse tout le monde : un back-office qui
-s'ouvre parce qu'une variable manque échoue du mauvais côté.
+Le compte sans mot de passe, plus `ADMIN_EMAILS` — la liste des adresses qui
+ouvrent `/admin`. Le secret partagé de
+[ADR-0006](./docs/adr/0006-porte-du-back-office-avant-better-auth.md) a servi de
+#5 à #13 et n'existe plus.
+
+Le rôle est une variable d'environnement et non une colonne : une colonne aurait
+demandé un écran pour la changer, donc une façon de plus de se donner le rôle.
+Sans la variable, `/admin` refuse tout le monde — un back-office qui s'ouvre
+parce qu'une variable manque échoue du mauvais côté.
+
+**Une adresse qui n'est pas dans la liste ne reçoit rien et ne l'apprend pas.**
+C'est le seul endroit du projet où l'on refuse sans le dire : côté jeu, demander
+un code pour une adresse inconnue crée un compte, donc il n'y a rien à révéler ;
+ici, envoyer un code apprendrait à qui essaie des adresses laquelle est celle de
+l'admin.
 
 Le contrôle n'est **pas** dans un middleware, contrairement à ce qu'annonçait
 `docs/stack-technique.md` §4bis. Depuis Next 16 : une Server Action est joignable

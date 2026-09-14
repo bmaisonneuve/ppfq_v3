@@ -47,6 +47,7 @@ describe('migrations', () => {
     await withPool(scratchUrl(), async (pool) => {
       const tablesAfterFirstRun = await tableNames(pool)
       expect(tablesAfterFirstRun).toEqual([
+        'accounts',
         'challenge_items',
         'club_crests',
         'clubs',
@@ -56,10 +57,14 @@ describe('migrations', () => {
         'job_runs',
         'nationalities',
         'nationality_flags',
+        'pending_claims',
         'player_clubs',
         'player_progress',
         'player_stats',
         'players',
+        'sessions',
+        'users',
+        'verifications',
       ])
 
       // A row survives the replay: the second run must not recreate anything.

@@ -136,6 +136,10 @@ describe('the joueur schema', () => {
     // Two rows carrying the same account would be two progressions for one
     // person, and no way to say which is his.
     await seed()
+    // The column carries a foreign key since #13: an account has to exist
+    // before a joueur can name it, which is itself worth having — a reprise
+    // that pointed at nothing would look exactly like one that worked.
+    await pool.query(`INSERT INTO users (id, email) VALUES ('user_1', 'un@example.test')`)
     await pool.query(`UPDATE players SET auth_user_id = 'user_1' WHERE id = $1`, [PLAYER])
 
     await expect(

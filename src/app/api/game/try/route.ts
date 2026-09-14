@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { PERSONAL_HEADERS, jsonBody } from '../personal-request'
+import { PERSONAL_HEADERS, jsonBody } from '../../personal-request'
 
 import { TryRefusedError, submitTry } from '@/server/services/play.service'
 import { currentPlayerId } from '@/server/services/player.service'

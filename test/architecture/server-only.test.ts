@@ -16,15 +16,17 @@ import { pathKey, sourceFilesUnder } from './tree'
 const SERVER_ROOT = join(process.cwd(), 'src', 'server')
 
 /**
- * The one documented exception. drizzle-kit reads the schema from plain Node to
- * generate migrations, and `server-only` throws outside a React Server
- * Component graph. Nothing is lost: the layering rule still forbids
- * `app/** -> server/db/**`.
+ * The documented exceptions, and they are one thing in two files: drizzle-kit
+ * reads the schema from plain Node to generate migrations, and `server-only`
+ * throws outside a React Server Component graph. The catalogue lives in a file
+ * of its own since the account tables pushed the schema past the length ceiling
+ * (#13), and it is read the same way. Nothing is lost: the layering rule still
+ * forbids `app/** -> server/db/**`.
  *
  * Everything else that needs to run under plain Node — the migration runner,
  * the pool helpers — lives in `scripts/`, outside `src/` entirely.
  */
-const EXEMPT = new Set(['db/schema.ts'])
+const EXEMPT = new Set(['db/schema.ts', 'db/catalogue-schema.ts'])
 
 describe('the server-only barrier', () => {
   it('marks every file under src/server, except the documented exception', async () => {

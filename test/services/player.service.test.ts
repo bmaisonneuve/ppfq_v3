@@ -14,9 +14,13 @@ import { PLAYER_COOKIE_IDS, PLAYER_IDS, seedPlayers } from '@test/fixtures/playe
  *
  * The function under test is the whole of it, minus the two lines that touch
  * the cookie store: it takes what the browser presented and answers with the
- * identity to use. That split is deliberate and is the same one as
- * `admin-session.ts` — every case worth having is then a real row in a real
- * database instead of an HTTP response somebody has to construct.
+ * identity to use. That split is deliberate and is the same one `account.service.ts`
+ * makes — every case worth having is then a real row in a real database instead
+ * of an HTTP response somebody has to construct.
+ *
+ * Le cas d'un joueur qui a un compte est à côté, dans
+ * `test/services/progress-claim.service.test.ts` : la reprise de progression
+ * est une question en soi, et elle a ses propres quatre navigateurs.
  *
  * Four cases, and each is a joueur:
  *
@@ -44,11 +48,12 @@ describe('resolvePlayer', () => {
     expect((await rowOf(identity.playerId)).cookieId).toBe(identity.cookieId)
   })
 
-  it('gives him no account: an anonymous joueur is the only kind there is yet', async () => {
+  it('gives him no account: nobody signs in by arriving', async () => {
     const identity = await resolvePlayer(null)
 
-    // The account is #13, and it will be an `UPDATE` of this column on this
-    // same row — never a second row, and never a migration of his parties.
+    // Le compte existe (#13), et s'y rattacher est un `UPDATE` de cette
+    // colonne sur cette même ligne — jamais une seconde ligne, jamais un
+    // déménagement de ses parties.
     expect((await rowOf(identity.playerId)).authUserId).toBeNull()
   })
 

@@ -35,7 +35,8 @@ import { isStaleGrid } from './use-day-plays'
  * jamais créer de partie.
  */
 export function ChallengeScreen({ position }: Readonly<{ position: Position }>) {
-  const { grid, state, pending, playAt, open, submit, openStats } = useGame()
+  const { grid, state, pending, playAt, open, submit, openStats, openAccount, account } =
+    useGame()
 
   useEffect(() => {
     // Idempotent par position : revenir sur un niveau déjà ouvert ne redemande
@@ -52,7 +53,11 @@ export function ChallengeScreen({ position }: Readonly<{ position: Position }>) 
 
   return (
     <>
-      <GameHeader onStats={openStats}>
+      <GameHeader
+        onStats={openStats}
+        onAccount={openAccount}
+        accountInitial={account.initial}
+      >
         <SegmentedBar enigmas={grid.enigmas} active={position} playAt={playAt} />
       </GameHeader>
 
@@ -226,11 +231,15 @@ function Band({
 }
 
 function MissingEnigma() {
-  const { openStats } = useGame()
+  const { openStats, openAccount, account } = useGame()
 
   return (
     <>
-      <GameHeader onStats={openStats} />
+      <GameHeader
+        onStats={openStats}
+        onAccount={openAccount}
+        accountInitial={account.initial}
+      />
       <ScrollBody>
         <p className="rounded-row font-mono text-meta text-ink bg-white px-[14px] py-[11px]">
           Ce niveau n’existe pas dans la grille du jour.

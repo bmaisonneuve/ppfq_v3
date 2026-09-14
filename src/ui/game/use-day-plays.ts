@@ -120,6 +120,17 @@ export function useDayPlays(date: ChallengeDate): {
    * pu » se ressemblent à l'écran et ne se disent pas pareil.
    */
   stats: PlayerStats | null | undefined
+  /**
+   * La file elle-même, pour ce qui n'est pas une partie.
+   *
+   * Le compte (#13) s'y range : `POST /api/account/sign-in` repose le cookie du
+   * joueur — la reprise de progression vient peut-être de désigner une autre
+   * ligne `players` — et une requête d'état qui reviendrait après lui
+   * reposerait l'ancienne valeur. Une file, une identité, et la règle ne
+   * souffre pas d'exception parce qu'elle en souffrirait mal : ce qui est hors
+   * de la file est ce qui double un joueur.
+   */
+  enqueue: (task: () => Promise<void>) => void
 } {
   const [state, setState] = useState<PersonalState>(LOADING)
   // Undefined plutôt que des zéros : « pas encore lu » et « rien joué » se
@@ -242,14 +253,33 @@ export function useDayPlays(date: ChallengeDate): {
     [date, readState, readStats],
   )
 
+  const enqueue = useCallback((task: () => Promise<void>): void => {
+    queue.current = queue.current.then(async () => {
+      // La file avale, comme partout ailleurs ici : une tâche qui lève ne doit
+      // pas laisser la chaîne rejetée, sinon tout ce qui suit est abandonné
+      // sans que personne ne l'ait décidé.
+      await task().catch(() => undefined)
+    })
+  }, [])
+
   return {
     state,
     open,
     submit,
     pending: new Set([...inFlight.keys()]),
     stats,
+    enqueue,
   }
 }
+
+/**
+ * Une requête personnelle, pour ce qui n'est ni une partie ni un agrégat.
+ *
+ * Le même `post` que les portes du jeu, exporté parce que le compte parle aux
+ * quatre siennes exactement pareil : POST, JSON, caché par personne. Il est
+ * défini plus bas, avec les deux autres.
+ */
+export { post as personalPost }
 
 /** The in-flight count of one enigma, moved by one, the map left immutable. */
 function counted(

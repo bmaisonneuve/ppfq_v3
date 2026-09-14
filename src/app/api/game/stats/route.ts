@@ -1,4 +1,4 @@
-import { PERSONAL_HEADERS } from '../personal-request'
+import { PERSONAL_HEADERS } from '../../personal-request'
 
 import { currentPlayerId } from '@/server/services/player.service'
 import { getPlayerStats } from '@/server/services/stats.service'

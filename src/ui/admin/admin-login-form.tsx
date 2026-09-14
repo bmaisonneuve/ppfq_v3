@@ -4,36 +4,58 @@ import { useActionState } from 'react'
 
 import { IDLE_SIGN_IN } from '@/shared/admin'
 import type { AdminSignInAction } from '@/shared/admin'
+import { SignInCodeField } from '@/ui/sign-in-code-field'
 
 /**
  * The only form outside the gate.
  *
- * It says nothing about who the admin is — there is one, and the password is
- * the whole credential until #13 replaces this with the six-digit code.
+ * Depuis #13, la porte est celle de tout le monde : une adresse, un code à six
+ * chiffres reçu par email, et la même session que le jeu. Il n'y a plus de mot
+ * de passe partagé à taper, ni à faire tourner.
+ *
+ * Deux temps sur **un seul écran** : le champ d'adresse reste affiché quand le
+ * code arrive, en lecture seule, parce que la première chose qu'on veut savoir
+ * en ne recevant rien est à quelle adresse on l'a demandé. Il reste soumis avec
+ * le formulaire — c'est lui que l'action relit — et le bouton « changer
+ * d'adresse » est le chemin de retour.
  */
 export function AdminLoginForm({ signInAction }: Readonly<{ signInAction: AdminSignInAction }>) {
   const [state, action, pending] = useActionState(signInAction, IDLE_SIGN_IN)
+  const awaitingCode = state.step === 'code'
 
   return (
     <form action={action} className="flex max-w-sm flex-col gap-3">
-      <label htmlFor="admin-password" className="field-label">
-        Mot de passe
+      <label htmlFor="admin-email" className="field-label">
+        Adresse email
       </label>
       <input
-        id="admin-password"
-        name="password"
-        type="password"
-        autoComplete="current-password"
+        id="admin-email"
+        name="email"
+        type="email"
+        autoComplete="email"
         required
+        readOnly={awaitingCode}
+        defaultValue={state.email}
+        // `key` : passer d'un temps à l'autre remonte le champ, donc la valeur
+        // que le serveur a retenue devient sa valeur par défaut. Sans cela,
+        // React garderait la saisie non normalisée de l'écran précédent.
+        key={state.step}
         className="field"
       />
-      <button
-        type="submit"
-        disabled={pending}
-        className="btn"
-      >
-        {pending ? 'Vérification…' : 'Entrer'}
+
+      {awaitingCode ? (
+        <>
+          <label htmlFor="admin-code" className="field-label">
+            Code reçu par email
+          </label>
+          <SignInCodeField id="admin-code" />
+        </>
+      ) : null}
+
+      <button type="submit" disabled={pending} className="btn">
+        {buttonLabel(pending, awaitingCode)}
       </button>
+
       {state.error === null ? null : (
         <p role="alert" className="status-error">
           {state.error}
@@ -41,4 +63,9 @@ export function AdminLoginForm({ signInAction }: Readonly<{ signInAction: AdminS
       )}
     </form>
   )
+}
+
+function buttonLabel(pending: boolean, awaitingCode: boolean): string {
+  if (pending) return awaitingCode ? 'Vérification…' : 'Envoi…'
+  return awaitingCode ? 'Entrer' : 'Recevoir un code'
 }

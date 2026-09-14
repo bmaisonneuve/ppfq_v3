@@ -290,6 +290,40 @@ Reprise de progression quand le lien magique s'ouvre dans un autre navigateur qu
 | `player_id` | uuid | → `players.id`, cascade |
 | `expires_at` | timestamptz | |
 
+> **Précisé par l'[ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md).**
+> La ligne est **unique par (adresse, joueur)** : redemander un code ne fait que
+> repousser son échéance, sinon un joueur indécis laisserait une ligne par envoi.
+> Elle est écrite à la demande du code ou du lien, dans l'onglet du jeu où le
+> cookie est encore présent, et **effacée pour l'adresse entière** dès qu'une
+> reprise a eu lieu — rien ne doit pouvoir relire une association déjà servie.
+> Les périmées sont balayées à la demande suivante ; il n'y a pas de job pour ça.
+>
+> La lecture filtre sur trois choses et la troisième est la moins évidente :
+> l'adresse, l'échéance, et **`players.auth_user_id IS NULL`**. Deux navigateurs
+> peuvent avoir laissé chacun leur association pour la même adresse, et la
+> seconde ne doit pas défaire la première.
+
+### `users`, `sessions`, `accounts`, `verifications`
+
+Le modèle de Better Auth (`docs/stack-technique.md` §4bis), déclaré dans
+`src/server/db/schema.ts` plutôt que généré par sa CLI : le SQL des migrations
+est relu par un humain ici comme ailleurs. Les noms sont au pluriel — le reste du
+schéma l'est, et `user` est un mot réservé de Postgres qu'il faudrait citer dans
+le moindre `psql` à la main.
+
+| Table | Ce qu'elle porte |
+|---|---|
+| `users` | Le compte. Une adresse, vérifiée par construction — il n'y a pas de mot de passe, donc pas de compte créé avant sa vérification. `name` reste vide : personne ne le demande |
+| `sessions` | Une session ouverte. 180 jours glissants, et `token` unique : c'est la seule chose qui fasse d'un porteur un titulaire |
+| `accounts` | Le lien entre un compte et un moyen de s'y connecter. Vide dans ce jeu — ni mot de passe ni fournisseur social — et présente parce que son absence ne se découvrirait qu'au premier chemin qui la touche, en production |
+| `verifications` | Ce qui a été envoyé et attend d'être présenté : le code à six chiffres, le jeton du lien. Dix minutes, usage unique, et **haché** des deux côtés — un dump de cette table ne doit pas être une liste de codes valides |
+
+**Aucune ne porte de progression.** Le joueur reste `players`, et le compte n'est
+qu'un `auth_user_id` posé dessus (ADR-0003) : c'est ce qui fait de la reprise un
+`UPDATE` d'une colonne. Cette colonne a une clé étrangère vers `users` en
+`ON DELETE SET NULL` — supprimer un compte rend le joueur anonyme, il ne l'efface
+pas avec ses parties.
+
 ---
 
 ## 6. Exploitation

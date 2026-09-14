@@ -8,9 +8,12 @@ import type { EnigmaPlay } from '@/shared/play'
 import type { PlayerStats } from '@/shared/stats'
 import type { Position } from '@/shared/schedule'
 
+import { AccountPanelView } from './account-panel'
 import { GameShell } from './chrome'
 import { Modal } from './modal'
 import { PlayerStatsPanel } from './player-stats'
+import { useAccount } from './use-account'
+import type { Account } from './use-account'
 import { useDayPlays } from './use-day-plays'
 import type { PersonalState } from './use-day-plays'
 
@@ -39,6 +42,16 @@ type Game = {
   open: (position: Position) => void
   submit: (position: Position, footballerId: string | null) => void
   openStats: () => void
+  /**
+   * Le compte (#13). Il est ici et pas dans chaque écran pour la même raison
+   * que la progression : le layout ne se remonte pas d'un niveau à l'autre,
+   * donc « qui est connecté » se lit une fois pour toute la visite — et surtout
+   * le compte partage **la file** de la progression, parce que se connecter
+   * repose le cookie du joueur et qu'une requête d'état qui reviendrait après
+   * reposerait l'ancienne valeur.
+   */
+  account: Account
+  openAccount: () => void
 }
 
 const GameContext = createContext<Game | null>(null)
@@ -47,8 +60,10 @@ export function GameProvider({
   grid,
   children,
 }: Readonly<{ grid: DailyGrid; children: ReactNode }>) {
-  const { state, open, submit, pending, stats } = useDayPlays(grid.date)
+  const { state, open, submit, pending, stats, enqueue } = useDayPlays(grid.date)
+  const account = useAccount(enqueue)
   const [statsOpen, setStatsOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
 
   const game: Game = {
     grid,
@@ -60,6 +75,10 @@ export function GameProvider({
     submit,
     openStats: () => {
       setStatsOpen(true)
+    },
+    account,
+    openAccount: () => {
+      setAccountOpen(true)
     },
   }
 
@@ -75,6 +94,16 @@ export function GameProvider({
         }}
       >
         <PlayerStatsPanel stats={stats} />
+      </Modal>
+
+      <Modal
+        open={accountOpen}
+        title={account.panel.step === 'signed-in' ? 'Votre compte' : 'Se connecter'}
+        onClose={() => {
+          setAccountOpen(false)
+        }}
+      >
+        <AccountPanelView account={account} />
       </Modal>
     </GameContext>
   )
