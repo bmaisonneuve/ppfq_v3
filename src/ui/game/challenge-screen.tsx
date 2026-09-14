@@ -9,9 +9,17 @@ import type { Enigma } from '@/shared/grid'
 import type { EnigmaPlay, RevealedHint } from '@/shared/play'
 import type { Position } from '@/shared/schedule'
 
-import { ActionBand, GameHeader, PrimaryLink, ScrollBody, TextLink } from './chrome'
+import {
+  ActionBand,
+  GameHeader,
+  PrimaryLink,
+  ScreenColumn,
+  ScrollBody,
+  TextLink,
+} from './chrome'
 import { AnswerCard } from './answer-card'
 import { ClubTable } from './club-table'
+import { DesktopRail } from './rail'
 import { EssaiBand } from './essai-band'
 import { useGame, useGrid } from './game-provider'
 import { StaleGridNotice, UnavailableNotice } from './notices'
@@ -53,43 +61,49 @@ export function ChallengeScreen({ position }: Readonly<{ position: Position }>) 
 
   return (
     <>
-      <GameHeader
-        onStats={openStats}
-        onAccount={openAccount}
-        accountInitial={account.initial}
-      >
-        <SegmentedBar enigmas={grid.enigmas} active={position} playAt={playAt} />
-      </GameHeader>
+      {/* Le rail n'est pas un écran à part : c'est le même niveau, avec la
+          place d'afficher la journée à côté. Il marque celui-ci. */}
+      <DesktopRail active={position} />
 
-      <ScrollBody>
-        <div className="flex flex-col gap-3">
-          {state.status === 'unavailable' ? <UnavailableNotice /> : null}
+      <ScreenColumn>
+        <GameHeader
+          onStats={openStats}
+          onAccount={openAccount}
+          accountInitial={account.initial}
+        >
+          <SegmentedBar enigmas={grid.enigmas} active={position} playAt={playAt} />
+        </GameHeader>
 
-          {play !== undefined && isOver(play) ? (
-            <AnswerCard play={play} clubs={enigma.passages.length} />
-          ) : null}
+        <ScrollBody>
+          <div className="flex flex-col gap-3 lg:gap-[14px]">
+            {state.status === 'unavailable' ? <UnavailableNotice /> : null}
 
-          <HintChips hints={play?.hints ?? []} />
+            {play !== undefined && isOver(play) ? (
+              <AnswerCard play={play} clubs={enigma.passages.length} />
+            ) : null}
 
-          <ClubTable passages={enigma.passages} hints={play?.hints ?? []} />
-        </div>
-      </ScrollBody>
+            <HintChips hints={play?.hints ?? []} />
 
-      <ActionBand>
-        {isStaleGrid(state, grid.date) ? (
-          <StaleGridNotice />
-        ) : (
-          <Band
-            enigma={enigma}
-            play={play}
-            loading={state.status === 'loading'}
-            pending={pending.has(position)}
-            onSubmit={(footballerId) => {
-              submit(position, footballerId)
-            }}
-          />
-        )}
-      </ActionBand>
+            <ClubTable passages={enigma.passages} hints={play?.hints ?? []} />
+          </div>
+        </ScrollBody>
+
+        <ActionBand>
+          {isStaleGrid(state, grid.date) ? (
+            <StaleGridNotice />
+          ) : (
+            <Band
+              enigma={enigma}
+              play={play}
+              loading={state.status === 'loading'}
+              pending={pending.has(position)}
+              onSubmit={(footballerId) => {
+                submit(position, footballerId)
+              }}
+            />
+          )}
+        </ActionBand>
+      </ScreenColumn>
     </>
   )
 }
@@ -99,7 +113,8 @@ export function ChallengeScreen({ position }: Readonly<{ position: Position }>) 
  *
  * Elle remplace la date en tête d'écran plutôt que de s'ajouter dessous : sur
  * un téléphone, la place gagnée est une ligne de clubs de plus au premier coup
- * d'œil.
+ * d'œil. Sur un grand écran elle n'a pas lieu d'être — le rail dit la même
+ * chose en plus long, et l'en-tête entier disparaît avec elle (`chrome.tsx`).
  *
  * Le trait noir marque **le niveau affiché**, et lui seul. C'est ce qui sépare
  * les deux questions que la barre doit répondre d'un regard : *où suis-je* — le
@@ -226,7 +241,12 @@ function Band({
         <PrimaryLink label={`Ouvrir ${positionObject(next.position)} ›`} href={`/${next.position}`} />
       )}
 
-      <TextLink label="Revenir à la grille" href="/" />
+      {/* Masqué sur grand écran : la grille du jour y est déjà en permanence
+          dans le rail, et `/` y rouvrirait le défi à reprendre. « Voir la
+          grille du jour » ci-dessus n'a pas ce problème — il n'apparaît que
+          lorsque les trois niveaux sont finis, donc qu'il n'y a plus rien à
+          reprendre. */}
+      <TextLink label="Revenir à la grille" href="/" hiddenOnDesktop />
     </>
   )
 }
@@ -236,16 +256,22 @@ function MissingEnigma() {
 
   return (
     <>
-      <GameHeader
-        onStats={openStats}
-        onAccount={openAccount}
-        accountInitial={account.initial}
-      />
-      <ScrollBody>
-        <p className="rounded-row font-mono text-meta text-ink bg-white px-[14px] py-[11px]">
-          Ce niveau n’existe pas dans la grille du jour.
-        </p>
-      </ScrollBody>
+      {/* Aucun niveau marqué : celui qu'on demandait n'est pas dans la grille,
+          donc il n'est pas non plus dans le rail. */}
+      <DesktopRail active={null} />
+
+      <ScreenColumn>
+        <GameHeader
+          onStats={openStats}
+          onAccount={openAccount}
+          accountInitial={account.initial}
+        />
+        <ScrollBody>
+          <p className="rounded-row font-mono text-meta text-ink bg-white px-[14px] py-[11px]">
+            Ce niveau n’existe pas dans la grille du jour.
+          </p>
+        </ScrollBody>
+      </ScreenColumn>
     </>
   )
 }

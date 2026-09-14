@@ -79,7 +79,10 @@ export const LAYERING_ZONES = [
 ]
 
 const config = [
-  { ignores: ['.next/**', 'node_modules/**', 'drizzle/**', 'next-env.d.ts'] },
+  // `.design` est le dossier de maquettes du handoff : du HTML et un runtime
+  // généré qui montrent l'apparence visée, et que son propre README désigne
+  // comme « pas du code de production ». Il n'est pas suivi par git non plus.
+  { ignores: ['.next/**', 'node_modules/**', 'drizzle/**', 'next-env.d.ts', '.design/**'] },
   ...nextCoreWebVitals,
   {
     rules: {

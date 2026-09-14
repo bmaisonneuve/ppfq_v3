@@ -16,3 +16,5 @@ next-env.d.ts
 
 # Test and tooling output
 coverage
+
+.design

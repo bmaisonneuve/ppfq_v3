@@ -37,9 +37,11 @@ export function FootballerTypeahead({
    * L'habillage, et rien d'autre : `form` au back-office, `game` sur l'écran
    * du jeu, où le champ est blanc dans le bandeau vert sombre et où la liste
    * s'ouvre **vers le haut** — le bandeau est collé au bas de la fenêtre, et
-   * une liste vers le bas sortirait de l'écran.
+   * une liste vers le bas sortirait de l'écran. `game-inline` est le même
+   * champ quand c'est la rangée qui l'entoure qui est blanche, « Valider »
+   * rangé dedans : le format ordinateur du handoff (`1c`).
    */
-  tone?: 'form' | 'game'
+  tone?: 'form' | 'game' | 'game-inline'
   onSelect: (suggestion: FootballerSuggestion) => void
   /**
    * Ce que la touche Entrée validerait, et de quoi le valider soi-même.
@@ -250,6 +252,21 @@ const SKINS = {
     input:
       'rounded-row font-mono text-field text-ink placeholder:text-ink/45 caret-pitch w-full bg-white px-[14px] py-[13px] outline-none',
     list: 'rounded-row absolute bottom-full z-10 mb-2 max-h-[40dvh] w-full overflow-y-auto bg-white',
+    option: 'font-display block w-full px-[14px] py-[10px] text-left text-[15px] font-bold',
+    highlighted: 'bg-crest',
+  },
+  /**
+   * Le champ nu : ni fond ni rembourrage, parce que la rangée blanche qui le
+   * contient porte déjà les deux (`essai-band.tsx`). Seul l'écart de la liste
+   * change avec lui — `bottom-full` la colle au haut du champ, donc il lui
+   * faut franchir les 13 px de rembourrage de la rangée avant de retrouver les
+   * 8 px d'écart de la version téléphone.
+   */
+  'game-inline': {
+    label: 'sr-only',
+    input:
+      'font-mono text-field text-ink placeholder:text-ink/45 caret-pitch w-full bg-transparent outline-none',
+    list: 'rounded-row absolute bottom-full z-10 mb-[21px] max-h-[40dvh] w-full overflow-y-auto bg-white',
     option: 'font-display block w-full px-[14px] py-[10px] text-left text-[15px] font-bold',
     highlighted: 'bg-crest',
   },

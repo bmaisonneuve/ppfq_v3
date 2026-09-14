@@ -1,17 +1,29 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+
 import { formatGridDate, positionObject } from '@/shared/schedule'
 import type { Enigma } from '@/shared/grid'
 import type { EnigmaPlay } from '@/shared/play'
 import type { PlayerStats } from '@/shared/stats'
 import type { Position } from '@/shared/schedule'
 
-import { ActionBand, GameHeader, GridTitle, PrimaryLink, ScrollBody } from './chrome'
+import {
+  ActionBand,
+  GameHeader,
+  GridTitle,
+  PrimaryLink,
+  ScreenColumn,
+  ScrollBody,
+} from './chrome'
+import { DesktopRail } from './rail'
 import { EnigmaCard } from './enigma-card'
 import { useGame, useGrid } from './game-provider'
 import { StaleGridNotice, UnavailableNotice } from './notices'
 import { CopyResultButton } from './share-summary'
 import { useCountdown } from './use-countdown'
+import { useDesktop } from './use-desktop'
 import { isStaleGrid, playsOf } from './use-day-plays'
 
 /**
@@ -23,13 +35,74 @@ import { isStaleGrid, playsOf } from './use-day-plays'
  * énigme ouverte d'office créerait une partie à chaque arrivée sur la page —
  * partie que le changement de grille lirait ensuite comme un échec. Ouvrir est
  * un geste, et le geste est ici un lien vers `/1`, `/2` ou `/3`.
+ *
+ * ## Sur un grand écran, l'accueil passe la main
+ *
+ * L'ordinateur montre tout d'un coup : le rail liste les trois niveaux et leur
+ * état, donc un sommaire qui les redit en cartes ne dit plus rien de neuf. Dès
+ * que la progression est connue, l'accueil **s'efface au profit du défi à
+ * reprendre** — la partie en cours s'il y en a une, sinon le premier niveau
+ * jamais ouvert.
+ *
+ * Il s'efface en allant à l'adresse de ce niveau, et non en montrant son écran
+ * sur place : c'est l'URL qui dit quel défi est ouvert, à un format d'écran
+ * comme à l'autre, et c'est ce qui garde une seule définition de « où suis-je »
+ * — celle que le rail surligne, que le bouton « précédent » remonte et qu'un
+ * lien collé dans une conversation rouvre. Un affichage posé sur `/` aurait
+ * demandé à l'accueil de retenir son choix, donc un second endroit où le niveau
+ * courant est écrit, et deux façons de ne pas être d'accord.
+ *
+ * `replace` et non `push` : le sommaire n'est pas une étape que le bouton
+ * « précédent » doit faire retraverser.
+ *
+ * Le prix est assumé et il est réel : arriver sur `/` avec un grand écran
+ * **crée une partie** quand aucune n'est en cours (ADR-0009), et une partie
+ * ouverte non terminée compte comme un échec si la grille tourne avant la fin.
+ * C'est la contrepartie de « tout en une page », et c'est pourquoi le téléphone
+ * garde son sommaire : deux formats, deux compromis, et un seul endroit — ici —
+ * où le choix est écrit.
  */
 export function HomeScreen() {
+  const grid = useGrid()
+  const { state, playAt } = useGame()
+  const desktop = useDesktop()
+  const router = useRouter()
+
+  // `null` tant que la progression n'est pas là : le niveau à reprendre se lit
+  // dans les parties du joueur, et le supposer aurait ouvert l'échauffement
+  // sous le nez de quelqu'un qui en est au titulaire.
+  const resume = state.status === 'ready' ? nextMove(grid.enigmas, playAt)?.position ?? null : null
+
+  useEffect(() => {
+    if (!desktop || resume === null) return
+
+    router.replace(`/${resume}`)
+  }, [desktop, resume, router])
+
+  // La main est passée, ou elle est sur le point de l'être : le sommaire
+  // disparaît du grand écran avant d'avoir été vu, plutôt que d'apparaître le
+  // temps d'une requête pour être remplacé ensuite.
+  const handing = desktop && (state.status === 'loading' || resume !== null)
+
+  return (
+    <>
+      {/* Aucun niveau marqué : l'accueil n'en montre aucun. */}
+      <DesktopRail active={null} />
+
+      <Overview hiddenOnDesktop={handing} />
+
+      {handing ? <Waiting /> : null}
+    </>
+  )
+}
+
+/** Le sommaire de la journée : l'écran du téléphone, et la grille finie. */
+function Overview({ hiddenOnDesktop }: Readonly<{ hiddenOnDesktop: boolean }>) {
   const grid = useGrid()
   const { state, stats, playAt, openStats, openAccount, account } = useGame()
 
   return (
-    <>
+    <ScreenColumn hiddenOnDesktop={hiddenOnDesktop}>
       <GameHeader
         onStats={openStats}
         onAccount={openAccount}
@@ -43,14 +116,18 @@ export function HomeScreen() {
           {state.status === 'unavailable' ? <UnavailableNotice /> : null}
           {isStaleGrid(state, grid.date) ? <StaleGridNotice /> : null}
 
-          {grid.enigmas.map((enigma) => (
-            <EnigmaCard
-              key={enigma.position}
-              enigma={enigma}
-              play={playAt(enigma.position)}
-              loading={state.status === 'loading'}
-            />
-          ))}
+          {/* Les trois cartes côte à côte dès qu'il y a la largeur : empilées
+              sur 800 px, chacune serait un bandeau bien plus large que haut. */}
+          <div className="flex flex-col gap-[9px] lg:grid lg:grid-cols-3 lg:items-start">
+            {grid.enigmas.map((enigma) => (
+              <EnigmaCard
+                key={enigma.position}
+                enigma={enigma}
+                play={playAt(enigma.position)}
+                loading={state.status === 'loading'}
+              />
+            ))}
+          </div>
         </div>
       </ScrollBody>
 
@@ -58,7 +135,25 @@ export function HomeScreen() {
         <DayAction />
         <Ledger stats={stats} />
       </ActionBand>
-    </>
+    </ScreenColumn>
+  )
+}
+
+/**
+ * La zone principale de l'ordinateur, le temps que la main se passe.
+ *
+ * Elle ne montre pas le sommaire en attendant : ce serait la mise en page du
+ * téléphone posée sur un grand écran pour une demi-seconde, puis remplacée. Le
+ * rail est déjà là, lui, et il vient de la page prérendue — la date, le thème
+ * et les trois niveaux sont lisibles avant la première requête.
+ */
+function Waiting() {
+  return (
+    <ScreenColumn>
+      <ScrollBody>
+        <p className="font-mono text-meta text-ink">Votre partie arrive…</p>
+      </ScrollBody>
+    </ScreenColumn>
   )
 }
 

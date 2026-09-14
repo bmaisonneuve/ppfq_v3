@@ -1,6 +1,7 @@
 'use client'
 
-import { GameHeader, ScrollBody } from './chrome'
+import { GameHeader, ScreenColumn, ScrollBody } from './chrome'
+import { DesktopRail } from './rail'
 import { useGame } from './game-provider'
 
 /**
@@ -16,26 +17,34 @@ import { useGame } from './game-provider'
  * n'attend qu'on ait programmé une grille. Un écran d'attente qui emporterait
  * le compte avec lui serait une panne pour quelqu'un venu se connecter — alors
  * qu'il n'y a qu'une grille qui manque.
+ *
+ * Le rail de l'ordinateur reste pour la même raison, et pour la même raison il
+ * arrive vide de la journée : ni date, ni thème, ni les trois niveaux — il n'y
+ * a que la marque, le compte et les chiffres du joueur (`rail.tsx`).
  */
 export function NoGridView() {
   const { openStats, openAccount, account } = useGame()
 
   return (
     <>
-      <GameHeader
-        onStats={openStats}
-        onAccount={openAccount}
-        accountInitial={account.initial}
-      />
+      <DesktopRail active={null} />
 
-      <ScrollBody>
-        <div className="flex h-full flex-col justify-center gap-3">
-          <h1 className="font-display text-score text-white">Pas de grille aujourd’hui</h1>
-          <p className="font-mono text-meta text-ink">
-            Aucune grille n’est programmée pour la journée. Revenez demain.
-          </p>
-        </div>
-      </ScrollBody>
+      <ScreenColumn>
+        <GameHeader
+          onStats={openStats}
+          onAccount={openAccount}
+          accountInitial={account.initial}
+        />
+
+        <ScrollBody>
+          <div className="flex h-full flex-col justify-center gap-3">
+            <h1 className="font-display text-score text-white">Pas de grille aujourd’hui</h1>
+            <p className="font-mono text-meta text-ink">
+              Aucune grille n’est programmée pour la journée. Revenez demain.
+            </p>
+          </div>
+        </ScrollBody>
+      </ScreenColumn>
     </>
   )
 }

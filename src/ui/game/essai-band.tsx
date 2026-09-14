@@ -7,6 +7,8 @@ import type { EnigmaPlay } from '@/shared/play'
 import type { FootballerSuggestion } from '@/shared/search'
 import { FootballerTypeahead } from '@/ui/footballer-typeahead'
 
+import { useDesktop } from './use-desktop'
+
 /**
  * Le bandeau de l'écran de jeu : ce qui reste, ce qu'on propose, et le tour
  * qu'on passe.
@@ -16,6 +18,20 @@ import { FootballerTypeahead } from '@/ui/footballer-typeahead'
  * contour étroit qui annonce son prix dans son libellé. Passer consomme un
  * essai exactement comme une erreur (CONTEXT.md), et c'est ce `−1` qui
  * l'empêche de se lire comme un coup de pouce gratuit.
+ *
+ * ## Deux arrangements, un seul champ
+ *
+ * Le téléphone empile le champ puis la rangée des deux boutons ; l'ordinateur
+ * (`1c`) range « Valider » **dans** le champ et pose « PASSER −1 » sur une
+ * ligne à lui, avec la phrase qui dit ce qu'il coûte. C'est le seul endroit du
+ * jeu qui demande son format à JavaScript plutôt qu'à une règle `lg:` : monter
+ * les deux arrangements pour n'en montrer qu'un mettrait deux `<input>` dans la
+ * page, donc deux saisies en cours et une liste de suggestions qui n'est pas
+ * celle qu'on voit (`use-desktop.ts`).
+ *
+ * Ce qui est au-dessus des deux ne bouge pas : la ligne d'état, les six jetons,
+ * le bouton de passe, et le geste que « Valider » exécute — celui-là même que
+ * la touche Entrée exécute dans le champ.
  */
 export function EssaiBand({
   play,
@@ -43,7 +59,19 @@ export function EssaiBand({
     [],
   )
 
+  const desktop = useDesktop()
   const left = triesLeft(play)
+
+  // Pas désactivé par `pending`, contrairement au bouton : choisir une
+  // suggestion est un geste délibéré à chaque fois, et deux choix sont deux
+  // essais.
+  const propose = (suggestion: FootballerSuggestion) => {
+    onSubmit(suggestion.footballerId)
+  }
+
+  const pass = () => {
+    onSubmit(null)
+  }
 
   return (
     <>
@@ -54,47 +82,105 @@ export function EssaiBand({
         <Tokens spent={play.triesUsed} />
       </div>
 
-      <FootballerTypeahead
-        label="Proposez un footballeur"
-        placeholder="Tapez un nom de footballeur…"
-        tone="game"
-        onHighlight={onHighlight}
-        // Pas désactivé par `pending`, contrairement au bouton : choisir une
-        // suggestion est un geste délibéré à chaque fois, et deux choix sont
-        // deux essais.
-        onSelect={(suggestion) => {
-          onSubmit(suggestion.footballerId)
-        }}
-      />
+      {desktop ? (
+        <>
+          {/* La rangée blanche est le champ : celui-ci n'a plus ni fond ni
+              rembourrage, et « Valider » se range à son bord droit. */}
+          <div className="rounded-row flex items-center gap-[10px] bg-white px-[14px] py-[13px]">
+            <div className="min-w-0 flex-1">
+              <FootballerTypeahead
+                label="Proposez un footballeur"
+                placeholder="Tapez un nom de footballeur…"
+                tone="game-inline"
+                onHighlight={onHighlight}
+                onSelect={propose}
+              />
+            </div>
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={choice === null || pending}
-          onClick={() => {
-            choice?.submit()
-          }}
-          className="btn flex-1 py-[15px]"
-        >
-          {pending ? 'Envoi…' : 'Valider'}
-        </button>
+            <SubmitButton
+              choice={choice}
+              pending={pending}
+              className="btn rounded-field shrink-0 px-[20px] py-[10px] text-[13px]"
+            />
+          </div>
 
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => {
-            onSubmit(null)
-          }}
-          className="rounded-row border-ink font-mono text-pass text-ink cursor-pointer border-[1.5px] px-4 py-[15px] disabled:opacity-50"
-        >
-          PASSER −1
-        </button>
-      </div>
+          <div className="flex items-center gap-3">
+            <PassButton pending={pending} onPass={pass} />
+            {/* La place existe ici, et elle sert à dire le prix en toutes
+                lettres : le `−1` du bouton suffit sous le pouce, il ne se
+                commente pas sur un écran de téléphone. */}
+            <span className="text-note text-ink/70">
+              Passer dévoile l’indice suivant et consomme un essai.
+            </span>
+          </div>
+        </>
+      ) : (
+        <>
+          <FootballerTypeahead
+            label="Proposez un footballeur"
+            placeholder="Tapez un nom de footballeur…"
+            tone="game"
+            onHighlight={onHighlight}
+            onSelect={propose}
+          />
+
+          <div className="flex gap-2">
+            <SubmitButton
+              choice={choice}
+              pending={pending}
+              className="btn flex-1 py-[15px]"
+            />
+            <PassButton pending={pending} onPass={pass} />
+          </div>
+        </>
+      )}
     </>
   )
 }
 
 type Choice = { suggestion: FootballerSuggestion; submit: () => void }
+
+/**
+ * « Valider » : le même geste et le même état désactivé dans les deux formats,
+ * à la forme près — pleine largeur dans la rangée du téléphone, ramassé au bord
+ * du champ sur l'ordinateur. La forme est donc ce que l'appelant passe, et rien
+ * d'autre.
+ */
+function SubmitButton({
+  choice,
+  pending,
+  className,
+}: Readonly<{ choice: Choice | null; pending: boolean; className: string }>) {
+  return (
+    <button
+      type="button"
+      disabled={choice === null || pending}
+      onClick={() => {
+        choice?.submit()
+      }}
+      className={className}
+    >
+      {pending ? 'Envoi…' : 'Valider'}
+    </button>
+  )
+}
+
+/** Le tour qu'on passe, au rembourrage de chaque format. */
+function PassButton({
+  pending,
+  onPass,
+}: Readonly<{ pending: boolean; onPass: () => void }>) {
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={onPass}
+      className="rounded-row border-ink font-mono text-pass text-ink cursor-pointer border-[1.5px] px-4 py-[15px] disabled:opacity-50 lg:px-[15px] lg:py-[11px]"
+    >
+      PASSER −1
+    </button>
+  )
+}
 
 /** Les six jetons : pleins ce qui est dépensé, cerclés ce qui reste. */
 function Tokens({ spent }: Readonly<{ spent: number }>) {
