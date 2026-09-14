@@ -294,10 +294,12 @@ Sans mot de passe, un email qui n'arrive pas = **impossible de se connecter**.
 
 Avec du magic link seul, **qui contrôle la boîte mail contrôle le back-office**. C'est assumé : ni passkey, ni second facteur sur le compte admin. La conséquence à connaître est que la sécurité du back-office **est** celle de la boîte mail de l'admin — c'est donc là, et nulle part dans ce code, qu'il faut la renforcer. Le dispositif se limite au TTL de 10 minutes et à l'usage unique du token.
 
-> **Complété par l'[ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md).**
-> Le rôle est `ADMIN_EMAILS`, une variable d'environnement et non une colonne :
-> une colonne aurait demandé un écran pour la changer, donc une façon de plus de
-> se donner le rôle. Et **une adresse qui n'est pas dans la liste ne reçoit rien
+> **Complété par l'[ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md),
+> puis par l'[ADR-0015](./adr/0015-le-role-d-admin-est-une-colonne.md).**
+> Le rôle a été `ADMIN_EMAILS` ; c'est maintenant la colonne `users.role`, qu'aucun
+> écran n'accorde — le seul chemin est `pnpm admin:grant`, un `UPDATE` à la main.
+> Elle est relue à chaque question et jamais mise en cache, donc une révocation
+> prend effet à la requête suivante. Et **une adresse qui n'est pas dans la liste ne reçoit rien
 > et ne l'apprend pas** — le seul endroit du projet où l'on refuse sans le dire,
 > parce qu'envoyer un code apprendrait à qui essaie des adresses laquelle est
 > celle de l'admin.
@@ -576,7 +578,7 @@ OpenTelemetry donnera le p95 par route : décider sur cette base, pas sur une in
 | **`player_progress` non partitionnée à la création** | À 300 000 lignes/jour, les 100 M sont à ~11 mois *de la cible*, pas du lancement. Partitionner tout de suite compliquerait requêtes et migrations pendant un ou deux ans pour un seuil peut-être jamais atteint |
 | **Ordre du parcours par les années, pas de drag & drop dans l'admin** | Sans colonne d'ordre, un glisser-déposer mentirait : la ligne reviendrait à sa place au rechargement. L'éditeur trie et signale les chevauchements ; corriger un ordre, c'est ajuster une année |
 | **Coquille de grille statique, état personnel en second temps** | Lire un cookie rendrait toute la route dynamique et exposerait l'origine au pic de minuit (20 000 personnes en cinq minutes). La page ne lit aucun cookie : Cloudflare absorbe le pic, et aucun indice ne peut fuir par le cache partagé |
-| **Admin protégé par le seul code à six chiffres** | Ni passkey ni second facteur. La sécurité du back-office est celle de la boîte mail de l'admin, et c'est assumé. Le secret partagé de l'[ADR-0006](./adr/0006-porte-du-back-office-avant-better-auth.md) a servi de #5 à #13 ; le rôle est désormais `ADMIN_EMAILS` ([ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md)) |
+| **Admin protégé par le seul code à six chiffres** | Ni passkey ni second facteur. La sécurité du back-office est celle de la boîte mail de l'admin, et c'est assumé. Le secret partagé de l'[ADR-0006](./adr/0006-porte-du-back-office-avant-better-auth.md) a servi de #5 à #13 ; le rôle a été `ADMIN_EMAILS` ([ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md)) et est désormais la colonne `users.role`, accordée à la main ([ADR-0015](./adr/0015-le-role-d-admin-est-une-colonne.md)) |
 | **Portes du compte à nous, devant Better Auth** | Sa limite de fréquence compte par chemin là où les specs en veulent une par IP *et* par adresse, et son callback de lien magique consomme en GET là où il faut une confirmation explicite. Il reste le magasin des comptes, des sessions et des jetons ; il n'est pas la politique ([ADR-0014](./adr/0014-le-compte-nos-portes-devant-better-auth.md)) |
 | **Reprise de progression rejouée à chaque requête**, pas au callback | Un hook ne s'exécute qu'une fois, donc il ne s'est pas exécuté quand il a raté, et il ne répare aucun des cas d'après. Un `UPDATE … WHERE auth_user_id IS NULL` est idempotent par construction |
 | **Un seul relais SMTP pour tous les environnements** | Mailpit en local, Scaleway TEM en production. Un seul chemin de code : ce qui est exercé mille fois en local est ce qui tourne là-bas. Ce que SMTP ne sait pas dire — rebonds, statut d'un envoi — reste à faire par l'API |

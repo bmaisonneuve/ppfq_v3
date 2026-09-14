@@ -99,8 +99,24 @@ export type AccountSignInInput = z.infer<typeof AccountSignInInput>
  * Pas d'identifiant de compte. Le client n'a rien à en faire — toutes ses
  * requêtes portent le cookie — et un identifiant qui traîne dans un état React
  * est un identifiant qui finit dans une URL.
+ *
+ * ## `admin` est présent ou absent, et jamais `false`
+ *
+ * C'est la seule chose que le navigateur apprend d'un rôle, et la forme du
+ * champ est la décision. Un `admin: boolean` aurait répondu `false` à tout
+ * joueur connecté, c'est-à-dire aurait appris à n'importe qui **qu'il existe un
+ * rôle à viser** — exactement ce que `requireAdmin()` refuse de dire en
+ * renvoyant un joueur curieux vers le formulaire de connexion plutôt que vers
+ * un « vous n'êtes pas admin ». Optionnel, il ne parle qu'à ceux qui savent
+ * déjà : un joueur reçoit `{ email }`, mot pour mot ce qu'il recevait avant.
+ *
+ * Ce qu'il sert à faire est **de dessiner un lien**, et rien d'autre. Il
+ * n'ouvre aucune porte : chaque page et chaque Server Action du back-office
+ * appellent `requireAdmin()`, qui relit la session côté serveur. Un curieux qui
+ * se le fabriquerait dans son navigateur gagnerait un bouton qui le mène au
+ * formulaire de connexion.
  */
-export type AccountState = { email: string } | null
+export type AccountState = { email: string; admin?: true } | null
 
 /**
  * Pourquoi une demande ou une connexion a été refusée.

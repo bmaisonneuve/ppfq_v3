@@ -39,10 +39,12 @@ pnpm db:seed-flags  # un drapeau pour chaque nationalité que l'import a créée
 pnpm dev            # http://localhost:3000, back-office sur /admin
 ```
 
-`BETTER_AUTH_SECRET` et `ADMIN_EMAILS` sont à remplir dans `.env.local` avant
-d'ouvrir `/admin` : sans le secret, la connexion par email reste fermée pour tout
-le monde, et sans au moins une adresse, le back-office refuse tout le monde — y
-compris vous. `openssl rand -base64 32` fait l'affaire pour le secret.
+`BETTER_AUTH_SECRET` est à remplir dans `.env.local` avant d'ouvrir `/admin` :
+sans lui, la connexion par email reste fermée pour tout le monde.
+`openssl rand -base64 32` fait l'affaire. Le rôle d'admin, lui, n'est plus une
+variable mais une colonne (ADR-0015) : connectez-vous une fois sur le jeu, puis
+`pnpm admin:grant vous@exemple.fr`. Tant que personne n'est promu, le back-office
+refuse tout le monde — vous compris.
 
 `pnpm db:migrate` est à relancer après un `git pull` qui apporte une migration :
 sans les tables du compte, la demande de code échoue — en disant que c'est de
@@ -445,17 +447,22 @@ et le seul refus est qu'un passage finisse avant de commencer.
 
 ### La porte
 
-Le compte sans mot de passe, plus `ADMIN_EMAILS` — la liste des adresses qui
-ouvrent `/admin`. Le secret partagé de
+Le compte sans mot de passe, plus la colonne `users.role` — qui dit qui ouvre
+`/admin`. Le secret partagé de
 [ADR-0006](./docs/adr/0006-porte-du-back-office-avant-better-auth.md) a servi de
-#5 à #13 et n'existe plus.
+#5 à #13 et n'existe plus ; `ADMIN_EMAILS`, qui l'avait remplacé, a disparu à son
+tour ([ADR-0015](./docs/adr/0015-le-role-d-admin-est-une-colonne.md)).
 
-Le rôle est une variable d'environnement et non une colonne : une colonne aurait
-demandé un écran pour la changer, donc une façon de plus de se donner le rôle.
-Sans la variable, `/admin` refuse tout le monde — un back-office qui s'ouvre
-parce qu'une variable manque échoue du mauvais côté.
+Le rôle est une colonne, et **aucun écran ne l'accorde** : rien dans ce dépôt
+n'écrit `users.role`, le seul chemin est `pnpm admin:grant` — un `UPDATE` à la
+main, donc un accès à la base. Le défaut de la colonne est `player` et Better
+Auth ne la connaît pas, donc toute inscription crée un joueur. Il est relu à
+chaque question et jamais mis en cache : retirer le rôle prend effet à la requête
+suivante. Tant que personne n'est promu, `/admin` refuse tout le monde — un
+back-office qui s'ouvre parce qu'il n'a trouvé personne à qui obéir échoue du
+mauvais côté.
 
-**Une adresse qui n'est pas dans la liste ne reçoit rien et ne l'apprend pas.**
+**Une adresse qui n'est pas celle d'un admin ne reçoit rien et ne l'apprend pas.**
 C'est le seul endroit du projet où l'on refuse sans le dire : côté jeu, demander
 un code pour une adresse inconnue crée un compte, donc il n'y a rien à révéler ;
 ici, envoyer un code apprendrait à qui essaie des adresses laquelle est celle de

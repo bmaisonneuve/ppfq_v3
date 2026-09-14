@@ -20,6 +20,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:import-referential": "tsx scripts/import-referential.ts",
     "db:seed-flags": "tsx scripts/seed-flags.ts",
+    "admin:grant": "tsx scripts/grant-admin.ts",
     "ingest:career": "tsx --conditions=react-server scripts/import-career.ts",
     "crests:backfill": "tsx --conditions=react-server scripts/backfill-crests.ts",
     "fixtures:wikidata": "tsx --conditions=react-server scripts/capture-wikidata-fixtures.ts",

@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 
 import { SignInCodeField } from '@/ui/sign-in-code-field'
@@ -27,7 +28,7 @@ export function AccountPanelView({ account }: Readonly<{ account: Account }>) {
     case 'loading':
       return <Note>Un instant…</Note>
     case 'signed-in':
-      return <SignedIn account={account} email={panel.email} />
+      return <SignedIn account={account} email={panel.email} admin={panel.admin} />
     case 'code':
       return <CodeStep account={account} panel={panel} />
     case 'email':
@@ -134,12 +135,41 @@ function CodeStep({
   )
 }
 
-function SignedIn({ account, email }: Readonly<{ account: Account; email: string }>) {
+/**
+ * Le compte de quelqu'un — et, pour une poignée de gens, la porte d'à côté.
+ *
+ * Le raccourci vers le back-office est **ici** et non dans la barre d'en-tête,
+ * pour deux raisons qui vont dans le même sens. La barre tient trois boutons de
+ * trente pixels dans une colonne de 430 : un quatrième qui n'apparaîtrait que
+ * pour deux personnes serait cher payé pour tout le monde. Et surtout, c'est la
+ * fenêtre qui répond déjà à « qui suis-je » — un rôle est une réponse à cette
+ * question-là, pas un geste de jeu.
+ *
+ * Ce que ce lien n'est pas : une autorisation. `admin` vient du serveur, ne sert
+ * qu'à décider d'un rendu, et chaque page du back-office rappelle
+ * `requireAdmin()` de son côté. Quelqu'un qui se le fabriquerait dans son
+ * navigateur gagnerait un bouton vers un formulaire de connexion.
+ */
+function SignedIn({
+  account,
+  email,
+  admin,
+}: Readonly<{ account: Account; email: string; admin: boolean }>) {
   return (
     <div className="flex flex-col gap-3 p-5">
       <p className="text-body">
         Connecté en tant que <span className="font-semibold">{email}</span>.
       </p>
+
+      {/* `prefetch={false}` : le back-office est un groupe de routes à part
+          précisément pour que son bundle ne pèse jamais sur le jeu
+          (`docs/stack-technique.md` §6), et un préchargement au survol le
+          tirerait dans l'onglet où l'on joue avant même qu'on ait cliqué. */}
+      {admin ? (
+        <Link href="/admin" prefetch={false} className="btn text-center">
+          Ouvrir le back-office
+        </Link>
+      ) : null}
       {/* Ce que la déconnexion ne fait pas mérite d'être écrit : elle ferme la
           session, pas la partie. Sans cette phrase, on n'ose pas cliquer. */}
       <p className="text-body text-muted">

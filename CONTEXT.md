@@ -124,6 +124,10 @@ Une adresse email, et rien d'autre. S'inscrire et se connecter sont **une seule 
 « Inscription » reste le mot des specs §6 pour le moment où la progression est reprise, et il est bon là : ce qui n'existe pas est une inscription **comme geste séparé de la connexion**, donc pas d'écran, pas de formulaire et pas de fonction `signUp`.
 _Avoid_: utilisateur, profil, compte utilisateur
 
+**Admin** :
+La personne qui ouvre le back-office. Ce n'est pas un compte à part : c'est un compte dont la colonne `users.role` vaut `admin`, la même adresse et la même session que côté jeu. Le rôle ne s'accorde par aucun écran — rien dans le dépôt ne l'écrit, le seul chemin est `pnpm admin:grant`, un `UPDATE` à la main — et il est relu à chaque question, donc le retirer prend effet tout de suite.
+_Avoid_: administrateur, éditeur, rôle admin (le rôle **est** la colonne)
+
 **Session** :
 La preuve qu'un navigateur est celui d'un compte : un cookie `httpOnly`, 180 jours glissants. Le mot appartient à l'authentification et ne désigne jamais une partie. En base : `sessions`.
 _Avoid_: connexion (c'est le geste, pas l'état)

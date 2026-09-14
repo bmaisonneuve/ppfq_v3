@@ -47,7 +47,20 @@ export type AccountPanel =
   /** La demande est partie : on attend les six chiffres. */
   | { step: 'code'; email: string; error: string | null; sentLink: boolean }
   /** Quelqu'un. */
-  | { step: 'signed-in'; email: string }
+  | {
+      step: 'signed-in'
+      email: string
+      /**
+       * Vrai quand cette adresse ouvre le back-office, et ce qui décide est le
+       * serveur : le champ vient tel quel de `AccountState`. Le jeu ne connaît
+       * pas `ADMIN_EMAILS` et ne doit pas — la page du jeu est prérendue et
+       * partagée par un cache, donc elle ne peut rien savoir de qui la regarde.
+       *
+       * Il ne sert qu'à dessiner un lien. La porte est `requireAdmin()`, côté
+       * serveur, sur chaque page et chaque action du back-office.
+       */
+      admin: boolean
+    }
 
 export type Account = {
   panel: AccountPanel
@@ -189,7 +202,12 @@ function brokenDown(current: AccountPanel): AccountPanel {
 
 /** Connecté si le serveur nomme quelqu'un, et sinon l'écran donné. */
 function signedInOr(account: AccountState, otherwise: AccountPanel): AccountPanel {
-  return account === null ? otherwise : { step: 'signed-in', email: account.email }
+  if (account === null) return otherwise
+
+  // `admin` est absent pour tout le monde sauf un admin (`shared/account.ts`) :
+  // c'est ici qu'il redevient un booléen, une fois franchie la frontière où son
+  // absence voulait dire quelque chose.
+  return { step: 'signed-in', email: account.email, admin: account.admin === true }
 }
 
 /** L'adresse en cours de vérification, quand il y en a une. */

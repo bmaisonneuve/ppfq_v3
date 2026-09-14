@@ -1,9 +1,12 @@
 # La porte du back-office : un secret partagé maintenant, le compte plus tard
 
-> **Périmé par [ADR-0014](./0014-le-compte-nos-portes-devant-better-auth.md).**
-> « Plus tard » a eu lieu : la porte est le compte sans mot de passe de #13, et
-> le rôle est `ADMIN_EMAILS` — une variable d'environnement plutôt qu'une
-> colonne, pour qu'il n'y ait pas d'écran capable de l'accorder.
+> **Périmé par [ADR-0014](./0014-le-compte-nos-portes-devant-better-auth.md),
+> puis par [ADR-0015](./0015-le-role-d-admin-est-une-colonne.md).**
+> « Plus tard » a eu lieu : la porte est le compte sans mot de passe de #13. Le
+> rôle a été `ADMIN_EMAILS`, une variable d'environnement, puis est devenu la
+> colonne `users.role` — ce qui comptait n'était pas la variable mais qu'aucun
+> écran ne puisse accorder le rôle, et il n'y en a toujours aucun : on promeut
+> par un `UPDATE` à la main.
 > `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `src/server/auth/admin-session.ts`
 > et le verrou anti-devinage en mémoire ont disparu ; la limite de fréquence du
 > compte remplace le dernier, en mieux, parce qu'elle compte aussi par adresse.

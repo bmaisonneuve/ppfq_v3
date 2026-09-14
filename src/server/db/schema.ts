@@ -388,6 +388,22 @@ export const playerStats = pgTable(
  * Les identifiants sont des `text` et non des `uuid` : Better Auth les fabrique
  * lui-même, et leur forme lui appartient.
  */
+/**
+ * Le rôle d'un compte, et la seule chose qui ouvre `/admin`.
+ *
+ * Deux valeurs, un défaut à `player`, et c'est le défaut qui porte la garantie :
+ * Better Auth insère ses lignes sans connaître cette colonne, donc **toute
+ * inscription crée un joueur**. Il n'y a pas de chemin par lequel on devient
+ * admin en s'inscrivant ; il faut un `UPDATE` écrit à la main sur la base
+ * (`pnpm admin:grant`), c'est-à-dire un accès que seul l'exploitant a.
+ *
+ * Un `pgEnum` et non un `text` libre : une faute de frappe dans un `UPDATE` de
+ * production doit être refusée par la base plutôt que de créer silencieusement
+ * un rôle que personne ne porte — ce qui, ici, laisserait quelqu'un dehors en
+ * croyant l'avoir fait entrer.
+ */
+export const userRole = pgEnum('user_role', ['player', 'admin'])
+
 export const users = pgTable(
   'users',
   {
@@ -406,9 +422,24 @@ export const users = pgTable(
      */
     emailVerified: boolean('email_verified').notNull().default(false),
     image: text('image'),
+    /**
+     * Qui ouvre le back-office (ADR-0015). La colonne remplace `ADMIN_EMAILS` :
+     * le rôle suit la personne dans la base qu'on sauvegarde, au lieu de vivre
+     * dans un environnement qu'un redéploiement est nécessaire pour changer.
+     *
+     * Better Auth ne la connaît pas et ne l'écrit jamais : elle n'est pas dans
+     * les champs qu'on lui déclare, et son `INSERT` prend donc le défaut. Ce qui
+     * l'écrit est un `UPDATE` à la main, et rien d'autre dans le code.
+     */
+    role: userRole('role').notNull().default('player'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
+  // Pas d'index sur le rôle : les deux seules questions posées à cette colonne
+  // sont « ce compte-ci est-il admin » et « cette adresse-ci est-elle admin »,
+  // qui atteignent toutes deux une ligne par la clé primaire ou par
+  // `users_email_key` avant de la lire. Un index sur `role` ne serait jamais
+  // choisi.
   (t) => [uniqueIndex('users_email_key').on(t.email)],
 )
 

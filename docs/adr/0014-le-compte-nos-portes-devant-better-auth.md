@@ -105,6 +105,16 @@ jouable sans compte (specs §6). Avec, le cache de cookie signé de cinq minutes
 
 ## Le rôle d'admin est une variable d'environnement
 
+> **Périmé par [ADR-0015](./0015-le-role-d-admin-est-une-colonne.md).** Le rôle
+> est `users.role`, et `ADMIN_EMAILS` a disparu. L'objection ci-dessous ne tenait
+> que par son deuxième maillon — une colonne appelle un écran pour la changer —
+> et cet écran n'existe pas : rien dans le dépôt n'écrit la colonne, le seul
+> chemin reste un `UPDATE` à la main. La population qui accorde le rôle n'a donc
+> pas bougé, et le rôle vit maintenant dans la base qu'on sauvegarde, se retire
+> sans redéploiement, et n'est jamais mis en cache. Le reste de cette section —
+> une adresse qui n'est pas celle d'un admin ne reçoit rien et ne l'apprend
+> pas — tient tel quel.
+
 L'ADR-0006 annonçait que le compte de ce ticket porterait le rôle. Il le porte,
 et le rôle n'est pas une colonne : `ADMIN_EMAILS` liste les adresses qui ouvrent
 `/admin`.
@@ -125,8 +135,8 @@ crée un compte, donc il n'y a rien à révéler ; ici, envoyer un code apprendr
 
 `ADMIN_PASSWORD` et `ADMIN_SESSION_SECRET` disparaissent, avec
 `src/server/auth/admin-session.ts` et son test. `BETTER_AUTH_SECRET`, `APP_URL`,
-`MAIL_SMTP_URL`, `MAIL_FROM` et `ADMIN_EMAILS` s'ajoutent à ce que le
-déploiement doit fournir, et le comportement sans elles est écrit dans
+`MAIL_SMTP_URL`, `MAIL_FROM` et `ADMIN_EMAILS` (cette dernière retirée depuis
+par l'ADR-0015) s'ajoutent à ce que le déploiement doit fournir, et le comportement sans elles est écrit dans
 `.env.example` : le compte reste fermé, `/admin` refuse tout le monde, aucun
 email ne part. Le verrou anti-devinage en mémoire de l'ADR-0006 disparaît aussi
 — la limite de fréquence du compte le remplace, en mieux, parce qu'elle compte

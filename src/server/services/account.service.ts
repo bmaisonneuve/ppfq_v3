@@ -5,6 +5,7 @@ import { headers } from 'next/headers'
 import { accountAuth, isAccountConfigured } from '@/server/auth/account-auth'
 import { currentAccountIdentity } from '@/server/auth/account-session'
 import type { AccountIdentity } from '@/server/auth/account-session'
+import { isAdminUserId } from '@/server/auth/admin-role'
 import { quotaLimiter } from '@/server/domain/rate-limit'
 import { MailNotSent } from '@/server/email/mailer'
 import { sendSignInCode } from '@/server/email/sign-in-mails'
@@ -91,7 +92,7 @@ export type RequestContext = {
 /** Une connexion qui a marché : le compte, et le joueur qui va avec. */
 export type SignedIn = {
   ok: true
-  account: { email: string }
+  account: NonNullable<AccountState>
   /** Le cookie que le navigateur doit emporter — celui du joueur du compte. */
   cookieId: string
 }
@@ -125,10 +126,10 @@ export async function confirmSignInLink(token: string): Promise<AccountOutcome> 
   return await settle(await signInByLink(token, await requestContext()))
 }
 
-/** Qui est connecté, ou personne. Une adresse, et rien d'autre. */
+/** Qui est connecté, ou personne. Une adresse, et le rôle s'il y en a un. */
 export async function currentAccount(): Promise<AccountState> {
   const identity = await currentAccountIdentity()
-  return identity === null ? null : { email: identity.email }
+  return identity === null ? null : await accountOf(identity)
 }
 
 /**
@@ -302,7 +303,31 @@ async function completeSignIn(
 
   const identity = await resolvePlayer(context.presented, account)
 
-  return { ok: true, account: { email: account.email }, cookieId: identity.cookieId }
+  return { ok: true, account: await accountOf(account), cookieId: identity.cookieId }
+}
+
+/**
+ * Le compte tel que le navigateur le reçoit — ici, et pas à deux endroits.
+ *
+ * Les deux chemins qui nomment quelqu'un passent par cette fonction : la
+ * lecture de session (`currentAccount`) et la connexion qui vient d'aboutir
+ * (`completeSignIn`). Sans ça, un admin qui se connecte dans l'onglet du jeu ne
+ * verrait son raccourci vers `/admin` qu'au rechargement suivant — la
+ * connexion ne relit pas l'état, et n'a aucune raison de le faire (le panneau
+ * se peuple de la réponse qu'il vient de recevoir).
+ *
+ * `admin` n'est posé que quand il est vrai. La raison est dans
+ * `shared/account.ts` : un `false` explicite apprendrait à tout joueur connecté
+ * qu'il existe un rôle, et c'est précisément ce que le back-office ne dit pas.
+ *
+ * La lecture se fait par l'identifiant du compte et non par son adresse : c'est
+ * la clé primaire, et une adresse peut changer là où un identifiant ne change
+ * pas. Elle coûte une ligne, une fois par visite d'un joueur connecté.
+ */
+async function accountOf(identity: AccountIdentity): Promise<NonNullable<AccountState>> {
+  const { email } = identity
+
+  return (await isAdminUserId(identity.userId)) ? { email, admin: true } : { email }
 }
 
 /**

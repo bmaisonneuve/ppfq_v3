@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 
 import { isAccountConfigured } from '@/server/auth/account-auth'
 import { currentAccountIdentity } from '@/server/auth/account-session'
+import { isAdminEmail, isAdminUserId } from '@/server/auth/admin-role'
 import type { AccountOutcome } from '@/shared/account'
 
 import { requestSignIn, signInWithCode, signOutAccount } from './account.service'
@@ -17,22 +18,29 @@ import { requestSignIn, signInWithCode, signOutAccount } from './account.service
  * : il n'y a plus de mot de passe à faire tourner, à partager ou à oublier, et
  * le back-office se ferme désormais par le même code à six chiffres que le jeu.
  *
- * ## Le rôle est dans l'environnement, pas dans une colonne
+ * ## Le rôle est une colonne, et personne dans ce code ne l'écrit
  *
- * `ADMIN_EMAILS` liste les adresses qui ouvrent `/admin`. Une colonne `role`
- * aurait ajouté un état à administrer — et donc un écran pour le changer, et
- * donc une façon de plus de se donner le rôle. Une variable d'environnement
- * n'est modifiable que par qui déploie, ce qui est exactement la population
- * qu'on veut. Le prix est qu'ajouter un admin demande un redéploiement ; il y
- * en a un, et `docs/stack-technique.md` §6 n'en prévoit pas d'autre.
+ * `users.role` dit qui ouvre `/admin` (ADR-0015, qui remplace la variable
+ * `ADMIN_EMAILS` de l'ADR-0006). L'objection que l'ADR-0006 faisait à une
+ * colonne — elle appelle un écran pour la changer, et cet écran est une façon
+ * de plus de se donner le rôle — tombe parce que cet écran n'existe pas : rien
+ * dans ce dépôt n'écrit `users.role`, le seul chemin est un UPDATE à la main
+ * (`pnpm admin:grant`). Le rôle se donne donc toujours avec un accès que seul
+ * l'exploitant a, et il suit désormais la personne dans la base qu'on
+ * sauvegarde plutôt que dans un environnement qu'un redéploiement change.
  *
- * ## Sans variable, la porte reste fermée
+ * La lecture est dans `auth/admin-role.ts` et non ici : le compte du jeu la
+ * fait aussi, pour savoir s'il faut dessiner le raccourci vers `/admin` dans le
+ * panneau du joueur, et il ne peut pas la demander à ce fichier-ci — celui-ci
+ * importe déjà `account.service.ts` pour envoyer ses codes.
  *
- * Repris tel quel de l'ADR-0006, et la raison n'a pas bougé : un back-office
- * qui s'ouvre parce qu'une variable manque échoue en silence et du côté qui
- * laisse entrer. Ici il faut les deux — le compte configuré (`BETTER_AUTH_SECRET`)
- * et au moins une adresse — sans quoi `isAdmin()` répond non à tout le monde,
- * l'exploitant compris, donc il s'en aperçoit.
+ * ## Sans rôle accordé, la porte reste fermée
+ *
+ * L'esprit de l'ADR-0006 tient, et la colonne le sert mieux que la variable :
+ * une base fraîche n'a que des `player`, donc `isAdmin()` répond non à tout le
+ * monde tant que personne n'a été promu à la main — l'exploitant compris, donc
+ * il s'en aperçoit. Il faut toujours aussi le compte configuré
+ * (`BETTER_AUTH_SECRET`), sans quoi il n'y a pas de session à lire.
  *
  * ## Où le contrôle doit être, et ça non plus n'a pas changé
  *
@@ -52,17 +60,22 @@ import { requestSignIn, signInWithCode, signOutAccount } from './account.service
  * pour tout le monde.
  */
 
-const ADMIN_EMAILS_VAR = 'ADMIN_EMAILS'
-
 /** Where an unauthenticated visitor is sent, and the one page not behind this. */
 export const ADMIN_LOGIN_PATH = '/admin/login'
 
 /** Where signing in lands. */
 export const ADMIN_HOME_PATH = '/admin'
 
-/** Vraie quand le compte est configuré **et** qu'au moins une adresse est admin. */
+/**
+ * Vraie quand le compte est configuré — il n'y a plus rien d'autre à configurer.
+ *
+ * La seconde condition d'avant (« au moins une adresse dans `ADMIN_EMAILS` ») a
+ * disparu avec la variable, et rien ne la remplace : « personne n'est admin »
+ * n'est pas un défaut de configuration, c'est l'état normal d'une base neuve, et
+ * il se corrige par une promotion et non par un déploiement.
+ */
 export function isAdminConfigured(): boolean {
-  return isAccountConfigured() && adminEmails().length > 0
+  return isAccountConfigured()
 }
 
 /**
@@ -75,7 +88,7 @@ export async function isAdmin(): Promise<boolean> {
   if (!isAdminConfigured()) return false
 
   const identity = await currentAccountIdentity()
-  return identity !== null && adminEmails().includes(identity.email)
+  return identity !== null && (await isAdminUserId(identity.userId))
 }
 
 /**
@@ -111,7 +124,7 @@ export async function requestAdminCode(email: string): Promise<AccountOutcome> {
   // `account.service.ts`, avant l'envoi, et c'est elle qui rend le devinage
   // lent — ce que le verrou en mémoire de l'ADR-0006 faisait, en mieux, parce
   // qu'elle compte aussi par adresse.
-  if (!adminEmails().includes(email)) return { ok: true, account: null }
+  if (!(await isAdminEmail(email))) return { ok: true, account: null }
 
   return await requestSignIn(email, 'code')
 }
@@ -119,7 +132,7 @@ export async function requestAdminCode(email: string): Promise<AccountOutcome> {
 /** Vérifie le code, ouvre la session, et refuse si l'adresse n'est pas admin. */
 export async function signInAdmin(email: string, code: string): Promise<AccountOutcome> {
   if (!isAdminConfigured()) return { ok: false, refusal: 'not-configured' }
-  if (!adminEmails().includes(email)) return { ok: false, refusal: 'bad-code' }
+  if (!(await isAdminEmail(email))) return { ok: false, refusal: 'bad-code' }
 
   return await signInWithCode(email, code)
 }
@@ -133,20 +146,4 @@ export async function signInAdmin(email: string, code: string): Promise<AccountO
  */
 export async function signOutAdmin(): Promise<void> {
   await signOutAccount()
-}
-
-/**
- * Les adresses qui ouvrent le back-office, lues à l'appel et non au chargement
- * du module : le serveur standalone lit son environnement au démarrage, et une
- * valeur capturée dans une constante est une valeur qu'un redémarrage est
- * nécessaire pour changer.
- *
- * Normalisées comme les adresses du compte le sont — minuscules, sans espaces —
- * sinon une majuscule dans la variable fermerait la porte sans rien dire.
- */
-function adminEmails(): readonly string[] {
-  return (process.env[ADMIN_EMAILS_VAR] ?? '')
-    .split(',')
-    .map((email) => email.trim().toLowerCase())
-    .filter((email) => email !== '')
 }
