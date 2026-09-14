@@ -17,13 +17,13 @@ export default async function AdminClubsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Curation d’un club</h1>
-        <p className="text-sm text-neutral-600">
+        <h1 className="text-title text-white">Curation d’un club</h1>
+        <p className="text-body text-white/80">
           Corriger les noms d’un club, lui donner son blason, fusionner un doublon. Un
           club est partagé : ce qui change ici change dans tous les parcours.
         </p>
       </div>
-      <div className="max-w-lg">
+      <div className="panel max-w-lg">
         <ClubSearch searchClubsAction={searchClubsAction} />
       </div>
     </div>

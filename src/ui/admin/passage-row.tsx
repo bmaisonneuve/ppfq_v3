@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
+import type { ReactNode } from 'react'
 
 import {
   EARLIEST_FORM_YEAR,
@@ -50,7 +51,7 @@ export function PassageRow({
   }
 
   return (
-    <li className="flex flex-col gap-2 rounded-md border border-neutral-200 bg-white p-3">
+    <li className="panel flex flex-col gap-3">
       <PassageFlags flags={passage.flags} />
 
       <div className="flex flex-wrap items-end gap-3">
@@ -59,8 +60,8 @@ export function PassageRow({
 
           <ClubCrest clubId={passage.clubId} crestKey={passage.crestKey} />
 
-          <div className="min-w-56">
-            <span className="block text-xs font-medium text-neutral-600">Club</span>
+          <div className="flex min-w-56 flex-col gap-1">
+            <span className="field-label">Club</span>
             <ClubPicker searchClubsAction={searchClubsAction} defaultClub={club} />
           </div>
 
@@ -81,35 +82,116 @@ export function PassageRow({
           <CountField label="Matchs" name="matches" defaultValue={passage.matches} />
           <CountField label="Buts" name="goals" defaultValue={passage.goals} />
 
-          <label className="flex items-center gap-1 pb-1 text-sm">
+          <label className="text-body flex items-center gap-2 pb-2">
             <input type="checkbox" name="isLoan" defaultChecked={passage.isLoan} />
             prêt
           </label>
 
-          <button
-            type="submit"
-            disabled={saving}
-            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          <IconSubmit
+            label={saving ? 'Enregistrement…' : 'Enregistrer le passage'}
+            pending={saving}
+            className="btn-icon"
           >
-            {saving ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
+            <CheckIcon />
+          </IconSubmit>
         </form>
 
         <form action={remove}>
           <input type="hidden" name="passageId" value={passage.id} />
-          <button
-            type="submit"
-            disabled={deleting}
-            className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 disabled:opacity-50"
+          <IconSubmit
+            label={deleting ? 'Suppression…' : 'Supprimer le passage'}
+            pending={deleting}
+            className="btn-icon-danger"
           >
-            {deleting ? 'Suppression…' : 'Supprimer'}
-          </button>
+            <TrashIcon />
+          </IconSubmit>
         </form>
       </div>
 
       <ActionStatus state={saveState} />
       <ActionStatus state={deleteState} />
     </li>
+  )
+}
+
+/**
+ * A submit button that is one icon wide.
+ *
+ * The two gestures of a passage row — save it, delete it — sat at the end of a
+ * line already carrying a crest, a club picker, four number fields and a
+ * checkbox. Spelled out, they were the two widest things on the line and they
+ * pushed it onto a second row on any screen narrower than a desktop.
+ *
+ * What the icon cannot say, the label says: `aria-label` for a screen reader,
+ * `title` for a pointer, and both of them carry the pending state too — so the
+ * feedback that used to be "Enregistrement…" inside the button is still there,
+ * for both kinds of reader.
+ */
+function IconSubmit({
+  label,
+  pending,
+  className,
+  children,
+}: Readonly<{
+  label: string
+  pending: boolean
+  className: string
+  children: ReactNode
+}>) {
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      aria-label={label}
+      title={label}
+      className={className}
+    >
+      {children}
+    </button>
+  )
+}
+
+/** Enregistrer. */
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="17"
+      height="17"
+      aria-hidden
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="4,10.5 8,14.5 16,6" />
+    </svg>
+  )
+}
+
+/** Supprimer. */
+function TrashIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      width="17"
+      height="17"
+      aria-hidden
+      focusable="false"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="3.5" y1="5.5" x2="16.5" y2="5.5" />
+      <path d="M7.5 5.5V4a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5" />
+      <path d="M5.5 5.5l.7 10a1.5 1.5 0 0 0 1.5 1.4h4.6a1.5 1.5 0 0 0 1.5-1.4l.7-10" />
+      <line x1="8.5" y1="8.5" x2="8.8" y2="14" />
+      <line x1="11.5" y1="8.5" x2="11.2" y2="14" />
+    </svg>
   )
 }
 
@@ -135,10 +217,10 @@ function ClubCrest({
     <a
       href={`/admin/clubs/${clubId}`}
       title="Ouvrir la fiche du club"
-      className="flex size-10 shrink-0 items-center justify-center self-center rounded border border-neutral-200 bg-white"
+      className="rounded-icon border-line bg-white flex size-10 shrink-0 items-center justify-center self-center border"
     >
       {crestKey === null ? (
-        <span className="text-[10px] text-neutral-400">?</span>
+        <span className="text-crest-ink font-display text-[12px] font-bold">?</span>
       ) : (
         // A plain `<img>`: the bytes are an already-rendered thumbnail behind a
         // content-addressed, immutable URL, on an admin screen. See
@@ -164,8 +246,8 @@ function YearField({
   placeholder?: string
 }>) {
   return (
-    <label className="flex flex-col text-xs font-medium text-neutral-600">
-      {label}
+    <label className="flex flex-col gap-1">
+      <span className="field-label">{label}</span>
       <input
         type="number"
         name={name}
@@ -174,7 +256,7 @@ function YearField({
         max={LATEST_FORM_YEAR}
         placeholder={placeholder}
         defaultValue={defaultValue ?? ''}
-        className="w-24 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
+        className="field w-24"
       />
     </label>
   )
@@ -196,15 +278,15 @@ function CountField({
   defaultValue: number | null
 }>) {
   return (
-    <label className="flex flex-col text-xs font-medium text-neutral-600">
-      {label}
+    <label className="flex flex-col gap-1">
+      <span className="field-label">{label}</span>
       <input
         type="number"
         name={name}
         min={0}
         max={MAX_COUNT}
         defaultValue={defaultValue ?? ''}
-        className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
+        className="field w-20"
       />
     </label>
   )

@@ -239,12 +239,11 @@ export function FootballerTypeahead({
  */
 const SKINS = {
   form: {
-    label: 'block text-sm font-medium text-neutral-700',
-    input:
-      'mt-1 w-full rounded-md border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900',
-    list: 'absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-neutral-200 bg-white shadow-lg',
-    option: 'block w-full px-3 py-2 text-left text-base',
-    highlighted: 'bg-neutral-100',
+    label: 'field-label block',
+    input: 'field mt-1',
+    list: 'rounded-field border-line bg-white absolute z-10 mt-1 w-full overflow-hidden border',
+    option: 'text-body text-ink block w-full cursor-pointer px-3 py-2 text-left',
+    highlighted: 'bg-crest',
   },
   game: {
     label: 'sr-only',

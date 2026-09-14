@@ -32,7 +32,7 @@ export function ReimportButton({
 
   if (qid === null) {
     return (
-      <p className="text-xs text-neutral-500">
+      <p className="hint">
         Footballeur sans identifiant Wikidata : pas d’import possible.
       </p>
     )
@@ -44,11 +44,11 @@ export function ReimportButton({
       <button
         type="submit"
         disabled={pending}
-        className="self-start rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+        className="btn-quiet self-start"
       >
         {pending ? 'Import en cours…' : `Relancer l’import (${qid})`}
       </button>
-      <p className="text-xs text-neutral-500">
+      <p className="hint">
         L’import remplace le parcours entier : une réserve retirée à la main revient.
       </p>
       <ActionStatus state={state} />

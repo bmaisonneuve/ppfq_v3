@@ -14,12 +14,12 @@ export default async function AdminHomePage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Curation d’un parcours</h1>
-        <p className="text-sm text-neutral-600">
+        <h1 className="text-title text-white">Curation d’un parcours</h1>
+        <p className="text-body text-white/80">
           Cherchez un footballeur pour voir l’état de son parcours et le corriger.
         </p>
       </div>
-      <div className="max-w-md">
+      <div className="panel max-w-md">
         <AdminFootballerSearch />
       </div>
     </div>

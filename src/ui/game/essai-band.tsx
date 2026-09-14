@@ -74,7 +74,7 @@ export function EssaiBand({
           onClick={() => {
             choice?.submit()
           }}
-          className="bg-ink rounded-row font-display text-action flex-1 cursor-pointer px-4 py-[15px] text-white disabled:opacity-50"
+          className="btn flex-1 py-[15px]"
         >
           {pending ? 'Envoi…' : 'Valider'}
         </button>

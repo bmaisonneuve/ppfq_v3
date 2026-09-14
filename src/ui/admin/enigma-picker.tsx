@@ -34,7 +34,7 @@ export function EnigmaPicker({
 
   return (
     <div className="flex min-w-56 flex-1 flex-col gap-1">
-      <span className="text-xs font-medium text-neutral-600">
+      <span className="field-label">
         {position}. {POSITION_LABELS[position]}
       </span>
 
@@ -48,12 +48,12 @@ export function EnigmaPicker({
           onSelect={(suggestion: FootballerSuggestion) => { setChosen(suggestion) }}
         />
       ) : (
-        <p className="text-sm">
-          <span className="font-medium">{chosen.name}</span>{' '}
+        <p className="text-body">
+          <span className="font-bold">{chosen.name}</span>{' '}
           <button
             type="button"
             onClick={() => { setChosen(null) }}
-            className="text-neutral-500 underline underline-offset-2"
+            className="link text-muted"
           >
             changer
           </button>

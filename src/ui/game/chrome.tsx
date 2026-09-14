@@ -151,8 +151,14 @@ export function TextLink({ label, href }: Readonly<{ label: string; href: string
   )
 }
 
-const PRIMARY =
-  'bg-ink rounded-row font-display text-action cursor-pointer px-4 py-[15px] text-white disabled:opacity-50'
+/**
+ * Le bouton du thème (`.btn`, dans `globals.css`), au rembourrage du jeu : le
+ * bandeau d'action lui donne 15 px de haut là où un formulaire du back-office
+ * en donne 11. Seule la hauteur est reprise ici — la forme, la police et l'état
+ * désactivé viennent du thème, donc le jour où le bouton change, il change dans
+ * les deux moitiés de l'application.
+ */
+const PRIMARY = 'btn py-[15px]'
 
 function IconButton({
   label,

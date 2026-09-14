@@ -41,12 +41,12 @@ export function NationalityForm({
       <div className="flex flex-wrap items-end gap-2">
         <Flag nationality={nationality} />
 
-        <label className="flex flex-col text-xs font-medium text-neutral-600">
-          Nationalité sportive
+        <label className="flex flex-col gap-1">
+          <span className="field-label">Nationalité sportive</span>
           <select
             name="nationalityId"
             defaultValue={nationality?.id ?? ''}
-            className="rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
+            className="field w-auto"
           >
             <option value="">— aucune —</option>
             {nationalities.map((option) => (
@@ -60,14 +60,14 @@ export function NationalityForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+          className="btn-quiet"
         >
           {pending ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </div>
 
       {nationalities.length === 0 ? (
-        <p className="text-xs text-neutral-500">
+        <p className="hint">
           Aucune nationalité en base pour l’instant : elles sont créées par les imports.
         </p>
       ) : null}
@@ -89,14 +89,14 @@ export function NationalityForm({
  * no size to pick and nothing for the optimiser to do but add a hop.
  */
 function Flag({ nationality }: Readonly<{ nationality: Nationality | null }>) {
-  const box = 'flex shrink-0 items-center justify-center rounded-sm border border-neutral-300'
+  const box = 'border-line flex shrink-0 items-center justify-center rounded-[3px] border'
   const style = { width: FLAG_WIDTH / 4, height: FLAG_HEIGHT / 4 }
   const flagKey = nationality?.flagKey ?? null
 
   if (nationality === null || flagKey === null) {
     return (
       <span
-        className={`${box} bg-neutral-100 text-[9px] text-neutral-400`}
+        className={`${box} bg-crest text-crest-ink text-[9px]`}
         style={style}
         // Empty for a reason: "no flag" is already said by the select next to
         // it, and a screen reader announcing a placeholder twice is noise.

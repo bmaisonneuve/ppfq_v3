@@ -23,30 +23,25 @@ export function CreateClubForm({ createClubAction }: Readonly<{ createClubAction
 
   return (
     <form action={create} className="flex flex-wrap items-end gap-2">
-      <label className="flex flex-col text-xs font-medium text-neutral-600">
-        Nom français
+      <label className="flex flex-col gap-1">
+        <span className="field-label">Nom français</span>
         <input
           type="text"
           name="frName"
           required
           maxLength={120}
           placeholder="Olympique de Marseille"
-          className="w-64 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
+          className="field w-64"
         />
       </label>
-      <label className="flex flex-col text-xs font-medium text-neutral-600">
-        Nom anglais (facultatif)
-        <input
-          type="text"
-          name="enName"
-          maxLength={120}
-          className="w-56 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
-        />
+      <label className="flex flex-col gap-1">
+        <span className="field-label">Nom anglais (facultatif)</span>
+        <input type="text" name="enName" maxLength={120} className="field w-56" />
       </label>
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+        className="btn-quiet"
       >
         {pending ? 'Création…' : 'Créer le club'}
       </button>

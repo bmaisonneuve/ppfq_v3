@@ -56,39 +56,43 @@ export default async function CurationPage({
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <Link href="/admin" className="text-sm text-neutral-600 underline underline-offset-2">
+        <Link href="/admin" className="link text-body text-white/80">
           ← Chercher un autre footballeur
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">{dossier.name}</h1>
+        <h1 className="text-title text-white">{dossier.name}</h1>
         <WikipediaLinks frUrl={dossier.wikiFrUrl} enUrl={dossier.wikiEnUrl} />
       </header>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Import</h2>
-        <ReimportButton qid={dossier.wikidataQid} reimportAction={reimportCareerAction} />
-        <LastImport trace={dossier.lastImport} />
+        <h2 className="text-heading text-white">Import</h2>
+        <div className="panel flex flex-col gap-2">
+          <ReimportButton qid={dossier.wikidataQid} reimportAction={reimportCareerAction} />
+          <LastImport trace={dossier.lastImport} />
+        </div>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Nationalité</h2>
-        <NationalityForm
-          footballerId={dossier.footballerId}
-          nationality={dossier.nationality}
-          nationalities={nationalities}
-          setNationalityAction={setNationalityAction}
-        />
+        <h2 className="text-heading text-white">Nationalité</h2>
+        <div className="panel">
+          <NationalityForm
+            footballerId={dossier.footballerId}
+            nationality={dossier.nationality}
+            nationalities={nationalities}
+            setNationalityAction={setNationalityAction}
+          />
+        </div>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">
+        <h2 className="text-heading text-white">
           Parcours{' '}
-          <span className="text-sm font-normal text-neutral-500">
+          <span className="text-body text-white/70">
             {dossier.passages.length} passage{dossier.passages.length > 1 ? 's' : ''}
           </span>
         </h2>
 
         {dossier.passages.length === 0 ? (
-          <p className="text-sm text-neutral-600">
+          <p className="text-body text-white/80">
             Aucun passage : ce footballeur n’est pas encore curé. Lancez l’import, ou
             saisissez son parcours à la main.
           </p>
@@ -114,12 +118,14 @@ export default async function CurationPage({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Club absent du catalogue</h2>
-        <p className="text-sm text-neutral-600">
-          Quand la source ignore un passage, elle ignore souvent le club avec. Créez-le
-          ici, puis ajoutez le passage.
-        </p>
-        <CreateClubForm createClubAction={createClubAction} />
+        <h2 className="text-heading text-white">Club absent du catalogue</h2>
+        <div className="panel flex flex-col gap-3">
+          <p className="text-body text-muted">
+            Quand la source ignore un passage, elle ignore souvent le club avec.
+            Créez-le ici, puis ajoutez le passage.
+          </p>
+          <CreateClubForm createClubAction={createClubAction} />
+        </div>
       </section>
     </div>
   )
@@ -132,30 +138,30 @@ export default async function CurationPage({
 function WikipediaLinks({ frUrl, enUrl }: Readonly<{ frUrl: string | null; enUrl: string | null }>) {
   if (frUrl === null && enUrl === null) {
     return (
-      <p className="text-sm text-neutral-500">
+      <p className="text-body text-white/70">
         Aucun lien Wikipédia connu : vérifiez le parcours contre une autre source.
       </p>
     )
   }
 
   return (
-    <p className="flex gap-3 text-sm">
+    <p className="text-body flex flex-wrap gap-3 text-white/80">
       {frUrl === null ? null : (
         <a
           href={frUrl}
           target="_blank"
           rel="noreferrer"
-          className="font-medium underline underline-offset-2"
+          className="link font-bold text-white"
         >
           Wikipédia (fr) ↗
         </a>
       )}
       {enUrl === null ? null : (
-        <a href={enUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+        <a href={enUrl} target="_blank" rel="noreferrer" className="link text-white">
           Wikipédia (en) ↗
         </a>
       )}
-      <span className="text-neutral-500">
+      <span className="text-white/60">
         — un parcours peut être complet et faux : le trou ne se voit qu’ici.
       </span>
     </p>
@@ -169,13 +175,13 @@ function WikipediaLinks({ frUrl, enUrl }: Readonly<{ frUrl: string | null; enUrl
  */
 function LastImport({ trace }: Readonly<{ trace: CurationImportTrace | null }>) {
   if (trace === null) {
-    return <p className="text-sm text-neutral-500">Aucun import enregistré.</p>
+    return <p className="hint">Aucun import enregistré.</p>
   }
 
   const when = trace.startedAt.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })
 
   return (
-    <p className={`text-sm ${trace.failed ? 'text-red-700' : 'text-neutral-600'}`}>
+    <p className={trace.failed ? 'status-error' : 'text-note text-muted'}>
       Dernier import : {when} — {importOutcome(trace)}
     </p>
   )

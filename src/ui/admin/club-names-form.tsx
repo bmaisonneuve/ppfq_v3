@@ -36,31 +36,31 @@ export function ClubNamesForm({
   return (
     <form action={rename} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="clubId" value={clubId} />
-      <label className="flex flex-col text-xs font-medium text-neutral-600">
-        Nom français
+      <label className="flex flex-col gap-1">
+        <span className="field-label">Nom français</span>
         <input
           type="text"
           name="frName"
           required
           maxLength={120}
           defaultValue={frName}
-          className="w-72 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
+          className="field w-72"
         />
       </label>
-      <label className="flex flex-col text-xs font-medium text-neutral-600">
-        Nom anglais (facultatif)
+      <label className="flex flex-col gap-1">
+        <span className="field-label">Nom anglais (facultatif)</span>
         <input
           type="text"
           name="enName"
           maxLength={120}
           defaultValue={enName ?? ''}
-          className="w-64 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
+          className="field w-64"
         />
       </label>
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+        className="btn"
       >
         {pending ? 'Enregistrement…' : 'Enregistrer'}
       </button>

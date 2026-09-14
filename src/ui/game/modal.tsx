@@ -65,21 +65,18 @@ export function Modal({
       }}
       // `m-auto` parce que le reset de Tailwind met toutes les marges à zéro et
       // qu'un `<dialog>` modal se centre précisément par `margin: auto`.
-      className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-xl bg-white p-0 text-neutral-900 shadow-xl backdrop:bg-neutral-900/50"
+      className="rounded-card text-ink m-auto w-[calc(100%-2rem)] max-w-lg bg-white p-0 backdrop:bg-[#0b2e22]/55"
     >
       <div className="flex max-h-[85dvh] flex-col">
-        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 px-5 py-3">
-          <h2
-            id={titleId}
-            className="text-sm font-medium tracking-wide text-neutral-500 uppercase"
-          >
+        <header className="border-line flex shrink-0 items-center justify-between gap-3 border-b px-5 py-3">
+          <h2 id={titleId} className="field-label">
             {title}
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="rounded-md px-2 py-1 text-lg leading-none text-neutral-500 hover:bg-neutral-100"
+            className="rounded-field text-muted hover:bg-crest cursor-pointer px-2 py-1 text-lg leading-none"
           >
             ×
           </button>

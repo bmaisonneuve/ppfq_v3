@@ -41,7 +41,7 @@ export function ClubMergeForm({
   return (
     <form action={merge} className="flex flex-col gap-2">
       <input type="hidden" name="keepId" value={keepId} />
-      <p className="text-sm text-neutral-600">
+      <p className="text-body text-muted">
         Le doublon disparaît, ses passages sont repris par{' '}
         <span className="font-medium">{keepName}</span>, et celui-ci adopte ce qui lui
         manque — identifiant Wikidata, nom anglais, blason. Rien de déjà renseigné n’est
@@ -56,7 +56,7 @@ export function ClubMergeForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 disabled:opacity-50"
+          className="btn-danger"
         >
           {pending ? 'Fusion…' : 'Fusionner dans ce club'}
         </button>

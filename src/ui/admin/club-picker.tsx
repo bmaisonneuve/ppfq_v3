@@ -71,12 +71,12 @@ export function ClubPicker({
       <input type="hidden" name={fieldName} value={selected?.id ?? ''} />
 
       {selected === null ? null : (
-        <p className="text-sm">
-          <span className="font-medium">{selected.frName}</span>{' '}
+        <p className="text-body">
+          <span className="font-bold">{selected.frName}</span>{' '}
           <button
             type="button"
             onClick={() => { setSelected(null) }}
-            className="text-neutral-500 underline underline-offset-2"
+            className="link text-muted"
           >
             changer
           </button>
@@ -95,20 +95,20 @@ export function ClubPicker({
             onChange={(event) => { setQuery(event.target.value) }}
             placeholder="Chercher un club…"
             autoComplete="off"
-            className="w-full rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
+            className="field"
           />
           {options.length === 0 ? null : (
-            <ul className="rounded-md border border-neutral-200 bg-white text-sm">
+            <ul className="rounded-field border-line bg-white divide-line text-body divide-y overflow-hidden border">
               {options.map((club) => (
                 <li key={club.id}>
                   <button
                     type="button"
                     onClick={() => { choose(club) }}
-                    className="block w-full px-2 py-1 text-left hover:bg-neutral-100"
+                    className="hover:bg-crest block w-full cursor-pointer px-3 py-2 text-left"
                   >
                     {club.frName}
                     {club.enName === null || club.enName === club.frName ? null : (
-                      <span className="text-neutral-500"> · {club.enName}</span>
+                      <span className="text-muted"> · {club.enName}</span>
                     )}
                   </button>
                 </li>

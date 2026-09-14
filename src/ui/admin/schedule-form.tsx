@@ -52,12 +52,12 @@ export function ScheduleForm({
   const themeListId = useId()
 
   return (
-    <form action={submit} className="flex flex-col gap-4 rounded-md border border-neutral-200 bg-white p-4">
+    <form action={submit} className="panel flex flex-col gap-4">
       <input type="hidden" name="date" value={date} />
 
       <div className="flex flex-wrap items-end gap-4">
-        <label className="flex flex-col text-xs font-medium text-neutral-600">
-          Thème
+        <label className="flex flex-col gap-1">
+          <span className="field-label">Thème</span>
           <input
             type="text"
             name="theme"
@@ -65,7 +65,7 @@ export function ScheduleForm({
             defaultValue={grid?.theme ?? DEFAULT_THEME}
             maxLength={MAX_THEME_LENGTH}
             required
-            className="rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
+            className="field w-72"
           />
           <datalist id={themeListId}>
             {themes.map((theme) => (
@@ -89,11 +89,11 @@ export function ScheduleForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          className="btn"
         >
           {submitLabel(pending, grid !== null)}
         </button>
-        <p className="text-xs text-neutral-500">
+        <p className="hint">
           {grid === null
             ? 'Choisissez le jour dans le calendrier ci-dessus.'
             : 'Ce jour a déjà une grille. Enregistrer la remplace entièrement.'}
@@ -102,7 +102,7 @@ export function ScheduleForm({
 
       <ActionStatus state={state} />
 
-      <p className="text-xs text-neutral-500">
+      <p className="hint">
         Les contrôles sont bloquants : sans matchs, sans buts ou sans nationalité, un
         palier d’indices tomberait vide au milieu d’une partie. Ils ne disent rien de
         l’exactitude du parcours — ça, c’est l’écran de curation.

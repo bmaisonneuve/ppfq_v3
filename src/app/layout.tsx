@@ -47,10 +47,11 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="fr" className={`${bricolage.variable} ${plexMono.variable}`}>
-      {/* Le fond du jeu est porté par le `<body>` et non par la page : c'est la
-          seule surface qui couvre aussi le sur-défilement. Le back-office pose
-          le sien par-dessus (`bg-neutral-50` sur toute la hauteur), donc il ne
-          voit rien de ce vert. */}
+      {/* Le fond est porté par le `<body>` et non par une page : c'est la seule
+          surface qui couvre aussi le sur-défilement, et c'est ce qui fait de la
+          couleur du produit une décision prise **une** fois. Le back-office ne
+          la recouvre pas — il pose ses formulaires sur des surfaces blanches
+          (`.panel`), comme le jeu pose ses cartes. */}
       <body className="bg-pitch text-ink font-display min-h-dvh antialiased">{children}</body>
     </html>
   )

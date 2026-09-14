@@ -33,8 +33,8 @@ export default async function SchedulePage({
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Calendrier de programmation</h1>
-        <p className="text-sm text-neutral-600">
+        <h1 className="text-title text-white">Calendrier de programmation</h1>
+        <p className="text-body text-white/80">
           Une grille par date : trois footballeurs et un thème. Les jours sans grille sont
           signalés — c’est leur absence en base qui les signale, rien d’autre.
         </p>
@@ -49,7 +49,7 @@ export default async function SchedulePage({
       />
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">
+        <h2 className="text-heading text-white">
           {screen.selectedGrid === null ? 'Programmer le' : 'Modifier la grille du'}{' '}
           {formatChallengeDate(screen.selectedDate)}
         </h2>

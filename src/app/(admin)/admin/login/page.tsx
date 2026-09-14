@@ -10,12 +10,14 @@ export default function AdminLoginPage() {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Back-office</h1>
-        <p className="text-sm text-neutral-600">
+        <h1 className="text-title text-white">Back-office</h1>
+        <p className="text-body text-white/80">
           Curation des parcours et programmation des grilles.
         </p>
       </div>
-      <AdminLoginForm signInAction={signInAction} />
+      <div className="panel max-w-sm">
+        <AdminLoginForm signInAction={signInAction} />
+      </div>
     </div>
   )
 }

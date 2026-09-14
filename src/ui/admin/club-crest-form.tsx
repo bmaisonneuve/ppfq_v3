@@ -52,20 +52,22 @@ export function ClubCrestForm({
       <div className="flex flex-wrap items-end gap-3">
         <form action={upload} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="clubId" value={clubId} />
-          <label className="flex flex-col text-xs font-medium text-neutral-600">
-            {crest === null ? 'Téléverser un blason' : 'Remplacer le blason'}
+          <label className="flex flex-col gap-1">
+            <span className="field-label">
+              {crest === null ? 'Téléverser un blason' : 'Remplacer le blason'}
+            </span>
             <input
               type="file"
               name="crest"
               required
               accept={ALLOWED_CREST_TYPES.join(',')}
-              className="w-72 text-sm"
+              className="field-file w-80"
             />
           </label>
           <button
             type="submit"
             disabled={uploading}
-            className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+            className="btn"
           >
             {uploading ? 'Envoi…' : 'Enregistrer'}
           </button>
@@ -77,7 +79,7 @@ export function ClubCrestForm({
             <button
               type="submit"
               disabled={extracting}
-              className="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+              className="btn-quiet"
             >
               {extracting ? 'Recherche…' : 'Chercher sur Wikipédia'}
             </button>
@@ -90,7 +92,7 @@ export function ClubCrestForm({
             <button
               type="submit"
               disabled={removing}
-              className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-700 disabled:opacity-50"
+              className="btn-danger"
             >
               {removing ? 'Retrait…' : 'Retirer'}
             </button>
@@ -98,7 +100,7 @@ export function ClubCrestForm({
         )}
       </div>
 
-      <p className="text-xs text-neutral-500">
+      <p className="hint">
         Images matricielles uniquement ({ALLOWED_CREST_TYPES.map((t) => t.replace('image/', '')).join(', ')}),{' '}
         {Math.round(MAX_CREST_BYTES / 1024 / 1024)} Mo au plus. L’extraction ne remplace
         jamais un blason déjà présent : pour en changer, téléversez-en un.
@@ -114,7 +116,7 @@ export function ClubCrestForm({
 function CrestPreview({ crest }: Readonly<{ crest: CrestProvenance | null }>) {
   if (crest === null) {
     return (
-      <div className="flex size-24 shrink-0 items-center justify-center rounded-md border border-dashed border-neutral-300 text-xs text-neutral-400">
+      <div className="rounded-card border-line text-note text-crest-ink bg-crest flex size-24 shrink-0 items-center justify-center border border-dashed">
         aucun
       </div>
     )
@@ -129,7 +131,7 @@ function CrestPreview({ crest }: Readonly<{ crest: CrestProvenance | null }>) {
     <img
       src={crestUrl(crest.key)}
       alt=""
-      className="size-24 shrink-0 rounded-md border border-neutral-200 bg-white object-contain p-1"
+      className="rounded-card border-line bg-white size-24 shrink-0 border object-contain p-1"
     />
   )
 }
@@ -141,15 +143,15 @@ function CrestPreview({ crest }: Readonly<{ crest: CrestProvenance | null }>) {
 function CrestProvenanceNote({ crest }: Readonly<{ crest: CrestProvenance | null }>) {
   if (crest === null) {
     return (
-      <p className="text-sm text-neutral-600">
+      <p className="text-body text-muted">
         Aucun blason. Cherchez-le sur Wikipédia, ou téléversez-en un.
       </p>
     )
   }
 
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-      <dt className="text-neutral-500">Source</dt>
+    <dl className="text-body grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+      <dt className="field-label pt-1">Source</dt>
       <dd>
         {crest.sourceWiki === null
           ? 'téléversé à la main'
@@ -157,16 +159,16 @@ function CrestProvenanceNote({ crest }: Readonly<{ crest: CrestProvenance | null
         {crest.sourceFile === null ? null : (
           <>
             {' — '}
-            <span className="font-medium">{crest.sourceFile}</span>
+            <span className="font-bold">{crest.sourceFile}</span>
           </>
         )}
       </dd>
 
-      <dt className="text-neutral-500">Licence</dt>
+      <dt className="field-label pt-1">Licence</dt>
       <dd>{crest.license ?? '—'}</dd>
 
-      <dt className="text-neutral-500">Adresse</dt>
-      <dd className="font-mono text-xs break-all text-neutral-600">
+      <dt className="field-label pt-1">Adresse</dt>
+      <dd className="font-mono text-note text-muted break-all">
         {crest.key.slice(0, 24)}… · {Math.round(crest.byteSize / 1024)} ko
       </dd>
     </dl>

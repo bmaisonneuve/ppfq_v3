@@ -43,22 +43,20 @@ export function MonthCalendarView({
   return (
     <section className="flex flex-col gap-3">
       <header className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-lg font-medium">
+        <h2 className="text-heading text-white">
           {formatChallengeMonth(calendar.month)}{' '}
-          <span className="text-sm font-normal text-neutral-500">
-            {gapsLabel(gaps)}
-          </span>
+          <span className="text-body text-white/70">{gapsLabel(gaps)}</span>
         </h2>
-        <nav className="flex gap-3 text-sm">
+        <nav className="text-body flex gap-3 text-white/80">
           <Link
             href={scheduleHref(previousMonth, selectedDate)}
-            className="underline underline-offset-2"
+            className="link"
           >
             ← {formatChallengeMonth(previousMonth)}
           </Link>
           <Link
             href={scheduleHref(nextMonth, selectedDate)}
-            className="underline underline-offset-2"
+            className="link"
           >
             {formatChallengeMonth(nextMonth)} →
           </Link>
@@ -67,7 +65,7 @@ export function MonthCalendarView({
 
       <ol className="grid grid-cols-7 gap-1">
         {WEEKDAY_LABELS.map((label) => (
-          <li key={label} className="px-1 text-xs font-medium text-neutral-500">
+          <li key={label} className="field-label px-1 text-white/70">
             {label}
           </li>
         ))}
@@ -111,27 +109,25 @@ function DaySquare({
     <Link
       href={scheduleHref(month, day.date)}
       aria-current={isSelected ? 'true' : undefined}
-      className={`flex h-28 flex-col gap-0.5 overflow-hidden rounded-md border bg-white p-1.5 ${border}`}
+      className={`rounded-card bg-white text-ink flex h-28 flex-col gap-1 overflow-hidden border p-2 ${border}`}
     >
-      <span className="flex items-baseline justify-between text-xs">
-        <span className={isToday ? 'font-semibold' : 'text-neutral-500'}>
+      <span className="text-note flex items-baseline justify-between gap-1">
+        <span className={isToday ? 'font-bold' : 'text-muted'}>
           {Number(day.date.slice(8, 10))}
         </span>
-        {grid === null ? null : (
-          <span className="truncate text-neutral-500">{grid.theme}</span>
-        )}
+        {grid === null ? null : <span className="text-muted truncate">{grid.theme}</span>}
       </span>
 
       {grid === null ? (
-        <span className="text-xs text-amber-700">aucune grille</span>
+        <span className="text-note text-alert">aucune grille</span>
       ) : (
-        <ol className="flex flex-col gap-0.5 text-[11px] leading-tight">
+        <ol className="text-note flex flex-col gap-0.5 leading-tight">
           {POSITIONS.map((position) => {
             const enigma = grid.enigmas.find((e) => e.position === position)
             return (
               <li
                 key={position}
-                className={enigma === undefined ? 'text-amber-700' : 'truncate'}
+                className={enigma === undefined ? 'text-alert' : 'truncate'}
                 title={`${POSITION_LABELS[position]} — ${enigma?.name ?? 'vide'}`}
               >
                 {position}. {enigma?.name ?? 'vide'}
@@ -156,8 +152,9 @@ function gapsLabel(gaps: number): string {
  * where they are before they see what is missing.
  */
 function dayBorder(isSelected: boolean, hasGrid: boolean): string {
-  if (isSelected) return 'border-neutral-900'
-  return hasGrid ? 'border-neutral-200' : 'border-dashed border-amber-400'
+  // Le contour et non l'ombre, comme partout dans le thème.
+  if (isSelected) return 'ring-ink border-ink ring-2'
+  return hasGrid ? 'border-line' : 'border-alert/40 border-dashed'
 }
 
 /**

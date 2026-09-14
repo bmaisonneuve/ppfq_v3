@@ -48,7 +48,7 @@ export function ClubSearch({
 
   return (
     <div className="flex flex-col gap-2">
-      <label htmlFor={inputId} className="text-sm font-medium">
+      <label htmlFor={inputId} className="field-label">
         Chercher un club
       </label>
       <input
@@ -58,22 +58,22 @@ export function ClubSearch({
         onChange={(event) => { setQuery(event.target.value) }}
         placeholder="Manchester United, Olympique de Marseille…"
         autoComplete="off"
-        className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+        className="field"
       />
       {searchable && options.length === 0 ? (
-        <p className="text-sm text-neutral-500">Aucun club de ce nom.</p>
+        <p className="text-body text-muted">Aucun club de ce nom.</p>
       ) : null}
       {options.length === 0 ? null : (
-        <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white">
+        <ul className="divide-line rounded-field border-line bg-white divide-y overflow-hidden border">
           {options.map((club) => (
             <li key={club.id}>
               <a
                 href={`/admin/clubs/${club.id}`}
-                className="block px-3 py-2 text-sm hover:bg-neutral-100"
+                className="text-body hover:bg-crest block px-3 py-2"
               >
                 {club.frName}
                 {club.enName === null || club.enName === club.frName ? null : (
-                  <span className="text-neutral-500"> · {club.enName}</span>
+                  <span className="text-muted"> · {club.enName}</span>
                 )}
               </a>
             </li>

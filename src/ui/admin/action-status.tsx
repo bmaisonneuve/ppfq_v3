@@ -14,7 +14,7 @@ export function ActionStatus({ state }: Readonly<{ state: AdminActionState }>) {
   return (
     <p
       role={state.status === 'error' ? 'alert' : 'status'}
-      className={`text-sm ${state.status === 'error' ? 'text-red-700' : 'text-emerald-700'}`}
+      className={state.status === 'error' ? 'status-error' : 'status-ok'}
     >
       {state.message}
     </p>

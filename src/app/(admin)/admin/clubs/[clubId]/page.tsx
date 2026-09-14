@@ -43,10 +43,10 @@ export default async function ClubFichePage({
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <Link href="/admin/clubs" className="text-sm text-neutral-600 underline underline-offset-2">
+        <Link href="/admin/clubs" className="link text-body text-white/80">
           ← Chercher un autre club
         </Link>
-        <h1 className="text-2xl font-semibold tracking-tight">{club.frName}</h1>
+        <h1 className="text-title text-white">{club.frName}</h1>
         <ClubIdentity
           wikidataQid={club.wikidataQid}
           frName={club.frName}
@@ -55,36 +55,42 @@ export default async function ClubFichePage({
       </header>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Noms</h2>
-        <ClubNamesForm
-          clubId={club.id}
-          frName={club.frName}
-          enName={club.enName}
-          renameAction={renameClubAction}
-        />
+        <h2 className="text-heading text-white">Noms</h2>
+        <div className="panel">
+          <ClubNamesForm
+            clubId={club.id}
+            frName={club.frName}
+            enName={club.enName}
+            renameAction={renameClubAction}
+          />
+        </div>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Blason</h2>
-        <ClubCrestForm
-          clubId={club.id}
-          crest={club.crest}
-          hasWikidataQid={club.wikidataQid !== null}
-          uploadAction={uploadCrestAction}
-          extractAction={extractCrestAction}
-          removeAction={removeCrestAction}
-        />
-        <LastCrestRun trace={club.lastCrestRun} />
+        <h2 className="text-heading text-white">Blason</h2>
+        <div className="panel flex flex-col gap-4">
+          <ClubCrestForm
+            clubId={club.id}
+            crest={club.crest}
+            hasWikidataQid={club.wikidataQid !== null}
+            uploadAction={uploadCrestAction}
+            extractAction={extractCrestAction}
+            removeAction={removeCrestAction}
+          />
+          <LastCrestRun trace={club.lastCrestRun} />
+        </div>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-medium">Fusionner un doublon</h2>
-        <ClubMergeForm
-          keepId={club.id}
-          keepName={club.frName}
-          mergeAction={mergeClubsAction}
-          searchClubsAction={searchClubsAction}
-        />
+        <h2 className="text-heading text-white">Fusionner un doublon</h2>
+        <div className="panel">
+          <ClubMergeForm
+            keepId={club.id}
+            keepName={club.frName}
+            mergeAction={mergeClubsAction}
+            searchClubsAction={searchClubsAction}
+          />
+        </div>
       </section>
     </div>
   )
@@ -100,13 +106,13 @@ export default async function ClubFichePage({
  */
 function LastCrestRun({ trace }: Readonly<{ trace: CrestRunTrace | null }>) {
   if (trace === null) {
-    return <p className="text-sm text-neutral-500">Aucune recherche de blason enregistrée.</p>
+    return <p className="hint">Aucune recherche de blason enregistrée.</p>
   }
 
   const when = trace.startedAt.toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })
 
   return (
-    <p className={`text-sm ${trace.failed ? 'text-red-700' : 'text-neutral-600'}`}>
+    <p className={trace.failed ? 'status-error' : 'text-note text-muted'}>
       Dernière recherche : {when} — {crestRunOutcome(trace)}
     </p>
   )
@@ -133,10 +139,10 @@ function ClubIdentity({
   const looksLikeAQid = /^Q\d+$/.test(frName)
 
   return (
-    <div className="flex flex-col gap-1 text-sm">
+    <div className="text-body flex flex-col gap-1 text-white/80">
       <p className="flex flex-wrap items-baseline gap-3">
         {wikidataQid === null ? (
-          <span className="text-neutral-500">
+          <span className="text-white/70">
             Créé à la main — pas d’identifiant Wikidata, donc pas d’extraction possible.
           </span>
         ) : (
@@ -144,22 +150,22 @@ function ClubIdentity({
             href={`https://www.wikidata.org/wiki/${wikidataQid}`}
             target="_blank"
             rel="noreferrer"
-            className="font-medium underline underline-offset-2"
+            className="link font-bold text-white"
           >
             {wikidataQid} ↗
           </a>
         )}
-        <span className="text-neutral-600">
+        <span className="text-white/70">
           {passageCount} passage{passageCount > 1 ? 's' : ''} dans le catalogue
         </span>
       </p>
       {looksLikeAQid ? (
-        <p className="text-amber-700">
+        <p className="badge-alert text-note self-start normal-case">
           Ce club porte son identifiant Wikidata comme nom : la source ne le nomme dans
           aucune langue. Corrigez-le ci-dessous — c’est ce nom que le jeu affiche.
         </p>
       ) : null}
-      <p className="text-neutral-500">
+      <p className="text-white/60">
         Un club est partagé : ces corrections valent pour tous les footballeurs qui y
         sont passés.
       </p>

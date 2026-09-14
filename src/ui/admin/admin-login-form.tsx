@@ -16,7 +16,7 @@ export function AdminLoginForm({ signInAction }: Readonly<{ signInAction: AdminS
 
   return (
     <form action={action} className="flex max-w-sm flex-col gap-3">
-      <label htmlFor="admin-password" className="text-sm font-medium text-neutral-700">
+      <label htmlFor="admin-password" className="field-label">
         Mot de passe
       </label>
       <input
@@ -25,17 +25,17 @@ export function AdminLoginForm({ signInAction }: Readonly<{ signInAction: AdminS
         type="password"
         autoComplete="current-password"
         required
-        className="rounded-md border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900"
+        className="field"
       />
       <button
         type="submit"
         disabled={pending}
-        className="rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="btn"
       >
         {pending ? 'Vérification…' : 'Entrer'}
       </button>
       {state.error === null ? null : (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="status-error">
           {state.error}
         </p>
       )}

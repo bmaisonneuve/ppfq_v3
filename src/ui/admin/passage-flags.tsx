@@ -13,19 +13,19 @@ const LABELS: Record<PassageFlag, { text: string; title: string; className: stri
     text: 'réserve ?',
     title:
       'Le libellé du club ressemble à une équipe réserve. Wikidata ne les distingue pas des clubs seniors, donc c’est une heuristique — elle se trompe, et rien n’est supprimé automatiquement.',
-    className: 'bg-amber-100 text-amber-900',
+    className: 'badge-alert',
   },
   overlap: {
     text: 'chevauchement',
     title:
       'Ce passage partage des années avec un autre. Normal pour un prêt pendant son contrat ; sinon c’est le seul cas où l’ordre du parcours est ambigu, et il se corrige en ajustant une année.',
-    className: 'bg-sky-100 text-sky-900',
+    className: 'badge-info',
   },
   'missing-figures': {
     text: 'matchs / buts manquants',
     title:
       'Il manque les matchs ou les buts de championnat. Le footballeur n’est pas programmable tant qu’ils manquent : le palier correspondant serait vide.',
-    className: 'bg-neutral-200 text-neutral-800',
+    className: 'badge-quiet',
   },
 }
 
@@ -38,7 +38,7 @@ export function PassageFlags({ flags }: Readonly<{ flags: readonly PassageFlag[]
         <li
           key={flag}
           title={LABELS[flag].title}
-          className={`rounded px-1.5 py-0.5 text-xs font-medium ${LABELS[flag].className}`}
+          className={LABELS[flag].className}
         >
           {LABELS[flag].text}
         </li>

@@ -35,59 +35,47 @@ export function AddPassageForm({
   const [state, add, pending] = useActionState(addPassageAction, IDLE_CURATION_ACTION)
 
   return (
-    <form action={add} className="flex flex-col gap-2 rounded-md border border-dashed border-neutral-300 p-3">
+    <form action={add} className="panel border-line flex flex-col gap-3 border border-dashed">
       <input type="hidden" name="footballerId" value={footballerId} />
 
       <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-56">
-          <span className="block text-xs font-medium text-neutral-600">Club</span>
+        <div className="flex min-w-56 flex-col gap-1">
+          <span className="field-label">Club</span>
           <ClubPicker searchClubsAction={searchClubsAction} />
         </div>
 
-        <label className="flex flex-col text-xs font-medium text-neutral-600">
-          Début
+        <label className="flex flex-col gap-1">
+          <span className="field-label">Début</span>
           <input
             type="number"
             name="startYear"
             required
             min={EARLIEST_FORM_YEAR}
             max={LATEST_FORM_YEAR}
-            className="w-24 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
+            className="field w-24"
           />
         </label>
-        <label className="flex flex-col text-xs font-medium text-neutral-600">
-          Fin
+        <label className="flex flex-col gap-1">
+          <span className="field-label">Fin</span>
           <input
             type="number"
             name="endYear"
             min={EARLIEST_FORM_YEAR}
             max={LATEST_FORM_YEAR}
             placeholder="en cours"
-            className="w-24 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
+            className="field w-24"
           />
         </label>
-        <label className="flex flex-col text-xs font-medium text-neutral-600">
-          Matchs
-          <input
-            type="number"
-            name="matches"
-            min={0}
-            max={MAX_COUNT}
-            className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
-          />
+        <label className="flex flex-col gap-1">
+          <span className="field-label">Matchs</span>
+          <input type="number" name="matches" min={0} max={MAX_COUNT} className="field w-20" />
         </label>
-        <label className="flex flex-col text-xs font-medium text-neutral-600">
-          Buts
-          <input
-            type="number"
-            name="goals"
-            min={0}
-            max={MAX_COUNT}
-            className="w-20 rounded-md border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-neutral-900"
-          />
+        <label className="flex flex-col gap-1">
+          <span className="field-label">Buts</span>
+          <input type="number" name="goals" min={0} max={MAX_COUNT} className="field w-20" />
         </label>
 
-        <label className="flex items-center gap-1 pb-1 text-sm">
+        <label className="text-body flex items-center gap-2 pb-2">
           <input type="checkbox" name="isLoan" />
           prêt
         </label>
@@ -95,13 +83,13 @@ export function AddPassageForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-md bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          className="btn"
         >
           {pending ? 'Ajout…' : 'Ajouter le passage'}
         </button>
       </div>
 
-      <p className="text-xs text-neutral-500">
+      <p className="hint">
         L’ordre découle des années : un passage se place tout seul, et se déplace en
         corrigeant une année.
       </p>

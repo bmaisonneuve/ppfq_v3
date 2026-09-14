@@ -69,15 +69,15 @@ export function PlayerStatsPanel({
 
 /** Ce que la fenêtre dit quand il n'y a pas encore de chiffres à montrer. */
 function Empty({ children }: Readonly<{ children: ReactNode }>) {
-  return <p className="px-5 py-6 text-sm text-neutral-600">{children}</p>
+  return <p className="text-body text-muted px-5 py-6">{children}</p>
 }
 
 /** Un chiffre et ce qu'il compte. La valeur d'abord : c'est ce qu'on vient lire. */
 function Figure({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="flex flex-col">
-      <dt className="order-2 text-xs tracking-wide text-neutral-500 uppercase">{label}</dt>
-      <dd className="order-1 text-2xl font-semibold tabular-nums">{value}</dd>
+      <dt className="field-label order-2">{label}</dt>
+      <dd className="text-score order-1 tabular-nums">{value}</dd>
     </div>
   )
 }
@@ -100,27 +100,25 @@ function Distribution({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-xs font-medium tracking-wide text-neutral-500 uppercase">
-          Réussites par nombre d’essais
-        </h3>
+        <h3 className="field-label">Réussites par nombre d’essais</h3>
         {rate === null ? null : (
-          <p className="text-sm text-neutral-600">
-            Taux de réussite <span className="font-medium tabular-nums">{rate} %</span>
+          <p className="text-note text-muted">
+            Taux de réussite <span className="font-bold tabular-nums">{rate} %</span>
           </p>
         )}
       </div>
 
       <ol className="flex flex-col gap-1">
         {distributionBars(stats).map((bar) => (
-          <li key={bar.tries} className="flex items-center gap-2 text-sm">
-            <span className="w-3 shrink-0 text-neutral-500 tabular-nums">{bar.tries}</span>
+          <li key={bar.tries} className="text-body flex items-center gap-2">
+            <span className="text-muted w-3 shrink-0 tabular-nums">{bar.tries}</span>
             <span className="flex h-5 min-w-0 flex-1 items-center">
               <span
                 // Une barre vide garde une amorce visible, sinon la ligne d'un
                 // nombre d'essais jamais atteint disparaît et la forme ment.
                 style={{ width: `${Math.max(bar.share * 100, 2)}%` }}
-                className={`flex h-full items-center justify-end rounded-sm px-1.5 text-xs font-medium tabular-nums ${
-                  bar.count === 0 ? 'bg-neutral-100 text-transparent' : 'bg-neutral-800 text-white'
+                className={`rounded-bar text-cell flex h-full items-center justify-end px-1.5 tabular-nums ${
+                  bar.count === 0 ? 'bg-crest text-transparent' : 'bg-ink text-white'
                 }`}
               >
                 {bar.count}

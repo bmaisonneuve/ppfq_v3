@@ -1,7 +1,13 @@
 @import 'tailwindcss';
 
 /**
- * Le thème du jeu, tel que le handoff de design le fixe.
+ * Le thème de l'application, tel que le handoff de design le fixe.
+ *
+ * De l'application entière et pas seulement du jeu : le back-office est le même
+ * produit vu par l'autre bout, il est peint du même vert et fait des mêmes
+ * pièces (`.panel`, `.btn`, `.field`, en bas de ce fichier). Un back-office gris
+ * aurait été une seconde identité à maintenir, et la première divergence aurait
+ * été un bouton.
  *
  * Tout est ici et rien n'est ailleurs : les écrans n'écrivent aucune couleur en
  * dur, parce qu'une couleur écrite en dur dans un composant est une couleur que
@@ -45,6 +51,25 @@
   /* Le prêt, annotation accolée au nom du club — et l'essai non consommé. */
   --color-loan: #b6f0d7;
   --color-unspent: #e6efea;
+
+  /* Les jetons de surface : ce qu'il faut pour poser un formulaire, un tableau
+     ou une fiche sur le vert. Le jeu n'avait besoin que de blanc plein, parce
+     qu'une carte de jeu ne contient qu'un mot ; un écran d'édition a des
+     champs, des séparateurs et du texte secondaire, et sans ces trois-là ils
+     seraient écrits en `neutral-300` — c'est-à-dire hors du thème. Le blanc
+     n'en fait pas partie : il s'écrit `bg-white`, comme le jeu l'écrit déjà, et
+     un `--color-surface` n'aurait été qu'un second nom pour la même couleur. */
+  --color-line: rgb(11 46 34 / 0.14);
+  --color-muted: #5f7a70;
+
+  /* Les deux annotations qui ne sont ni une réussite ni un échec : le trou à
+     combler (un jour sans grille, une réserve probable) et la remarque neutre
+     (un chevauchement d'années, qui est normal pour un prêt). Elles complètent
+     `found` et `missed`, qui gardent le succès et le refus. */
+  --color-alert: #8a5300;
+  --color-alert-soft: #fdf0da;
+  --color-info: #145f7d;
+  --color-info-soft: #e0eff5;
 
   /* La police de titrage, chargée par `next/font` dans le layout racine. La
      pile de secours est là pour la fraction de seconde où elle n'est pas
@@ -104,6 +129,32 @@
   --text-segment--line-height: 1.2;
   --text-segment--font-weight: 700;
   --text-segment--letter-spacing: -0.02em;
+
+  /* Les quatre rôles qui ne parlent pas du jeu : un titre d'écran, un titre de
+     section, un paragraphe, une précision sous un champ. Les crans ci-dessus
+     nomment ce que le jeu affiche (`text-club`, `text-score`), donc aucun ne
+     convient à une page qui n'a ni club ni score — et les emprunter aurait
+     appelé « la date » un titre de section. Ils vivent dans la même échelle et
+     la même police : c'est ce qui fait que le back-office et le jeu ont l'air
+     d'un seul produit. */
+  --text-title: 26px;
+  --text-title--line-height: 1.05;
+  --text-title--font-weight: 800;
+  --text-title--letter-spacing: -0.04em;
+
+  --text-heading: 17px;
+  --text-heading--line-height: 1.15;
+  --text-heading--font-weight: 800;
+  --text-heading--letter-spacing: -0.03em;
+
+  --text-body: 14px;
+  --text-body--line-height: 1.45;
+  --text-body--font-weight: 500;
+  --text-body--letter-spacing: -0.005em;
+
+  --text-note: 12px;
+  --text-note--line-height: 1.4;
+  --text-note--font-weight: 500;
 
   /* IBM Plex Mono — les capitales portent un interlettrage positif, de .08em
      sur les badges à .12em sur la pastille de thème. */
@@ -176,6 +227,14 @@
   --text-tag--font-weight: 700;
   --text-tag--letter-spacing: 0.08em;
 
+  /* Le libellé posé au-dessus d'un champ. Un cran à lui, et pas `text-pill` :
+     la pastille de thème est une étiquette qu'on lit une fois, un libellé de
+     formulaire se relit à chaque saisie et perd trop à 10 px serrés. */
+  --text-label: 10.5px;
+  --text-label--line-height: 1;
+  --text-label--font-weight: 700;
+  --text-label--letter-spacing: 0.09em;
+
   /* Aucune ombre portée dans les maquettes : l'état sélectionné est un contour
      (`ring-2 ring-ink`), et les rayons font tout le reste du relief. */
   --radius-bar: 3px;
@@ -185,4 +244,155 @@
   --radius-rail: 11px;
   --radius-row: 12px;
   --radius-card: 14px;
+}
+
+/**
+ * Ce que le navigateur applique sans qu'un composant le demande.
+ *
+ * Trois réglages, et rien de plus : la case à cocher et le curseur de saisie
+ * prennent l'encre du thème, la sélection prend le vert. Ce sont les seules
+ * couleurs qu'un navigateur choisit tout seul, et les seules qu'aucun composant
+ * ne pouvait donc corriger sans les écrire une fois par champ.
+ */
+@layer base {
+  input,
+  select,
+  textarea {
+    accent-color: var(--color-ink);
+    caret-color: var(--color-ink);
+  }
+
+  ::selection {
+    background: var(--color-pitch);
+    color: var(--color-ink);
+  }
+}
+
+/**
+ * Les pièces que les deux moitiés de l'application partagent.
+ *
+ * Le jeu et le back-office n'ont ni les mêmes écrans ni le même rythme, mais
+ * ils ont le même bouton, le même champ et la même surface blanche posée sur le
+ * vert. Ces pièces sont donc écrites **ici**, une fois, et pas dans un fichier
+ * de composants par moitié : le jour où le bouton change de rayon, il change
+ * dans les deux, sinon il ne change nulle part de la même façon.
+ *
+ * Ce sont des classes de composant et non des jetons, parce qu'un bouton n'est
+ * pas une couleur : c'est une forme, une police, un rembourrage et un état
+ * désactivé, soit quatre décisions qu'un jeton ne sait pas transporter. Les
+ * utilitaires Tailwind restent prioritaires (leur couche vient après celle-ci),
+ * donc `class="btn w-full"` élargit le bouton sans le redéfinir.
+ */
+@layer components {
+  /* La surface blanche : tout ce qui se lit ou s'édite sur le vert est posé
+     dessus, parce que le texte long sur le vert du terrain n'est pas lisible et
+     que le vert n'est pas une couleur de fond de formulaire. */
+  .panel {
+    @apply rounded-card bg-white text-ink p-4;
+  }
+
+  /* Les trois boutons ne diffèrent que par leur couleur : la forme, la police
+     et l'état désactivé sont dits une fois pour les trois, sinon la variante
+     secondaire dérive de la principale d'un pixel à chaque retouche. */
+  :is(.btn, .btn-quiet, .btn-danger) {
+    @apply rounded-row font-display text-action cursor-pointer px-4 py-[11px]
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn {
+    @apply bg-ink text-white;
+  }
+
+  /* L'action qui accompagne, sur une surface blanche : un contour, pas un
+     aplat — deux aplats côte à côte se disputent le regard. */
+  .btn-quiet {
+    @apply border-line bg-white text-ink border;
+  }
+
+  /* Supprimer, retirer, fusionner : la couleur de l'échec du jeu, en contour.
+     Un aplat rouge sur un écran d'édition se clique par réflexe. */
+  .btn-danger {
+    @apply border-missed/45 text-missed border bg-transparent;
+  }
+
+  /* Le même geste, réduit à son icône. Une ligne de passage aligne déjà huit
+     champs : « Enregistrer » et « Supprimer » écrits en toutes lettres y
+     prenaient plus de large que le champ qu'ils enregistrent, et la ligne
+     passait à la ligne. Carré, au rayon et à la hauteur exacts d'un `.field`,
+     pour que la rangée reste une rangée.
+
+     L'icône ne dit rien à qui ne la voit pas : un `aria-label` (et un `title`,
+     pour qui la voit sans la reconnaître) n'est pas facultatif ici. */
+  :is(.btn-icon, .btn-icon-danger) {
+    @apply rounded-field flex size-[38px] shrink-0 cursor-pointer items-center
+      justify-center border disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-icon {
+    @apply bg-ink border-ink text-white;
+  }
+
+  .btn-icon-danger {
+    @apply border-missed/45 text-missed bg-transparent;
+  }
+
+  .field {
+    @apply rounded-field border-line bg-white text-ink text-body font-display
+      focus:border-ink w-full border px-3 py-2 normal-case outline-none;
+  }
+
+  /* Le champ de fichier : le bouton que le navigateur dessine lui-même, repeint
+     aux couleurs du thème plutôt que laissé au gris du système. */
+  .field-file {
+    @apply text-body text-ink font-display normal-case file:rounded-row file:bg-ink file:font-display
+      file:text-cta file:mr-3 file:cursor-pointer file:border-0 file:px-3 file:py-2
+      file:uppercase file:text-white;
+  }
+
+  .field-label {
+    @apply font-mono text-label text-muted uppercase;
+  }
+
+  /* La précision sous un champ ou une action : pourquoi c'est bloquant, ce que
+     l'import écrase, quel format passe. */
+  .hint {
+    @apply text-note text-muted;
+  }
+
+  /* Le lien dans une phrase. Sans couleur : il prend celle du texte qui
+     l'entoure, donc le même lien tient sur le vert et sur le blanc. */
+  .link {
+    @apply cursor-pointer underline underline-offset-2;
+  }
+
+  /* Ce qu'une action a répondu : une ligne sous le formulaire, verte ou rouge.
+     Deux classes et pas une avec un modificateur, parce que l'appelant sait
+     déjà laquelle des deux il tient — un `role="alert"` l'accompagne. */
+  .status-ok {
+    @apply text-note text-found-ink font-semibold;
+  }
+
+  .status-error {
+    @apply text-note text-missed font-semibold;
+  }
+
+  /* Les annotations qui ne sont ni une réussite ni un échec : le trou à
+     combler (`alert`), la remarque neutre (`info`), le fait qu'on note sans y
+     insister (`quiet`). Même forme pour les trois : c'est la couleur qui dit
+     laquelle, et jamais la taille. */
+  :is(.badge-alert, .badge-info, .badge-quiet) {
+    @apply rounded-loan font-mono text-tag inline-block px-[6px] py-[4px] uppercase;
+  }
+
+  .badge-alert {
+    @apply bg-alert-soft text-alert;
+  }
+
+  .badge-info {
+    @apply bg-info-soft text-info;
+  }
+
+  .badge-quiet {
+    @apply bg-crest text-crest-ink;
+  }
 }
