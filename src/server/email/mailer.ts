@@ -40,6 +40,22 @@ const FROM_VAR = 'MAIL_FROM'
 /** L'expéditeur par défaut — celui du développement, où le domaine est sans objet. */
 const DEFAULT_FROM = 'Footguessr <jeu@localhost>'
 
+/**
+ * L'email n'est pas parti — et **seulement** ça.
+ *
+ * Une classe plutôt qu'un booléen qui remonte, parce que l'appelant a deux
+ * pannes à distinguer et qu'elles se disent très différemment à quelqu'un qui
+ * attend un code : « l'email n'a pas pu être envoyé » envoie regarder dans les
+ * indésirables, ce qui est une perte de temps si le message n'a jamais été
+ * fabriqué. Tout ce qui n'est pas cette erreur-là est une panne de notre côté.
+ */
+export class MailNotSent extends Error {
+  constructor() {
+    super('L’email n’a pas pu être remis au relais.')
+    this.name = 'MailNotSent'
+  }
+}
+
 export type Mail = {
   to: string
   subject: string

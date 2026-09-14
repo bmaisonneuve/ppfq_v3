@@ -105,15 +105,20 @@ export type AccountState = { email: string } | null
 /**
  * Pourquoi une demande ou une connexion a été refusée.
  *
- * Quatre motifs, et aucun ne dit quoi que ce soit sur le titulaire du compte.
+ * Cinq motifs, et aucun ne dit quoi que ce soit sur le titulaire du compte.
  * En particulier **une adresse inconnue n'en est pas un** : demander un code
  * pour une adresse qui n'a jamais joué fait exactement la même chose et répond
  * exactement la même chose, sans quoi cette porte dirait qui est inscrit.
  *
- * `not-configured` est la seule qui parle de nous et non de la demande, et
- * c'est le même arbitrage que l'ADR-0006 : c'est l'erreur d'un exploitant, pas
- * un renseignement pour un attaquant — personne n'atteint cette porte sans
- * savoir déjà que le jeu existe.
+ * `not-configured` et `unavailable` sont les seules qui parlent de nous et non
+ * de la demande, et c'est le même arbitrage que l'ADR-0006 : ce sont les
+ * erreurs d'un exploitant, pas un renseignement pour un attaquant — personne
+ * n'atteint cette porte sans savoir déjà que le jeu existe.
+ *
+ * `unavailable` et `mail-unavailable` se ressemblent et ne doivent surtout pas
+ * fusionner : « l'email n'a pas pu être envoyé » envoie quelqu'un fouiller ses
+ * indésirables, ce qui est une perte de temps quand le message n'a jamais été
+ * fabriqué parce que la base ne répondait pas.
  */
 export type AccountRefusal =
   /** Trop de demandes, par IP ou par adresse. */
@@ -124,6 +129,8 @@ export type AccountRefusal =
   | 'mail-unavailable'
   /** Le compte n'est pas configuré sur ce déploiement. Il reste donc fermé. */
   | 'not-configured'
+  /** Une panne de notre côté, et non de celui du relais. */
+  | 'unavailable'
 
 /** Ce que le serveur répond à une demande ou à une connexion. */
 export type AccountOutcome =
@@ -144,4 +151,5 @@ export const ACCOUNT_REFUSALS: Readonly<Record<AccountRefusal, string>> = {
   'bad-code': 'Ce code n’est pas valide. Demandez-en un nouveau.',
   'mail-unavailable': 'L’email n’a pas pu être envoyé. Réessayez dans un instant.',
   'not-configured': 'La connexion par email n’est pas configurée sur ce déploiement.',
+  'unavailable': 'La connexion n’a pas pu aboutir. Réessayez dans un instant.',
 }

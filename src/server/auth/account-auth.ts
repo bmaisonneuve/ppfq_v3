@@ -8,6 +8,7 @@ import { magicLink } from 'better-auth/plugins/magic-link'
 
 import { db } from '@/server/db/client'
 import { accounts, sessions, users, verifications } from '@/server/db/schema'
+import { MailNotSent } from '@/server/email/mailer'
 import { sendSignInCode, sendSignInLink } from '@/server/email/sign-in-mails'
 import {
   ACCOUNT_LINK_PATH,
@@ -178,9 +179,7 @@ function build() {
           // L'URL de Better Auth est ignorée : la nôtre mène à une page qui
           // demande confirmation, et c'est ce qui fait qu'un scanner de liens
           // ne brûle pas le jeton.
-          if (!(await sendSignInLink(email, signInLinkUrl(token)))) {
-            throw new Error('Lien non envoyé.')
-          }
+          if (!(await sendSignInLink(email, signInLinkUrl(token)))) throw new MailNotSent()
         },
       }),
 

@@ -58,6 +58,13 @@ un chemin futur qui l'emprunterait doit poster un email plutôt que tomber dans 
 vide. `test/services/account.service.test.ts` tient la règle en pointant le
 relais sur un port mort — la demande est refusée, et aucun message n'est parti.
 
+**`mail-unavailable` ne couvre que le relais**, et la distinction s'est payée
+une fois : une base sans la migration faisait dire « l'email n'a pas pu être
+envoyé » pour un message que rien n'avait fabriqué, ce qui envoie quelqu'un
+fouiller ses indésirables pour rien. L'échec d'envoi est donc une erreur nommée,
+`MailNotSent`, et tout le reste est `unavailable` — une panne de notre côté. Le
+journal porte la vraie cause dans les deux cas.
+
 ## La reprise de progression se rejoue à chaque requête personnelle
 
 La forme attendue était un `databaseHook` sur la création de session. Elle est

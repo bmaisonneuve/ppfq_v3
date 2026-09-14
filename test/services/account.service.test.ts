@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 
 import { players, users } from '@/server/db/schema'
 import { sendSignIn, signInByCode, signInByLink } from '@/server/services/account.service'
@@ -174,6 +174,22 @@ describe('quand l’email ne part pas', () => {
 
     expect(outcome).toEqual({ ok: false, refusal: 'mail-unavailable' })
     expect(await mailCountTo(EMAIL)).toBe(0)
+  })
+
+  it('does not blame the mail for a failure of ours', async () => {
+    // Vécu : la base de développement n'avait pas la migration, et le joueur
+    // lisait « l'email n'a pas pu être envoyé ». Il serait allé fouiller ses
+    // indésirables pour un message que rien n'avait fabriqué.
+    await db.execute(sql`ALTER TABLE verifications RENAME TO verifications_absente`)
+
+    try {
+      expect(await sendSignIn(EMAIL, 'code', fromMachine('198.51.100.64'))).toEqual({
+        ok: false,
+        refusal: 'unavailable',
+      })
+    } finally {
+      await db.execute(sql`ALTER TABLE verifications_absente RENAME TO verifications`)
+    }
   })
 
   it('leaves the relay working for everybody else afterwards', async () => {

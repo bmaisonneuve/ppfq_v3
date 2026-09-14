@@ -6,6 +6,7 @@ import { accountAuth, isAccountConfigured } from '@/server/auth/account-auth'
 import { currentAccountIdentity } from '@/server/auth/account-session'
 import type { AccountIdentity } from '@/server/auth/account-session'
 import { quotaLimiter } from '@/server/domain/rate-limit'
+import { MailNotSent } from '@/server/email/mailer'
 import { sendSignInCode } from '@/server/email/sign-in-mails'
 import { SIGN_IN_TTL_SECONDS } from '@/shared/account'
 import type { AccountOutcome, AccountRefusal, AccountState } from '@/shared/account'
@@ -182,15 +183,17 @@ export async function sendSignIn(
   await rememberPlayingAs(email, context.presented)
 
   try {
-    const sent = via === 'link' ? await sendLink(email, context) : await sendCode(email)
-
-    if (!sent) return refused('mail-unavailable')
+    if (via === 'link') await sendLink(email, context)
+    else await sendCode(email)
   } catch (error) {
-    // Le relais a refusé, ou il n'y en a pas. Le joueur attendrait sinon un
-    // code qui n'existe pas, ce qui est la pire des réponses possibles sur une
-    // porte sans mot de passe.
+    // Deux pannes, et elles ne se disent pas pareil. Le relais qui refuse est
+    // `MailNotSent` et rien d'autre ; tout le reste — la base qui ne répond
+    // pas, une table qui manque — est de notre côté, et envoyer quelqu'un
+    // fouiller ses indésirables pour un message jamais fabriqué serait le
+    // promener. Le journal, lui, porte la vraie cause dans les deux cas.
     console.error(`[compte] demande de connexion non partie : ${String(error)}`)
-    return refused('mail-unavailable')
+
+    return refused(error instanceof MailNotSent ? 'mail-unavailable' : 'unavailable')
   }
 
   // Rien de ce que le compte sait ne sort d'ici : une demande dit qu'elle est
@@ -214,21 +217,28 @@ export async function sendSignIn(
  * répartition que partout ailleurs dans ce ticket : Better Auth est le magasin,
  * il n'est pas la politique (ADR-0014).
  */
-async function sendCode(email: string): Promise<boolean> {
+async function sendCode(email: string): Promise<void> {
+  // Deux temps, et c'est ce qui rend les deux pannes distinguables : ce qui
+  // lève ici est une panne de base, ce qui rend `false` en dessous est le
+  // relais. Une seule expression aurait tout confondu.
   const code = await accountAuth().api.createVerificationOTP({
     body: { email, type: 'sign-in' },
   })
 
-  return await sendSignInCode(email, code)
+  if (!(await sendSignInCode(email, code))) throw new MailNotSent()
 }
 
 /**
  * Le lien, lui, part par Better Auth : `signInMagicLink` attend notre envoi
  * directement, donc un échec remonte et il n'y a rien à contourner.
+ *
+ * Ce chemin-là fabrique le jeton *et* envoie dans un seul appel de
+ * bibliothèque, donc la distinction des deux pannes tient à ce que notre
+ * `MailNotSent` traverse `auth.api` sans être réemballée — ce que
+ * `test/services/account.service.test.ts` affirme plutôt que de l'espérer.
  */
-async function sendLink(email: string, context: RequestContext): Promise<boolean> {
+async function sendLink(email: string, context: RequestContext): Promise<void> {
   await accountAuth().api.signInMagicLink({ body: { email }, headers: context.request })
-  return true
 }
 
 /**

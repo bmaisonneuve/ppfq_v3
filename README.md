@@ -44,6 +44,10 @@ d'ouvrir `/admin` : sans le secret, la connexion par email reste fermée pour to
 le monde, et sans au moins une adresse, le back-office refuse tout le monde — y
 compris vous. `openssl rand -base64 32` fait l'affaire pour le secret.
 
+`pnpm db:migrate` est à relancer après un `git pull` qui apporte une migration :
+sans les tables du compte, la demande de code échoue — en disant que c'est de
+notre côté, pas que l'email n'est pas parti.
+
 Les emails de connexion partent vers Mailpit (`pnpm mail:ui`, puis
 <http://localhost:8025>) : le code à six chiffres est dans l'objet du message,
 lisible sans même l'ouvrir. Sans `MAIL_SMTP_URL`, rien ne part et la demande de
