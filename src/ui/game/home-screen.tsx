@@ -8,7 +8,7 @@ import type { Position } from '@/shared/schedule'
 
 import { ActionBand, GameHeader, GridTitle, PrimaryLink, ScrollBody } from './chrome'
 import { EnigmaCard } from './enigma-card'
-import { useGame } from './game-provider'
+import { useGame, useGrid } from './game-provider'
 import { StaleGridNotice, UnavailableNotice } from './notices'
 import { CopyResultButton } from './share-summary'
 import { useCountdown } from './use-countdown'
@@ -25,7 +25,8 @@ import { isStaleGrid, playsOf } from './use-day-plays'
  * un geste, et le geste est ici un lien vers `/1`, `/2` ou `/3`.
  */
 export function HomeScreen() {
-  const { grid, state, stats, playAt, openStats, openAccount, account } = useGame()
+  const grid = useGrid()
+  const { state, stats, playAt, openStats, openAccount, account } = useGame()
 
   return (
     <>
@@ -71,7 +72,8 @@ export function HomeScreen() {
  * geste de jeu, et le bandeau propose alors ce qui reste : copier le résultat.
  */
 function DayAction() {
-  const { grid, state, playAt } = useGame()
+  const grid = useGrid()
+  const { state, playAt } = useGame()
 
   // Tant que la progression n'est pas là, le libellé serait une supposition :
   // annoncer « Jouer l'échauffement » puis le remplacer par « Reprendre le

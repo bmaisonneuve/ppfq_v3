@@ -27,8 +27,14 @@ export default async function GameLayout({ children }: Readonly<{ children: Reac
 
   // Sans grille il n'y a pas de niveau à ouvrir : les trois URL de niveau
   // aboutissent au même écran d'attente que l'accueil, plutôt qu'à une barre
-  // segmentée vide.
-  if (grid === null) return <NoGridView />
-
-  return <GameProvider grid={grid}>{children}</GameProvider>
+  // segmentée vide. C'est le layout qui substitue cet écran à la page, et non
+  // chaque page qui se défend : les quatre routes du jour ont la même réponse.
+  //
+  // Le provider, lui, est monté dans les deux cas. Ce qu'il porte n'est pas
+  // tout entier à la journée — la série du joueur et son compte lui
+  // appartiennent — et un calendrier incomplet n'est pas une raison de lui
+  // retirer son en-tête.
+  return (
+    <GameProvider grid={grid}>{grid === null ? <NoGridView /> : children}</GameProvider>
+  )
 }

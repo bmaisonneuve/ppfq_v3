@@ -22,6 +22,13 @@ import type { PersonalState } from './use-day-plays'
  * d'eux : la grille du jour, la progression du joueur, et la fenêtre des
  * statistiques.
  *
+ * Il est monté **même les jours sans grille**, et c'est ce que `grid: null`
+ * veut dire. Ce qu'il porte n'appartient pas tout entier à la journée : la
+ * série, les cartons pleins, l'adresse connectée sont au joueur, et un
+ * calendrier incomplet n'est pas une raison de lui fermer son compte. L'écran
+ * d'attente garde donc son en-tête et ses deux fenêtres ; il n'a de moins que
+ * ce qui manque vraiment, la grille.
+ *
  * Il est dans le **layout** et non dans chaque page, et c'est ce qui rend les
  * trois URL de niveau tenables : passer de `/1` à `/2` est une navigation
  * client, le layout ne se remonte pas, donc `POST /api/game/state` n'est appelé
@@ -34,7 +41,8 @@ import type { PersonalState } from './use-day-plays'
  * et elle descend ici en prop. Rien de ce fichier ne lit de requête.
  */
 type Game = {
-  grid: DailyGrid
+  /** La grille du jour, ou `null` le jour où rien n'est programmé. */
+  grid: DailyGrid | null
   state: PersonalState
   stats: PlayerStats | null | undefined
   pending: ReadonlySet<Position>
@@ -59,8 +67,8 @@ const GameContext = createContext<Game | null>(null)
 export function GameProvider({
   grid,
   children,
-}: Readonly<{ grid: DailyGrid; children: ReactNode }>) {
-  const { state, open, submit, pending, stats, enqueue } = useDayPlays(grid.date)
+}: Readonly<{ grid: DailyGrid | null; children: ReactNode }>) {
+  const { state, open, submit, pending, stats, enqueue } = useDayPlays(grid?.date ?? null)
   const account = useAccount(enqueue)
   const [statsOpen, setStatsOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -116,4 +124,20 @@ export function useGame(): Game {
   if (game === null) throw new Error('Un écran du jeu doit être rendu sous GameProvider.')
 
   return game
+}
+
+/**
+ * La grille, pour les écrans qui n'existent que s'il y en a une.
+ *
+ * C'est le layout qui décide : sans grille il rend l'écran d'attente à la place
+ * de la page, donc l'accueil et les trois niveaux ne sont montés que les jours
+ * où `grid` est là. Le dire par une exception plutôt que par un `?.` à chaque
+ * ligne garde cette garantie lisible — et la rend bruyante le jour où le
+ * routage la perd, au lieu de la laisser se traduire en trois cartes vides.
+ */
+export function useGrid(): DailyGrid {
+  const { grid } = useGame()
+  if (grid === null) throw new Error('Cet écran du jeu suppose une grille du jour.')
+
+  return grid
 }

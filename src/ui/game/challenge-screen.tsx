@@ -13,7 +13,7 @@ import { ActionBand, GameHeader, PrimaryLink, ScrollBody, TextLink } from './chr
 import { AnswerCard } from './answer-card'
 import { ClubTable } from './club-table'
 import { EssaiBand } from './essai-band'
-import { useGame } from './game-provider'
+import { useGame, useGrid } from './game-provider'
 import { StaleGridNotice, UnavailableNotice } from './notices'
 import { SegmentIcon } from './segment-icon'
 import { isStaleGrid } from './use-day-plays'
@@ -35,8 +35,8 @@ import { isStaleGrid } from './use-day-plays'
  * jamais créer de partie.
  */
 export function ChallengeScreen({ position }: Readonly<{ position: Position }>) {
-  const { grid, state, pending, playAt, open, submit, openStats, openAccount, account } =
-    useGame()
+  const grid = useGrid()
+  const { state, pending, playAt, open, submit, openStats, openAccount, account } = useGame()
 
   useEffect(() => {
     // Idempotent par position : revenir sur un niveau déjà ouvert ne redemande
@@ -198,7 +198,8 @@ function Band({
   pending: boolean
   onSubmit: (footballerId: string | null) => void
 }>) {
-  const { grid, playAt } = useGame()
+  const grid = useGrid()
+  const { playAt } = useGame()
 
   if (play === undefined) {
     return (

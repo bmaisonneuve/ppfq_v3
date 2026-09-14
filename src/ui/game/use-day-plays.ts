@@ -106,8 +106,18 @@ const LOADING: PersonalState = { status: 'loading' }
  * It opens nothing of its own accord. The hydration request reads the day and
  * that is all: which enigma becomes a partie is the joueur's gesture, and this
  * hook learns of it through `open`.
+ *
+ * ## Une journée sans grille est une journée quand même
+ *
+ * `date` vaut `null` le jour où rien n'est programmé, et il ne reste alors
+ * qu'une chose à ne pas faire : demander l'état d'une journée qui n'existe pas.
+ * Le reste tient — la file, les statistiques, et donc le compte qui s'y range —
+ * parce que le joueur, lui, existe tous les jours : il a une série derrière lui
+ * et une adresse à connecter, et rien de cela n'attend qu'on ait programmé une
+ * grille. `state` reste donc `loading` et personne ne le lit : l'écran de ce
+ * jour-là n'affiche aucune zone de partie (`no-grid.tsx`).
  */
-export function useDayPlays(date: ChallengeDate): {
+export function useDayPlays(date: ChallengeDate | null): {
   state: PersonalState
   open: (position: Position) => void
   /** One essai: a footballer proposed, or `null` for a tour passé. */
@@ -155,6 +165,11 @@ export function useDayPlays(date: ChallengeDate): {
 
   const readState = useCallback(
     async (open: Position | undefined): Promise<void> => {
+      // Sans grille il n'y a pas de journée dont lire l'état. Le garde est ici
+      // plutôt qu'aux trois appels : ce qui n'a pas de date n'a ni énigme à
+      // ouvrir ni essai à poster, donc aucun d'eux ne peut arriver.
+      if (date === null) return
+
       const day = await post<DayPlays>(GAME_STATE_PATH, { date, open })
 
       setState({
@@ -205,12 +220,13 @@ export function useDayPlays(date: ChallengeDate): {
     if (started.current) return
     started.current = true
 
-    load(undefined)
+    if (date !== null) load(undefined)
 
     // Derrière l'état, jamais à côté : la première requête est celle qui établit
-    // l'identité, et celle-ci la porte.
+    // l'identité, et celle-ci la porte. Sans grille, c'est elle qui l'établit —
+    // la file n'a pas changé, seulement son premier maillon.
     queue.current = queue.current.then(readStats)
-  }, [load, readStats])
+  }, [date, load, readStats])
 
   const open = useCallback(
     (position: Position): void => {

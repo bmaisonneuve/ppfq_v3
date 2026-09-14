@@ -1,22 +1,41 @@
-import { GameShell } from './chrome'
+'use client'
+
+import { GameHeader, ScrollBody } from './chrome'
+import { useGame } from './game-provider'
 
 /**
  * Le jour où rien n'est programmé.
  *
- * Il n'a pas d'en-tête : sans grille il n'y a ni date de journée, ni thème, ni
- * niveau à ouvrir — une barre segmentée vide et une pastille de thème absente
- * feraient un écran cassé là où il n'y a qu'un calendrier incomplet. La marque
- * reste, et le reste attend demain.
+ * Son en-tête n'a pas de titre de journée : sans grille il n'y a ni date, ni
+ * thème, ni niveau à ouvrir — une barre segmentée vide et une pastille de thème
+ * absente feraient un écran cassé là où il n'y a qu'un calendrier incomplet.
+ *
+ * La barre elle-même reste, et ce n'est pas de la décoration. Ce qu'elle ouvre
+ * n'appartient pas à la journée : la série et les cartons pleins sont derrière
+ * le joueur, l'adresse qu'il connecte est devant lui, et ni l'une ni l'autre
+ * n'attend qu'on ait programmé une grille. Un écran d'attente qui emporterait
+ * le compte avec lui serait une panne pour quelqu'un venu se connecter — alors
+ * qu'il n'y a qu'une grille qui manque.
  */
 export function NoGridView() {
+  const { openStats, openAccount, account } = useGame()
+
   return (
-    <GameShell>
-      <div className="flex flex-1 flex-col justify-center gap-3 px-4 py-10">
-        <h1 className="font-display text-score text-white">Pas de grille aujourd’hui</h1>
-        <p className="font-mono text-meta text-ink">
-          Aucune grille n’est programmée pour la journée. Revenez demain.
-        </p>
-      </div>
-    </GameShell>
+    <>
+      <GameHeader
+        onStats={openStats}
+        onAccount={openAccount}
+        accountInitial={account.initial}
+      />
+
+      <ScrollBody>
+        <div className="flex h-full flex-col justify-center gap-3">
+          <h1 className="font-display text-score text-white">Pas de grille aujourd’hui</h1>
+          <p className="font-mono text-meta text-ink">
+            Aucune grille n’est programmée pour la journée. Revenez demain.
+          </p>
+        </div>
+      </ScrollBody>
+    </>
   )
 }
