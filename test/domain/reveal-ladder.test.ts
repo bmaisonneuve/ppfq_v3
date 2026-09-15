@@ -5,6 +5,7 @@ import {
   isExhausted,
   revealedHints,
   revealedTiers,
+  shownTiers,
 } from '@/server/domain/reveal-ladder'
 import type { FootballerCareer, PlayerClub } from '@/shared/career'
 import type { PlayStatus } from '@/shared/play'
@@ -52,9 +53,20 @@ const career = (over: Partial<FootballerCareer> = {}): FootballerCareer => ({
   ...over,
 })
 
-/** The hints a partie with `errors` erreurs has earned, on a fixed career. */
+/**
+ * The hints a partie still being played shows after `errors` erreurs, on a
+ * fixed career — the ladder as the joueur climbs it.
+ */
 const hints = (errors: number, over: Partial<FootballerCareer> = {}) =>
-  revealedHints({ errors, career: career(over), currentYear: 2026 })
+  revealedHints({
+    play: { triesUsed: errors, status: 'in_progress' },
+    career: career(over),
+    currentYear: 2026,
+  })
+
+/** The hints a finished partie shows, whatever it spent getting there. */
+const finalHints = (play: { triesUsed: number; status: PlayStatus }) =>
+  revealedHints({ play, career: career(), currentYear: 2026 })
 
 describe('revealedTiers', () => {
   it('reveals nothing before the first erreur', () => {
@@ -101,6 +113,32 @@ describe('errorsMade', () => {
   it('counts nothing on a partie the day took away without an essai', () => {
     // Read as failed by the clock (`server/domain/play.ts`) with nothing spent.
     expect(errorsMade(play(0, 'failed'))).toBe(0)
+  })
+})
+
+describe('shownTiers', () => {
+  const play = (triesUsed: number, status: PlayStatus) => ({ triesUsed, status })
+
+  it('shows only what the erreurs paid for while the partie is playable', () => {
+    // The game itself: a tier not yet paid for is the thing being withheld.
+    expect(shownTiers(play(0, 'in_progress'))).toEqual([])
+    expect(shownTiers(play(2, 'in_progress'))).toEqual([1, 2])
+  })
+
+  it('shows the whole ladder once the partie is found', () => {
+    // Found on the second essai paid for one tier and shows five: the partie is
+    // over, the name has just been given, and the parcours has nothing left to
+    // protect.
+    expect(shownTiers(play(2, 'solved'))).toEqual([1, 2, 3, 4, 5])
+  })
+
+  it('shows the whole ladder once the partie is lost', () => {
+    expect(shownTiers(play(6, 'failed'))).toEqual([1, 2, 3, 4, 5])
+  })
+
+  it('shows the whole ladder on a partie the day took away untouched', () => {
+    // Nothing spent, read as failed by the clock (`server/domain/play.ts`).
+    expect(shownTiers(play(0, 'failed'))).toEqual([1, 2, 3, 4, 5])
   })
 })
 
@@ -252,6 +290,17 @@ describe('the hints themselves', () => {
     // Tier 2 gives a *count* of seasons and never the years themselves: the
     // exact years would hand over tier 1 and a great deal more besides.
     expect(JSON.stringify(hints(6))).not.toContain('1988')
+  })
+
+  it('gives every tier of a partie that is over, whatever it spent', () => {
+    // « Lorsqu'un niveau est fini, tous les indices sont affichés » : the tiers
+    // shown stop depending on the erreurs the moment the partie stops.
+    expect(finalHints({ triesUsed: 2, status: 'solved' }).map((hint) => hint.tier)).toEqual([
+      1, 2, 3, 4, 5,
+    ])
+    expect(finalHints({ triesUsed: 6, status: 'failed' }).map((hint) => hint.tier)).toEqual([
+      1, 2, 3, 4, 5,
+    ])
   })
 
   it('shows a parcours with no passage at all as empty tiers', () => {

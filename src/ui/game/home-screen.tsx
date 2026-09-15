@@ -18,11 +18,12 @@ import {
   ScreenColumn,
   ScrollBody,
 } from './chrome'
+import { DayNav } from './day-nav'
 import { DesktopRail } from './rail'
 import { EnigmaCard } from './enigma-card'
-import { useGame, useGrid } from './game-provider'
+import { useDay, useGame, useGrid } from './game-provider'
 import { StaleGridNotice, UnavailableNotice } from './notices'
-import { CopyResultButton } from './share-summary'
+import { CopyResultButton, DayResultCard } from './share-summary'
 import { useCountdown } from './use-countdown'
 import { useDesktop } from './use-desktop'
 import { playsOf } from './use-day-plays'
@@ -109,6 +110,7 @@ export function HomeScreen() {
 /** Le sommaire de la journée : l'écran du téléphone, et la grille finie. */
 function Overview({ hiddenOnDesktop }: Readonly<{ hiddenOnDesktop: boolean }>) {
   const grid = useGrid()
+  const { date } = useDay()
   const { state, stats, base, archive, stale, playAt, openStats, openAccount, account } =
     useGame()
 
@@ -119,17 +121,29 @@ function Overview({ hiddenOnDesktop }: Readonly<{ hiddenOnDesktop: boolean }>) {
         onAccount={openAccount}
         accountInitial={account.initial}
       >
-        <GridTitle date={formatGridDate(grid.date)} theme={grid.theme} />
+        {/* La date de la **journée** et non celle de la grille — les deux sont
+            égales ici, et c'est celle du rail et de l'écran sans grille, donc
+            une seule définition pour les trois. */}
+        <GridTitle date={formatGridDate(date)} theme={grid.theme} nav={<DayNav />} />
       </GameHeader>
 
       <ScrollBody>
-        <div className="flex flex-col gap-[9px]">
+        {/* La largeur du téléphone, et toute celle de la zone sur un grand
+            écran. Les cartes ont été côte à côte, et trois colonnes de 250 px
+            faisaient trois timbres perdus sous un rail qui dit déjà les mêmes
+            trois niveaux ; empilées à 398 px, elles étaient trois timbres en
+            colonne. La place sert donc à **aplatir** la carte — en `lg:` elle
+            devient une ligne (`enigma-card.tsx`) — et non à l'étirer.
+
+            Rien ne centre plus verticalement : trois lignes se posent en haut
+            de la zone, là où le regard arrive en sortant du rail. Un bloc
+            calé au milieu d'un écran de 27 pouces ne flottait que parce qu'il
+            était trop haut pour être posé. */}
+        <div className="mx-auto flex max-w-[398px] flex-col gap-[9px] lg:max-w-none lg:gap-[12px]">
           {state.status === 'unavailable' ? <UnavailableNotice /> : null}
           {stale ? <StaleGridNotice /> : null}
 
-          {/* Les trois cartes côte à côte dès qu'il y a la largeur : empilées
-              sur 800 px, chacune serait un bandeau bien plus large que haut. */}
-          <div className="flex flex-col gap-[9px] lg:grid lg:grid-cols-3 lg:items-start">
+          <div className="flex flex-col gap-[9px] lg:gap-[12px]">
             {grid.enigmas.map((enigma) => (
               <EnigmaCard
                 key={enigma.position}
@@ -140,6 +154,17 @@ function Overview({ hiddenOnDesktop }: Readonly<{ hiddenOnDesktop: boolean }>) {
               />
             ))}
           </div>
+
+          {/* Le résultat en cours, et sur l'ordinateur seulement : il occupe le
+              bas d'une zone que trois lignes ne remplissent pas, et il n'attend
+              pas la fin de la journée pour être lisible. En archive, non — le
+              résumé partagé est celui de la grille du jour (specs §8), comme le
+              bouton du bandeau le dit déjà. */}
+          {archive ? null : (
+            <DayResultCard
+              source={{ date: grid.date, theme: grid.theme, plays: playsOf(state) }}
+            />
+          )}
         </div>
       </ScrollBody>
 

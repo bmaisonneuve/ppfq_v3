@@ -68,25 +68,51 @@ export function revealedTiers(errors: number): HintTier[] {
 }
 
 /**
- * The hints a partie has earned, whole, in order.
+ * The tiers a partie **shows** — what it has paid for while it is playable, the
+ * whole ladder once it is over.
+ *
+ * The two are not the same question and conflating them is what made a partie
+ * finished on the second essai show one hint for ever. While the partie runs,
+ * a tier not yet paid for is a secret worth keeping: it is the game. Once it is
+ * over there is nothing left to protect — the answer itself has just been given
+ * (`domain/play.ts`) — and the parcours a joueur is left looking at should be
+ * the whole parcours, whether he found the footballer or the grid took him.
+ *
+ * So a partie solved and a partie lost show the same five tiers, and what
+ * distinguishes them is the number of essais it took, never how much of the
+ * career they are allowed to read.
+ */
+export function shownTiers(play: { triesUsed: number; status: PlayStatus }): HintTier[] {
+  return play.status === 'in_progress' ? revealedTiers(errorsMade(play)) : [...HINT_TIERS]
+}
+
+/**
+ * The hints a partie shows, whole, in order.
  *
  * Cumulative because a reload has to find them — « les informations dévoilées
  * restent affichées jusqu'à la fin de la partie » (specs §3) — and the page
  * they were on is thrown away every time the joueur refreshes. What keeps « un
- * seul indice, le suivant » true is that `errors` is what moves, one at a time.
+ * seul indice, le suivant » true while the partie runs is that the erreurs are
+ * what move, one at a time; what the partie shows once it is over is `shownTiers`
+ * above, and it is the whole ladder.
+ *
+ * It is handed the partie rather than a number of erreurs so that the one rule
+ * deciding how much of a career is readable stays in this file: a caller that
+ * counted the erreurs itself would be a second place to get the end of a partie
+ * wrong.
  *
  * `currentYear` is handed in rather than read from a clock: this layer has
  * none, and a duration that changed with the machine's timezone would be a
  * different hint on two screens.
  */
 export function revealedHints(args: {
-  errors: number
+  play: { triesUsed: number; status: PlayStatus }
   career: FootballerCareer
   currentYear: number
 }): RevealedHint[] {
   const parcours = sortPlayerClubs(args.career.playerClubs)
 
-  return revealedTiers(args.errors).map((tier) => hintAt(tier, args.career, parcours, args.currentYear))
+  return shownTiers(args.play).map((tier) => hintAt(tier, args.career, parcours, args.currentYear))
 }
 
 /**

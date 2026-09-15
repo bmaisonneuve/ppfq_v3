@@ -322,19 +322,26 @@ describe('l’écran d’une journée passée', () => {
     await schedule(LOCKED_DAY)
 
     expect(await archiveScreenAt(LOCKED_DAY, TODAY, false)).toEqual({
+      today: TODAY,
       kind: 'account-required',
     })
     expect(await archiveScreenAt(LOCKED_DAY, TODAY, true)).toMatchObject({ kind: 'grid' })
   })
 
   it('distingue le jour sans grille du jour verrouillé', async () => {
-    expect(await archiveScreenAt(OPEN_DAY, TODAY, false)).toEqual({ kind: 'no-grid' })
+    expect(await archiveScreenAt(OPEN_DAY, TODAY, false)).toEqual({
+      today: TODAY,
+      kind: 'no-grid',
+    })
   })
 
   it('refuse un jour à venir sans même lire sa grille', async () => {
     await schedule(TOMORROW)
 
-    expect(await archiveScreenAt(TOMORROW, TODAY, true)).toEqual({ kind: 'not-yet' })
+    expect(await archiveScreenAt(TOMORROW, TODAY, true)).toEqual({
+      today: TODAY,
+      kind: 'not-yet',
+    })
   })
 
   it('renvoie aujourd’hui ailleurs plutôt que de le rejouer ici', async () => {
@@ -343,7 +350,7 @@ describe('l’écran d’une journée passée', () => {
     // l'aurait montrée sous un en-tête qui cache la série tout en l'avançant.
     await schedule(TODAY)
 
-    expect(await archiveScreenAt(TODAY, TODAY, false)).toEqual({ kind: 'today' })
+    expect(await archiveScreenAt(TODAY, TODAY, false)).toEqual({ today: TODAY, kind: 'today' })
   })
 })
 

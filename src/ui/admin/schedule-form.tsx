@@ -35,10 +35,11 @@ import { EnigmaPicker } from './enigma-picker'
  * not showing, and replacement would then destroy three enigmas nobody looked
  * at. One way to choose a day, and it is the one that shows what is there.
  *
- * Il n'a pas de surface à lui (`.panel`) : il est monté dans la fenêtre du
- * calendrier, qui est déjà blanche, et qui le titre du jour qu'il programme
- * (`schedule-screen.tsx`). Un panneau dans un panneau aurait fait deux bords
- * blancs l'un dans l'autre.
+ * Il porte sa surface blanche (`.panel`) parce qu'il est posé sur la page du
+ * jour, qui est verte comme tout le reste de l'application. Il l'a longtemps
+ * laissée à la fenêtre modale qui le montait ; celle-ci est devenue une page
+ * (`app/(admin)/admin/schedule/[date]/page.tsx`), qui titre le jour au-dessus
+ * de lui et ne peint rien.
  */
 export function ScheduleForm({
   date,
@@ -57,7 +58,7 @@ export function ScheduleForm({
   const themeListId = useId()
 
   return (
-    <form action={submit} className="flex flex-col gap-4 p-5">
+    <form action={submit} className="panel flex flex-col gap-4 p-5">
       <input type="hidden" name="date" value={date} />
 
       {/* Pleine largeur sur un téléphone, et sa largeur de champ au-delà : un
@@ -87,8 +88,8 @@ export function ScheduleForm({
           difficulté que la position *est* (CONTEXT.md), et qui donne deux
           largeurs de champ de recherche dans le même formulaire.
 
-          La bascule est en `lg:` et pas en `sm:` : la fenêtre plafonne à
-          768 px, donc trois colonnes ne respirent qu'à partir de là. */}
+          La bascule est en `lg:` et pas en `sm:` : trois champs de recherche
+          côte à côte ne respirent qu'à partir de là. */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {POSITIONS.map((position) => (
           <EnigmaPicker

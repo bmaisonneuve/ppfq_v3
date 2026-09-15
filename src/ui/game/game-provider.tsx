@@ -60,6 +60,12 @@ import type { Verdict } from './verdict'
  * verrouillée, un jour sans grille — parce que ce que l'écran montre alors
  * reste de l'archive : ses statistiques, et son en-tête.
  *
+ * `today` s'ajoute à elle sans rien séparer : c'est l'horloge du serveur, la
+ * même des deux côtés, et elle ne sert qu'à dire jusqu'où les flèches de
+ * l'en-tête avancent. Les deux se rejoignent en une seule valeur, `day`, qui
+ * donne aussi sa date au jour sans grille du quotidien — lequel n'en avait
+ * aucune à lire.
+ *
  * Le mode, lui, n'est pas ici et n'y sera jamais : il se déduit de la date côté
  * serveur (ADR-0016). Ce que `archiveDate` dit est de quelle journée on parle,
  * pas ce que la partie vaut.
@@ -67,6 +73,20 @@ import type { Verdict } from './verdict'
 type Game = {
   /** La grille affichée, ou `null` le jour où rien n'est programmé. */
   grid: DailyGrid | null
+  /**
+   * La journée à l'écran, ou `null` sur l'index de l'archive.
+   *
+   * Elle est là **avec ou sans grille**, et c'est tout l'intérêt : c'est ce qui
+   * distingue « il n'y a pas de grille » de « il n'y a pas de grille *ce
+   * jour-là* ». Un trou se titre, se date, et laisse passer à la veille comme
+   * n'importe quelle autre journée ; lire `grid.date` aurait perdu le jour en
+   * même temps que la grille, et c'est justement l'écran qui en a le plus
+   * besoin (`grid-message.tsx`).
+   *
+   * `null` pour le calendrier de l'archive, le seul écran du jeu qui ne parle
+   * d'aucune journée en particulier — il les montre toutes.
+   */
+  day: Day | null
   /**
    * D'où partent les liens de ces écrans-là : rien pour le quotidien,
    * `/archive/<date>` pour une grille passée (`shared/archive.ts`).
@@ -119,14 +139,38 @@ type Game = {
   openAccount: () => void
 }
 
+/**
+ * La journée à l'écran : de quel jour on parle, et quel jour on est.
+ *
+ * Les deux ensemble et jamais l'une sans l'autre, parce qu'aucune ne suffit :
+ * la première date l'en-tête, la seconde dit jusqu'où ses flèches avancent —
+ * il n'y a pas de lendemain à proposer au-delà d'aujourd'hui
+ * (`dayNeighbours`). Sur la grille du jour elles sont égales, et c'est bien le
+ * cas particulier et non la règle.
+ *
+ * `today` vient du serveur et de nulle part ailleurs : l'horloge du navigateur
+ * n'a pas voix au chapitre (ADR-0016), et une journée passée reste datée par
+ * son adresse quoi qu'il arrive entre-temps.
+ */
+export type Day = { date: ChallengeDate; today: ChallengeDate }
+
 const GameContext = createContext<Game | null>(null)
 
 export function GameProvider({
   grid,
+  today,
   archiveDate,
   children,
 }: Readonly<{
   grid: DailyGrid | null
+  /**
+   * Aujourd'hui à Paris, lu par le serveur au rendu. La seule horloge.
+   *
+   * Absent sur l'index de l'archive, et là seulement : cet écran-là ne parle
+   * d'aucune journée, donc il n'a ni date à titrer ni voisines à proposer — son
+   * calendrier porte son propre `today`, pour marquer la case du jour.
+   */
+  today?: ChallengeDate
   /** La journée de l'archive dont ces écrans parlent. Absente : la grille du jour. */
   archiveDate?: ChallengeDate
   children: ReactNode
@@ -143,6 +187,8 @@ export function GameProvider({
 
   const game: Game = {
     grid,
+    // Une journée d'archive est celle de son adresse ; sinon c'est le jour même.
+    day: today === undefined ? null : { date: archiveDate ?? today, today },
     base,
     archive,
     // Une journée d'archive est datée par son adresse : elle ne peut pas avoir
@@ -217,4 +263,20 @@ export function useGrid(): DailyGrid {
   if (grid === null) throw new Error('Cet écran du jeu suppose une grille du jour.')
 
   return grid
+}
+
+/**
+ * La journée à l'écran, pour les écrans qui n'existent que s'il y en a une.
+ *
+ * Le pendant de `useGrid` un cran plus haut : presque tous les écrans du jeu
+ * parlent d'un jour, y compris ceux qui n'ont pas de grille à montrer. Le seul
+ * qui n'en parle pas est l'index de l'archive, et il ne monte aucun de ces
+ * composants-là — c'est le rail, partagé avec lui, qui lit `day` directement et
+ * se tait quand il est nul.
+ */
+export function useDay(): Day {
+  const { day } = useGame()
+  if (day === null) throw new Error('Cet écran du jeu suppose une journée.')
+
+  return day
 }

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 
-import { isShareable, sharedSummary } from '@/shared/summary'
+import { isShareable, sharedSummary, summaryLines } from '@/shared/summary'
 import type { SummarySource } from '@/shared/summary'
+import { POSITIONS, positionTitle } from '@/shared/schedule'
 
 import { PrimaryButton } from './chrome'
 
@@ -23,21 +24,9 @@ import { PrimaryButton } from './chrome'
  * presse-papier refuse, parce qu'un clic sans effet est pire qu'une erreur.
  */
 export function CopyResultButton({ source }: Readonly<{ source: SummarySource }>) {
-  const [copy, setCopy] = useState<CopyState>('idle')
+  const { state, copy } = useCopy()
 
   const summary = isShareable(source.plays) ? sharedSummary(source) : null
-
-  useEffect(() => {
-    if (copy === 'idle') return
-
-    const timer = setTimeout(() => {
-      setCopy('idle')
-    }, CONFIRMATION_MS)
-
-    return () => {
-      clearTimeout(timer)
-    }
-  }, [copy])
 
   if (summary === null) return null
 
@@ -46,21 +35,117 @@ export function CopyResultButton({ source }: Readonly<{ source: SummarySource }>
       <PrimaryButton
         label="Copier mon résultat"
         onClick={() => {
-          void copyToClipboard(summary).then(setCopy)
+          copy(summary)
         }}
       />
 
-      {copy === 'idle' ? null : (
-        <p aria-live="polite" className="font-mono text-meta text-ink/70">
-          {MESSAGES[copy]}
-        </p>
-      )}
+      <CopyNotice state={state} />
     </>
   )
 }
 
-export function isDayShareable(source: SummarySource): boolean {
-  return isShareable(source.plays)
+/**
+ * Le résultat de la journée en cours, montré sur l'ordinateur — les trois
+ * lignes de carrés, et de quoi les copier.
+ *
+ * Deux différences avec le bouton du bandeau, et elles vont ensemble :
+ *
+ * - **il n'attend pas la fin de la journée.** Le seul garde-fou est celui du
+ *   modèle — au moins un essai dépensé (`isShareable`), sinon une grille
+ *   simplement ouverte produirait un bilan de trois échecs — et les lignes
+ *   savent déjà dire une partie en cours : des carrés dépensés, puis du vide ;
+ * - **il montre ce qu'il copie.** Le bandeau du téléphone n'a pas de place où
+ *   aligner trois lignes de carrés sous un bouton ; la zone principale d'un
+ *   grand écran, elle, en a de reste, et c'est précisément le vide que ce
+ *   panneau vient occuper sous les trois cartes.
+ *
+ * `lg:` sans condition : sur le téléphone, le résultat reste ce que le bandeau
+ * propose à la fin. Deux formats, deux moments — un seul résumé.
+ */
+export function DayResultCard({ source }: Readonly<{ source: SummarySource }>) {
+  const { state, copy } = useCopy()
+
+  const summary = isShareable(source.plays) ? sharedSummary(source) : null
+  const lines = summaryLines(source.plays)
+
+  if (summary === null) return null
+
+  return (
+    <section className="rounded-card hidden flex-col gap-3 bg-white p-[14px] lg:flex">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="field-label">Votre résultat</h3>
+
+        <button
+          type="button"
+          onClick={() => {
+            copy(summary)
+          }}
+          className="font-mono text-cta text-ink cursor-pointer p-1 uppercase"
+        >
+          Copier ›
+        </button>
+      </div>
+
+      {/* Une liste et non un bloc préformaté : chaque ligne porte le nom de son
+          niveau pour qui ne voit pas les couleurs, et le texte collé, lui,
+          reste la suite de carrés que `sharedSummary` compose. */}
+      <ol className="flex flex-col gap-[6px]">
+        {POSITIONS.map((position, index) => (
+          <li key={position} className="flex items-center gap-3">
+            <span className="font-mono text-meta text-ink/55 w-[108px] shrink-0">
+              {positionTitle(position)}
+            </span>
+            <span className="text-body tracking-[0.12em]">{lines[index]}</span>
+          </li>
+        ))}
+      </ol>
+
+      <CopyNotice state={state} />
+    </section>
+  )
+}
+
+/** Ce que la copie a répondu, quand elle a répondu quelque chose. */
+function CopyNotice({ state }: Readonly<{ state: CopyState }>) {
+  if (state === 'idle') return null
+
+  return (
+    <p aria-live="polite" className="font-mono text-meta text-ink/70">
+      {MESSAGES[state]}
+    </p>
+  )
+}
+
+/**
+ * Copier, et oublier au bout de trois secondes.
+ *
+ * Un hook plutôt qu'un composant : les deux endroits qui copient n'ont pas la
+ * même forme — un bouton de bandeau, un panneau sur l'ordinateur — mais ont le
+ * même après-coup, confirmation comprise. C'est l'aveu qui compte le plus :
+ * `navigator.clipboard` n'existe pas hors contexte sécurisé et son refus est
+ * silencieux, donc sans message le joueur croit avoir copié.
+ */
+function useCopy(): { state: CopyState; copy: (summary: string) => void } {
+  const [state, setState] = useState<CopyState>('idle')
+
+  useEffect(() => {
+    if (state === 'idle') return
+
+    const timer = setTimeout(() => {
+      setState('idle')
+    }, CONFIRMATION_MS)
+
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [state])
+
+  return {
+    state,
+    copy: (summary) => {
+      void copyToClipboard(summary).then(setState)
+    },
+  }
 }
 
 async function copyToClipboard(summary: string): Promise<Exclude<CopyState, 'idle'>> {

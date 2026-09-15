@@ -8,8 +8,10 @@ import { challengeItems, dailyChallenges, footballers } from '@/server/db/schema
 import {
   datesInMonth,
   monthOfDate,
+  nextDate,
   parseChallengeDate,
   parseChallengeMonth,
+  previousDate,
   shiftMonth,
   todayInParis,
 } from '@/server/domain/challenge-calendar'
@@ -22,6 +24,7 @@ import type {
   FootballerSchedulability,
   MonthCalendar,
   Position,
+  ScheduleDayScreen,
   ScheduleInput,
   ScheduledEnigma,
   ScheduledGrid,
@@ -87,52 +90,71 @@ export class NotSchedulableError extends Error {
 }
 
 /**
- * The whole programming screen, from the two parameters the URL carries.
+ * The whole month screen, from the one parameter the URL carries.
  *
  * It exists because `app/` may only reach the server through a service: the
- * Europe/Paris calendar is a domain rule, so resolving "which month, which day,
- * and what is today" happens here rather than in the page. The page then has
- * one call and no arithmetic.
+ * Europe/Paris calendar is a domain rule, so resolving "which month, and what
+ * is today" happens here rather than in the page. The page then has one call
+ * and no arithmetic.
  *
- * Both parameters fall back rather than fail. They come from a query string,
- * where `?month=septembre` is a typo and not an incident, and a 404 on the
- * calendar would be a strange answer to one.
+ * The month falls back rather than fails. It comes from a query string, where
+ * `?month=septembre` is a typo and not an incident, and a 404 on the calendar
+ * would be a strange answer to one.
  *
- * The month defaults to the month of the day asked for, so a link to a day
- * lands on the month that contains it.
+ * ## Ce qu'il ne lit plus
  *
- * ## One read, and the day's grid is already in it
- *
- * There is no second query for the day the screen opens on: the month read
- * carries every day's grid, holes included, which is exactly what the window
- * over it needs. A `getScheduledGrid(openDate)` beside it would have asked the
- * database for a row it had just been handed.
+ * Les thèmes déjà posés. Ils n'appartiennent qu'au formulaire, et le formulaire
+ * est sur la page d'un jour (`getScheduleDayScreen`) : les charger ici était
+ * une requête par affichage de mois pour une liste que le mois ne montre pas.
  */
 export async function getSchedulingScreen(params: {
   month?: string
-  date?: string
 }): Promise<SchedulingScreen> {
   const today = todayInParis()
-
-  // `parseChallengeDate` falls back rather than throwing, so a typo comes back
-  // as today. Comparing its answer to what was asked is what tells a day
-  // someone named from a day nobody did — `?date=demain` must not open a
-  // window on today.
-  const parsed = parseChallengeDate(params.date, today)
-  const asked = parsed === params.date ? parsed : null
-
-  const month = parseChallengeMonth(params.month, monthOfDate(asked ?? today))
-
-  const [calendar, themes] = await Promise.all([getMonthCalendar(month), listThemes()])
+  const month = parseChallengeMonth(params.month, monthOfDate(today))
 
   return {
     today,
-    calendar,
+    calendar: await getMonthCalendar(month),
     previousMonth: shiftMonth(month, -1),
     nextMonth: shiftMonth(month, 1),
-    // Only ever a day of the month on screen: the window reads its grid from
-    // the calendar above it, and a day of another month is not in there.
-    openDate: asked !== null && monthOfDate(asked) === month ? asked : null,
+  }
+}
+
+/**
+ * Une journée du calendrier, et de quoi la programmer : sa grille, ses voisines
+ * et les thèmes déjà posés.
+ *
+ * `null` est une **adresse** qui n'en est pas une — `/admin/schedule/demain`,
+ * un 30 février, qui passe le motif et n'est pas un jour. La page en fait un
+ * 404, ce qui est ce que c'est. Un jour réel n'a pas d'autre refus : un jour
+ * sans grille est exactement ce que l'admin vient combler, et un jour de
+ * n'importe quelle année se programme — le calendrier n'a pas de bord.
+ *
+ * Une seule ligne lue, celle de ce jour-là : le mois d'à côté n'est pas
+ * rechargé pour afficher un jour, et les deux voisins sont de l'arithmétique de
+ * texte (`server/domain/challenge-calendar.ts`) et non une requête.
+ */
+export async function getScheduleDayScreen(date: string): Promise<ScheduleDayScreen | null> {
+  const today = todayInParis()
+
+  // `parseChallengeDate` retombe sur son défaut plutôt que de lever : comparer
+  // sa réponse à ce qui a été demandé est ce qui distingue un jour que
+  // quelqu'un a nommé d'un jour que personne n'a nommé.
+  if (parseChallengeDate(date, today) !== date) return null
+
+  const [grids, themes] = await Promise.all([
+    readGrids(eq(dailyChallenges.date, date)),
+    listThemes(),
+  ])
+
+  return {
+    date,
+    grid: grids.get(date) ?? null,
+    today,
+    month: monthOfDate(date),
+    previousDate: previousDate(date),
+    nextDate: nextDate(date),
     themes,
   }
 }

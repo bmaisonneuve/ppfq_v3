@@ -658,12 +658,18 @@
     @apply text-note text-missed font-semibold;
   }
 
-  /* Les annotations qui ne sont ni une réussite ni un échec : le trou à
-     combler (`alert`), la remarque neutre (`info`), le fait qu'on note sans y
-     insister (`quiet`). Même forme pour les trois : c'est la couleur qui dit
-     laquelle, et jamais la taille. */
-  :is(.badge-alert, .badge-info, .badge-quiet) {
+  /* Les annotations d'une ligne ou d'un titre : ce qui est en place (`ok`), le
+     trou à combler (`alert`), la remarque neutre (`info`), le fait qu'on note
+     sans y insister (`quiet`). Même forme pour les quatre : c'est la couleur
+     qui dit laquelle, et jamais la taille. */
+  :is(.badge-ok, .badge-alert, .badge-info, .badge-quiet) {
     @apply rounded-loan font-mono text-tag inline-block px-[6px] py-[4px] uppercase;
+  }
+
+  /* Le vert de la réussite du jeu (`found`) et non celui du terrain : sur du
+     clair, `pitch` n'a pas le contraste d'un élément porteur de sens. */
+  .badge-ok {
+    @apply bg-found-soft text-found-ink;
   }
 
   .badge-alert {

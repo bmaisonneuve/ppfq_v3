@@ -74,16 +74,23 @@ import { presentedPlayerHasAccount } from './player.service'
  * et **aujourd'hui**. Les rassembler sous « pas de grille » ferait dire
  * « revenez demain » à quelqu'un à qui il manque un compte.
  *
- * `today` n'est pas un refus : la grille du jour existe et se joue, seulement
- * pas ici. Elle a son adresse à elle, où elle alimente la série ; la rejouer
- * sous `/archive/<aujourd'hui>` l'aurait montrée sous un en-tête qui cache la
- * série tout en la faisant avancer. L'appelant redirige.
+ * `today` — le champ, celui de Paris — accompagne les cinq : il a servi à
+ * trancher, et l'écran en a besoin après pour dater la journée et proposer ses
+ * voisines, jusque sur un refus. Le rendre plutôt que de le relire est ce qui
+ * garde une seule horloge dans l'affaire (ADR-0016) ; deux lectures à une
+ * seconde d'écart auraient pu tomber de part et d'autre de minuit.
+ *
+ * `kind: 'today'` n'est pas un refus : la grille du jour existe et se joue,
+ * seulement pas ici. Elle a son adresse à elle, où elle alimente la série ; la
+ * rejouer sous `/archive/<aujourd'hui>` l'aurait montrée sous un en-tête qui
+ * cache la série tout en la faisant avancer. L'appelant redirige.
  */
-export type ArchiveScreen =
+export type ArchiveScreen = { today: ChallengeDate } & (
   | { kind: 'grid'; grid: DailyGrid }
   | { kind: 'no-grid' }
   | { kind: 'today' }
   | { kind: GridRefusal }
+)
 
 /**
  * La grille d'un jour passé, pour qui la demande.
@@ -113,14 +120,14 @@ export async function archiveScreenAt(
   hasTheAccount: boolean,
 ): Promise<ArchiveScreen> {
   const access = gridAccess({ date, today, hasAccount: hasTheAccount })
-  if (!access.granted) return { kind: access.refusal }
+  if (!access.granted) return { today, kind: access.refusal }
   // Le seul cas où l'accès est accordé et où cet écran-ci n'a rien à montrer :
   // la grille du jour se joue à son adresse, pas sous celle de l'archive.
-  if (access.mode === 'daily') return { kind: 'today' }
+  if (access.mode === 'daily') return { today, kind: 'today' }
 
   const grid = await getGridOfDate(date)
 
-  return grid === null ? { kind: 'no-grid' } : { kind: 'grid', grid }
+  return grid === null ? { today, kind: 'no-grid' } : { today, kind: 'grid', grid }
 }
 
 /**

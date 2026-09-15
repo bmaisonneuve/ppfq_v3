@@ -251,16 +251,27 @@ describe('an essai that is right', () => {
     expect(result).toMatchObject({ triesUsed: 1, status: 'solved', answer: ANSWER })
   })
 
-  it('does not spend a hint on the essai that found it', async () => {
-    // Found on the second essai is one erreur, therefore one hint. Counting the
-    // winning essai would give a tier away for getting it right.
+  it('shows the whole ladder, however few essais it took', async () => {
+    // A partie that is over has nothing left to withhold — the name has just
+    // been given. What the winning essai did *not* buy is a tier, and that is
+    // asserted where it lives (`errorsMade`, `test/domain/reveal-ladder.test.ts`).
     await opened()
     await wrong()
 
     const result = await play(FOOTBALLER_IDS.complete)
 
     expect(result.triesUsed).toBe(2)
-    expect(tiers(result)).toEqual([1])
+    expect(tiers(result)).toEqual([1, 2, 3, 4, 5])
+  })
+
+  it('gives the whole ladder back on a reload too', async () => {
+    await opened()
+    const result = await play(FOOTBALLER_IDS.complete)
+    expect(result.status).toBe('solved')
+
+    const day = await getDayPlays({ playerId: PLAYER_IDS.mine, date: TODAY })
+
+    expect(day.plays[0]?.hints.map((hint) => hint.tier)).toEqual([1, 2, 3, 4, 5])
   })
 
   it('is refused afterwards: a partie found is finished', async () => {

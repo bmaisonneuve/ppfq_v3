@@ -12,6 +12,7 @@ import type { PlayerStats } from '@/shared/stats'
 import type { Position } from '@/shared/schedule'
 
 import { BrandRow, GridTitle } from './chrome'
+import { DayNav } from './day-nav'
 import { closes, useLive } from './verdict'
 import type { Verdict } from './verdict'
 import { SegmentIcon } from './segment-icon'
@@ -42,8 +43,19 @@ import { useGame } from './game-provider'
  * lequel il montre.
  */
 export function DesktopRail({ active }: Readonly<{ active: Position | null }>) {
-  const { grid, state, stats, base, archive, playAt, verdict, openStats, openAccount, account } =
-    useGame()
+  const {
+    grid,
+    day,
+    state,
+    stats,
+    base,
+    archive,
+    playAt,
+    verdict,
+    openStats,
+    openAccount,
+    account,
+  } = useGame()
 
   // Le niveau dont l'issue vient de tomber. Sur un grand écran, la barre
   // segmentée n'existe pas : c'est ici, et nulle part ailleurs, que le joueur
@@ -58,36 +70,43 @@ export function DesktopRail({ active }: Readonly<{ active: Position | null }>) {
         accountInitial={account.initial}
       />
 
-      {/* Le jour sans grille garde son rail : ce qu'il porte — le compte, la
-          série — n'appartient pas à la journée (`no-grid.tsx`). Ce qui manque
-          manque, et rien n'est inventé pour combler le trou. */}
+      {/* Le jour sans grille garde son rail, et il garde sa **journée** : la
+          date est celle de l'écran et non celle de la grille, donc elle tient
+          quand la grille manque — avec ses deux flèches, qui sont le seul moyen
+          de sortir d'un trou sans repasser par le calendrier. Ce qui manque
+          manque : ni pastille de thème, ni niveaux, et rien d'inventé pour
+          combler le trou (`grid-message.tsx`).
+
+          `null` est l'index de l'archive, le seul écran monté sous ce rail qui
+          ne parle d'aucune journée : il les montre toutes, et une date posée
+          au-dessus de son calendrier aurait désigné l'une d'elles au hasard. */}
+      {day === null ? null : (
+        <GridTitle date={formatGridDate(day.date)} theme={grid?.theme} nav={<DayNav />} />
+      )}
+
       {grid === null ? null : (
-        <>
-          <GridTitle date={formatGridDate(grid.date)} theme={grid.theme} stacked />
+        <div className="flex flex-col gap-[7px]">
+          {/* Le rail nomme ce qu'il liste, et une grille d'archive n'est pas
+              « la grille du jour » : la date est juste au-dessus, donc ce
+              titre-ci n'a qu'à dire de quoi il s'agit. */}
+          <h2 className="font-mono text-column text-ink">
+            {archive ? 'UNE JOURNÉE PASSÉE' : 'LA GRILLE DU JOUR'}
+          </h2>
 
-          <div className="flex flex-col gap-[7px]">
-            {/* Le rail nomme ce qu'il liste, et une grille d'archive n'est pas
-                « la grille du jour » : la date est juste au-dessus, donc ce
-                titre-ci n'a qu'à dire de quoi il s'agit. */}
-            <h2 className="font-mono text-column text-ink">
-              {archive ? 'UNE JOURNÉE PASSÉE' : 'LA GRILLE DU JOUR'}
-            </h2>
-
-            <nav aria-label="Les trois niveaux de la grille" className="flex flex-col gap-[7px]">
-              {grid.enigmas.map((enigma) => (
-                <RailLink
-                  key={enigma.position}
-                  position={enigma.position}
-                  base={base}
-                  play={playAt(enigma.position)}
-                  loading={state.status === 'loading'}
-                  here={enigma.position === active}
-                  pop={enigma.position === closing}
-                />
-              ))}
-            </nav>
-          </div>
-        </>
+          <nav aria-label="Les trois niveaux de la grille" className="flex flex-col gap-[7px]">
+            {grid.enigmas.map((enigma) => (
+              <RailLink
+                key={enigma.position}
+                position={enigma.position}
+                base={base}
+                play={playAt(enigma.position)}
+                loading={state.status === 'loading'}
+                here={enigma.position === active}
+                pop={enigma.position === closing}
+              />
+            ))}
+          </nav>
+        </div>
       )}
 
       <RailStats stats={stats} archive={archive} />

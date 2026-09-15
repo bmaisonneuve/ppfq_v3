@@ -132,19 +132,31 @@ function cells(spent: number, found: boolean): string {
 }
 
 /**
- * Le résumé entier, prêt à coller : un en-tête, une ligne blanche, trois lignes.
+ * Les trois lignes de carrés, dans l'ordre des positions.
  *
  * **Trois lignes toujours**, parcourues par position et non par les parties
  * jouées : un joueur qui n'a ouvert que le titulaire a une seule partie, et un
  * résumé d'une ligne ferait lire son titulaire comme un échauffement. La
  * position est l'ordre de difficulté (CONTEXT.md), donc c'est elle qui donne
  * son rang à chaque ligne, et jamais l'ordre dans lequel le serveur a répondu.
+ *
+ * Séparées du texte collé parce qu'un écran les montre sans l'en-tête : sur
+ * l'ordinateur, l'accueil affiche le résultat en cours au-dessus du bouton qui
+ * le copie (`ui/game/share-summary.tsx`). Ce qui se voit et ce qui se colle
+ * doivent être les mêmes lignes, et elles ne le restent qu'en n'étant écrites
+ * qu'une fois.
+ */
+export function summaryLines(plays: readonly EnigmaPlay[]): string[] {
+  const byPosition = new Map<Position, EnigmaPlay>(plays.map((play) => [play.position, play]))
+
+  return POSITIONS.map((position) => summaryLine(byPosition.get(position)))
+}
+
+/**
+ * Le résumé entier, prêt à coller : un en-tête, une ligne blanche, trois lignes.
  */
 export function sharedSummary({ date, theme, plays }: SummarySource): string {
-  const byPosition = new Map<Position, EnigmaPlay>(plays.map((play) => [play.position, play]))
-  const lines = POSITIONS.map((position) => summaryLine(byPosition.get(position)))
-
   // Le thème est imprimé tel que l'admin l'a tapé : texte libre, propriété de
   // la grille entière, et le code n'en classe ni n'en corrige rien (specs §4).
-  return `${GAME_NAME} — ${formatChallengeDate(date)}\nThème : ${theme}\n\n${lines.join('\n')}`
+  return `${GAME_NAME} — ${formatChallengeDate(date)}\nThème : ${theme}\n\n${summaryLines(plays).join('\n')}`
 }

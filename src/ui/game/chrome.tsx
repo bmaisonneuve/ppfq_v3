@@ -177,33 +177,44 @@ export function GameHeader({
 }
 
 /**
- * La date du jour et la pastille de thème.
+ * La date de la journée, sa pastille de thème, et de quoi en changer.
  *
- * `stacked` est la version du rail : la maquette y empile la date et la
- * pastille, là où l'en-tête du téléphone les met aux deux bouts d'une ligne.
- * Même contenu, même typographie, deux arrangements — c'est exactement ce
- * qu'une prop doit porter, et un second composant aurait laissé les deux
- * dériver.
+ * Un seul arrangement, et il avait deux raisons d'en avoir deux : le rail
+ * empilait la date et la pastille, l'en-tête du téléphone les mettait aux deux
+ * bouts d'une ligne. La navigation de jour en jour a tranché — deux flèches
+ * n'entrent ni à côté d'une date de 24 px sur 398 px, ni dans les 284 px du
+ * rail — donc la date prend sa ligne et la pastille partage la suivante avec
+ * elles. Le titre d'abord, la navigation dessous : c'est la disposition du
+ * calendrier du back-office (`ui/admin/month-calendar.tsx`), et elle ne dépend
+ * plus de la largeur pour tenir.
+ *
+ * `nav` est un `ReactNode` et non deux adresses : ce fichier ne sait pas ce
+ * qu'est une journée — ni la calculer, ni la nommer — et c'est ce qui le garde
+ * utilisable par un écran qui n'en a pas (`day-nav.tsx` porte la règle).
  */
 export function GridTitle({
   date,
   theme,
-  stacked = false,
-}: Readonly<{ date: string; theme: string; stacked?: boolean }>) {
+  nav,
+}: Readonly<{ date: string; theme?: string; nav?: ReactNode }>) {
   return (
-    <div
-      className={
-        stacked
-          ? 'flex flex-col items-start gap-[9px]'
-          : 'flex flex-wrap items-center justify-between gap-[9px]'
-      }
-    >
+    <div className="flex flex-col items-start gap-[9px]">
       <h1 className="font-display text-date text-white">{date}</h1>
-      {/* Texte libre, imprimé tel que l'admin l'a tapé (CONTEXT.md) : la
-          capitalisation est une mise en forme, pas une correction. */}
-      <span className="font-mono text-pill text-ink rounded-full bg-white px-[11px] py-[6px] uppercase">
-        {theme}
-      </span>
+
+      <div className="flex w-full items-center gap-[9px]">
+        {/* Pas de pastille sans thème : un jour sans grille n'en a pas, et une
+            pastille vide serait un thème qui s'appelle rien. La date, elle,
+            reste — la journée existe, c'est la grille qui manque.
+
+            Texte libre, imprimé tel que l'admin l'a tapé (CONTEXT.md) : la
+            capitalisation est une mise en forme, pas une correction. */}
+        {theme === undefined ? null : (
+          <span className="font-mono text-pill text-ink rounded-full bg-white px-[11px] py-[6px] uppercase">
+            {theme}
+          </span>
+        )}
+        {nav}
+      </div>
     </div>
   )
 }
@@ -320,8 +331,22 @@ function IconLink({
   )
 }
 
-const ICON =
-  'rounded-icon flex size-[30px] shrink-0 cursor-pointer items-center justify-center border-[1.5px] border-white/60 bg-white/16 text-white'
+/**
+ * La pièce des boutons d'en-tête : un carré de 30 px, coupée en deux.
+ *
+ * `ICON_SHAPE` est la géométrie seule, parce qu'une flèche de journée inerte
+ * garde la forme et perd la peau (`day-nav.tsx`). Deux classes plutôt qu'une
+ * chaîne qu'on surcharge : dans Tailwind, la dernière classe écrite ne gagne
+ * pas — c'est l'ordre de la feuille de style qui tranche — donc un contour
+ * ajouté après `border-white/60` aurait pu ne rien changer.
+ */
+export const ICON_SHAPE =
+  'rounded-icon flex size-[30px] shrink-0 items-center justify-center border-[1.5px]'
+
+/** Son habillage sur le vert : le contour blanc, le voile, le curseur. */
+export const ICON_SKIN = 'cursor-pointer border-white/60 bg-white/16 text-white'
+
+const ICON = `${ICON_SHAPE} ${ICON_SKIN}`
 
 function CalendarIcon() {
   return (
@@ -343,12 +368,20 @@ function CalendarIcon() {
   )
 }
 
-function BarsIcon() {
+/**
+ * Les trois barres des statistiques.
+ *
+ * Exportée parce qu'un deuxième endroit la porte : le titre du panneau des
+ * chiffres d'une énigme (`enigma-stats.tsx`). C'est la même idée à deux échelles
+ * — le bouton qui ouvre les statistiques du joueur, et l'en-tête de celles de
+ * l'énigme — et deux dessins auraient fini par ne plus se ressembler.
+ */
+export function BarsIcon({ size = 15 }: Readonly<{ size?: number }> = {}) {
   return (
     <svg
       viewBox="0 0 20 20"
-      width="15"
-      height="15"
+      width={size}
+      height={size}
       aria-hidden
       focusable="false"
       fill="none"

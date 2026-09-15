@@ -49,7 +49,14 @@ import type { DailyGrid, Enigma } from '@/shared/grid'
  */
 
 /**
- * The grid of today in Paris, or null when the day has no grid.
+ * La journée du jeu : quel jour on est, et la grille de ce jour-là s'il y en a
+ * une.
+ *
+ * La **date d'abord**, et elle sort même quand la grille manque. C'est ce qui
+ * sépare « il n'y a rien » de « il n'y a rien *aujourd'hui* » : l'écran du jour
+ * sans grille se date, se titre, et laisse passer à la veille comme n'importe
+ * quelle autre journée (`ui/game/grid-message.tsx`). Une fonction qui n'aurait
+ * rendu que la grille aurait emporté le jour avec le trou.
  *
  * Today is computed lazily, at read time, and never by a job: a grid date is a
  * Paris date, so the whole of "which day is it" is one `SELECT WHERE date =`
@@ -57,11 +64,20 @@ import type { DailyGrid, Enigma } from '@/shared/grid'
  * therefore this function's answer changing, and nothing else has to happen for
  * it — no publication, no cron, no timestamp comparison.
  *
- * What *is* time-sensitive is how long the rendered page is kept: see the
- * `revalidate` of `app/(game)/page.tsx`.
+ * L'horloge n'est pas une lecture de requête : la date sort la même pour tout
+ * le monde, donc la route reste prérendue et servie depuis un cache partagé
+ * (`test/architecture/static-game-page.test.ts`). Ce qui *est* sensible au
+ * temps est la durée de conservation du rendu : voir le `revalidate` de
+ * `app/(game)/page.tsx`, et la bannière de grille périmée qui couvre la minute
+ * où un cache peut encore servir la veille.
  */
-export async function getDailyGrid(): Promise<DailyGrid | null> {
-  return await getGridOfDate(todayInParis())
+export async function getDailyScreen(): Promise<{
+  date: ChallengeDate
+  grid: DailyGrid | null
+}> {
+  const date = todayInParis()
+
+  return { date, grid: await getGridOfDate(date) }
 }
 
 /**
@@ -72,7 +88,7 @@ export async function getDailyGrid(): Promise<DailyGrid | null> {
  * would multiply the theme and the position across every club of every
  * footballer, and the reassembly costs more than the second round trip.
  *
- * Separate from `getDailyGrid` because "which day is it" and "read that day's
+ * Separate from `getDailyScreen` because "which day is it" and "read that day's
  * grid" are two rules, and only the first one has a clock in it: this half is
  * therefore assertable on a fixed date. L'archive appelle littéralement
  * celle-ci : une grille passée et la grille du jour sont la même valeur, et

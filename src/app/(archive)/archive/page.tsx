@@ -36,10 +36,14 @@ export default async function ArchivePage({
   const asked = (await searchParams)[ARCHIVE_MONTH_PARAM]
   const calendar = await getArchiveCalendar(typeof asked === 'string' ? asked : undefined)
 
-  // Sans grille : cet écran n'en montre aucune, et le provider est là pour ce
-  // qu'il porte en plus — le compte, que le cadenas d'une journée verrouillée
-  // ouvre sur place, et les chiffres du joueur. C'est le même montage que le
-  // jour sans grille programmée (`ui/game/no-grid.tsx`).
+  // Sans grille et **sans journée** : cet écran n'en montre aucune en
+  // particulier, il les montre toutes. C'est le seul du jeu dans ce cas, et
+  // c'est pourquoi il ne passe pas de `today` — le rail n'a alors ni date à
+  // titrer ni journée voisine à proposer, et son propre calendrier porte le
+  // `today` qui marque la case du jour.
+  //
+  // Le provider reste pour ce qu'il porte en plus : le compte, que le cadenas
+  // d'une journée verrouillée ouvre sur place, et les chiffres du joueur.
   return (
     <GameProvider grid={null}>
       <ArchiveScreenView calendar={calendar} />

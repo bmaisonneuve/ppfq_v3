@@ -2,9 +2,12 @@
 
 import type { ReactNode } from 'react'
 
-import { GameHeader, ScreenColumn, ScrollBody } from './chrome'
+import { formatGridDate } from '@/shared/schedule'
+
+import { GameHeader, GridTitle, ScreenColumn, ScrollBody } from './chrome'
+import { DayNav } from './day-nav'
 import { DesktopRail } from './rail'
-import { useGame } from './game-provider'
+import { useDay, useGame } from './game-provider'
 
 /**
  * Un écran du jeu qui n'a pas de grille à montrer, et qui dit pourquoi.
@@ -22,14 +25,27 @@ import { useGame } from './game-provider'
  * du jour sans grille, et c'est la fonctionnalité même de la journée
  * verrouillée : s'y connecter est ce qui l'ouvre.
  *
- * Le rail de l'ordinateur reste pour la même raison, et arrive vide de la
- * journée : ni date, ni thème, ni les trois niveaux (`rail.tsx`).
+ * Le rail de l'ordinateur reste pour la même raison (`rail.tsx`).
+ *
+ * ## Et la journée reste aussi
+ *
+ * L'en-tête porte **sa date et ses deux flèches**, exactement comme un jour qui
+ * a une grille. Ce qui manque est la grille, pas le jour : « pas de grille » ne
+ * se lit bien qu'au-dessus de la date dont on parle, et sans les flèches un
+ * trou rencontré en remontant l'archive était un cul-de-sac — le seul chemin
+ * pour en sortir repassait par le calendrier, alors que le geste voulu était de
+ * continuer d'un jour. C'est la raison pour laquelle la date vit sur le
+ * provider et non sur la grille (`game-provider.tsx`).
+ *
+ * Pas de pastille de thème : il n'y a pas de grille, donc pas de thème, et
+ * `GridTitle` s'en passe plutôt que d'en inventer un.
  */
 export function GridMessage({
   title,
   children,
   action,
 }: Readonly<{ title: string; children: ReactNode; action?: ReactNode }>) {
+  const { date } = useDay()
   const { openStats, openAccount, account } = useGame()
 
   return (
@@ -41,11 +57,17 @@ export function GridMessage({
           onStats={openStats}
           onAccount={openAccount}
           accountInitial={account.initial}
-        />
+        >
+          <GridTitle date={formatGridDate(date)} nav={<DayNav />} />
+        </GameHeader>
 
         <ScrollBody>
           <div className="flex h-full flex-col justify-center gap-3">
-            <h1 className="font-display text-score text-white">{title}</h1>
+            {/* `h2` : le titre de l'écran est désormais la date, en en-tête.
+                C'est la journée dont on parle, et « pas de grille » est ce
+                qu'on en dit — un second `h1` aurait fait deux titres de page
+                pour un seul jour. */}
+            <h2 className="font-display text-score text-white">{title}</h2>
             <p className="font-mono text-meta text-ink">{children}</p>
             {action}
           </div>

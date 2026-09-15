@@ -12,10 +12,10 @@ import type { Verdict } from './verdict'
  * que le nom du footballeur est la seule chose que l'écran cache. Tout le
  * reste, le parcours en tête, est public depuis le premier rendu.
  *
- * La sous-ligne se compose de ce qui a été dévoilé, et de rien d'autre : une
- * énigme trouvée au deuxième essai n'a jamais montré la nationalité, et la
- * carte n'en profite pas pour la sortir. Elle dit ce que la partie a coûté, pas
- * ce que la base contient.
+ * La sous-ligne dit le footballeur en trois mots — nationalité, décennie,
+ * nombre de clubs. Une partie finie montre toute l'échelle
+ * (`server/domain/reveal-ladder.ts`), donc c'est ici que ces deux paliers-là se
+ * lisent, et les pastilles de l'écran s'effacent pour ne pas les redire.
  *
  * ## Elle arrive, ou elle est là
  *
@@ -36,11 +36,14 @@ export function AnswerCard({
   clubs,
   verdict,
 }: Readonly<{
-  play: EnigmaPlay
+  /** La partie, une fois finie, et `undefined` tant qu'elle ne l'est pas. */
+  play: EnigmaPlay | undefined
   clubs: number
   /** Le dernier essai, s'il est celui qui vient de terminer cette partie. */
   verdict: Verdict | null
 }>) {
+  if (play === undefined) return null
+
   const solved = play.status === 'solved'
   const entering = closes(verdict)
 
@@ -51,7 +54,10 @@ export function AnswerCard({
       }`}
     >
       <span
-        className={`flex size-[38px] shrink-0 items-center justify-center rounded-full ${
+        // `self-center` : la pastille se cale sur le milieu des trois lignes
+        // plutôt que sur la première. Alignée en haut, elle pendait au-dessus
+        // du nom, qui est la ligne la plus haute de la carte.
+        className={`flex size-[38px] shrink-0 self-center items-center justify-center rounded-full ${
           solved ? 'bg-found' : 'bg-missed-soft'
         } ${entering ? 'animate-pop' : ''}`}
       >
@@ -84,11 +90,14 @@ export function AnswerCard({
 }
 
 /**
- * Ce que la partie a coûté, en une ligne : ce qui a été dévoilé, et le nombre
- * de clubs.
+ * Le footballeur en une ligne : sa nationalité, sa décennie, son nombre de
+ * clubs.
  *
- * Rien de ce qui n'a pas été payé : une énigme trouvée au deuxième essai n'a
- * jamais montré la nationalité, et cette ligne ne la sort pas.
+ * Une partie finie montre toute l'échelle (`server/domain/reveal-ladder.ts`),
+ * donc les deux paliers sont là quelle que soit la manière dont elle s'est
+ * finie. Les `?? null` restent : c'est le catalogue qui peut ne pas savoir, et
+ * cette ligne saute alors la partie qu'elle n'a pas plutôt que d'écrire
+ * « inconnue » sur une carte de réponse.
  */
 function Trace({ play, clubs }: Readonly<{ play: EnigmaPlay; clubs: number }>) {
   const nationality = revealedNationality(play.hints) ?? null

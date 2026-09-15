@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { shiftDate } from '@/shared/archive'
 import { CHALLENGE_DATE_PATTERN, CHALLENGE_MONTH_PATTERN } from '@/shared/schedule'
 import type { ChallengeDate, ChallengeMonth } from '@/shared/schedule'
 
@@ -60,15 +61,26 @@ export function datesInMonth(month: ChallengeMonth): ChallengeDate[] {
  * hours from a local one would give the same day back twice a year. UTC has no
  * such day, so the arithmetic is exact — which is the whole reason this is a
  * function and not a subtraction written wherever a streak is computed.
+ *
+ * That arithmetic is `shared/archive.ts`'s `shiftDate`, borrowed rather than
+ * written again: the header of an archive day steps through the calendar the
+ * same way the série does, and two implementations of « the day before » are
+ * two chances to disagree about the 1st of January. What this file adds is the
+ * *name* — the série counts back on a previous day, not on a delta of −1.
  */
 export function previousDate(date: ChallengeDate): ChallengeDate {
-  const [year, month] = splitMonth(date)
-  const day = Number(date.slice(8, 10))
-  // Day 0 of a month is the last day of the one before, so 1 January needs no
-  // special case: `Date.UTC` normalises it on its own.
-  const before = new Date(Date.UTC(year, month - 1, day - 1))
+  return shiftDate(date, -1)
+}
 
-  return `${before.getUTCFullYear()}-${pad(before.getUTCMonth() + 1)}-${pad(before.getUTCDate())}`
+/**
+ * Le jour d'après — ce que la page d'un jour du calendrier propose d'ouvrir.
+ *
+ * Le voisin de `previousDate`, et pas la même chose que lui : la série remonte,
+ * le back-office avance. Programmer une semaine se fait en suivant, et sans ce
+ * pas-là il faudrait repasser par le mois entre deux jours.
+ */
+export function nextDate(date: ChallengeDate): ChallengeDate {
+  return shiftDate(date, 1)
 }
 
 /** The month `delta` months away, crossing years correctly. */

@@ -422,10 +422,13 @@ export type MonthCalendar = {
 /**
  * Everything the programming screen shows, in one read.
  *
- * The screen asks for a month and a day and gets back the whole page, the way
- * the curation screen gets a `CurationDossier`: routing may only reach the
- * server through a service, so the Paris calendar — which lives in the domain
- * — is resolved on this side of the door rather than in the page.
+ * The screen asks for a month and gets back the whole page, the way the
+ * curation screen gets a `CurationDossier`: routing may only reach the server
+ * through a service, so the Paris calendar — which lives in the domain — is
+ * resolved on this side of the door rather than in the page.
+ *
+ * Il n'y a **pas de jour ouvert** ici : un jour est une page, avec son adresse
+ * (`ScheduleDayScreen`). Le mois montre, le jour programme.
  */
 export type SchedulingScreen = {
   /** Today in Paris, so the view can say which square is today. */
@@ -433,24 +436,58 @@ export type SchedulingScreen = {
   calendar: MonthCalendar
   previousMonth: ChallengeMonth
   nextMonth: ChallengeMonth
+}
+
+/**
+ * Un jour du calendrier, tel que sa page le montre : sa grille, ses voisins, et
+ * le mois d'où l'on vient.
+ *
+ * ## Le jour est une adresse
+ *
+ * Il l'a été une fenêtre modale au-dessus du mois, et l'argument était la
+ * distance entre le doigt et le formulaire. Ce que cette fenêtre ne pouvait pas
+ * faire pèse plus lourd : envoyer « la grille du 12 » à quelqu'un, la rouvrir
+ * après un rechargement, revenir dessus avec le bouton du navigateur, et
+ * surtout enchaîner les jours — programmer une semaine est le geste courant, et
+ * il passait par le mois entre chaque jour. `previousDate` et `nextDate` sont
+ * cette semaine-là ; l'alerte hebdomadaire (#14) y trouve l'adresse qu'elle
+ * cherchait pour dire « il manque une grille le 12 ».
+ *
+ * `month` est celui du retour et non un rappel : le bouton ramène au mois qui
+ * contient ce jour, y compris quand on y est arrivé par un lien plutôt que par
+ * le calendrier.
+ *
+ * Les thèmes déjà posés voyagent avec le jour, parce que le champ qui les offre
+ * est ici — le mois, lui, ne les demande plus.
+ */
+export type ScheduleDayScreen = {
+  date: ChallengeDate
+  /** La grille programmée ce jour-là, ou `null` : le trou que l'admin vient combler. */
+  grid: ScheduledGrid | null
   /**
-   * Le jour sur lequel l'écran s'ouvre déjà, ou `null` — le cas courant.
-   *
-   * L'URL *amène* sur un jour, elle ne le suit pas : `?date=` est un lien
-   * d'arrivée, pour l'alerte hebdomadaire (#14) qui dira « il manque une grille
-   * le 12 » et voudra ouvrir ce jour-là directement. Une fois la page ouverte,
-   * le jour qu'on édite est l'état d'une fenêtre modale et rien de plus — il
-   * n'y a rien à partager d'un formulaire à moitié rempli, et une navigation
-   * par ouverture aurait mis un aller-retour serveur entre le doigt et la
-   * fenêtre.
-   *
-   * Toujours un jour du mois affiché, sinon `null` : la fenêtre lit la grille
-   * dans le calendrier déjà chargé, et un jour d'un autre mois n'y serait pas.
+   * Aujourd'hui à Paris — le seul jour dont la grille est déjà devant les
+   * joueurs, ce que la page dit avant qu'on la remplace.
    */
-  openDate: ChallengeDate | null
+  today: ChallengeDate
+  /** Le mois auquel le retour ramène — celui qui contient ce jour. */
+  month: ChallengeMonth
+  previousDate: ChallengeDate
+  nextDate: ChallengeDate
   /** The themes already used, offered to the free-text field. */
   themes: string[]
 }
+
+/**
+ * Les deux adresses du calendrier de programmation, écrites une seule fois.
+ *
+ * Le mois et le jour se renvoient l'un à l'autre — la case ouvre son jour, le
+ * jour revient à son mois — et deux gabarits d'URL recopiés dans deux écrans
+ * sont deux façons de se tromper de lien le jour où l'un des deux bouge.
+ */
+export const scheduleMonthHref = (month: ChallengeMonth): string =>
+  `/admin/schedule?month=${month}`
+
+export const scheduleDayHref = (date: ChallengeDate): string => `/admin/schedule/${date}`
 
 /**
  * What a scheduling form gets back — the admin's one answer shape, under the

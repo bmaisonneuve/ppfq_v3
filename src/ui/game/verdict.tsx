@@ -68,8 +68,14 @@ export type Verdict = {
  * Le palier dévoilé est le dernier de la liste, et il n'est dévoilé que si la
  * liste s'est allongée : l'échelle est cumulative et n'ajoute qu'un palier par
  * erreur (`server/domain/reveal-ladder.ts`), donc le dernier est forcément le
- * neuf. L'essai qui trouve n'en paie aucun, et la sixième erreur non plus —
- * elle n'a plus rien à donner et donne la réponse.
+ * neuf.
+ *
+ * Seulement tant que la partie court, et c'est la condition qui compte : une
+ * partie finie montre toute l'échelle d'un coup, y compris les paliers qu'elle
+ * n'a jamais payés. Sans ce garde-fou, trouver au deuxième essai ferait cascader
+ * la colonne des buts comme si l'essai gagnant l'avait achetée. L'essai qui
+ * trouve ne paie aucun palier, et la sixième erreur non plus — elle n'a plus
+ * rien à donner et donne la réponse.
  */
 export function verdictOf(args: {
   serial: number
@@ -86,7 +92,9 @@ export function verdictOf(args: {
   if (before?.triesUsed === after.triesUsed && before.status === after.status) return null
 
   const revealed =
-    after.hints.length > (before?.hints.length ?? 0) ? (after.hints.at(-1)?.tier ?? null) : null
+    after.status === 'in_progress' && after.hints.length > (before?.hints.length ?? 0)
+      ? (after.hints.at(-1)?.tier ?? null)
+      : null
 
   return {
     serial: args.serial,

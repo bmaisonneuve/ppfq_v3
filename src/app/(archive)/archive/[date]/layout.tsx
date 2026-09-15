@@ -49,7 +49,11 @@ export default async function ArchiveGridLayout({
     // `archiveDate` est renseignée même sans grille : une journée verrouillée
     // ou sans grille reste une journée d'archive, et c'est ce qui décide de son
     // en-tête et des statistiques qu'elle montre.
-    <GameProvider grid={screen.kind === 'grid' ? screen.grid : null} archiveDate={date}>
+    <GameProvider
+      grid={screen.kind === 'grid' ? screen.grid : null}
+      today={screen.today}
+      archiveDate={date}
+    >
       {screen.kind === 'grid' ? children : <ArchiveGate reason={screen.kind} date={date} />}
     </GameProvider>
   )

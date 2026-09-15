@@ -1,5 +1,3 @@
-'use client'
-
 import Link from 'next/link'
 
 import {
@@ -9,9 +7,13 @@ import {
   describeCalendarDay,
   enigmaAt,
   formatChallengeMonth,
+  scheduleDayHref,
+  scheduleMonthHref,
   weekdayIndex,
 } from '@/shared/schedule'
 import type { CalendarDay, ChallengeDate, ChallengeMonth, DayState, MonthCalendar } from '@/shared/schedule'
+
+import { CalendarNavLink } from './calendar-nav-link'
 
 /**
  * The month view: the holes, and what fills them.
@@ -46,21 +48,24 @@ import type { CalendarDay, ChallengeDate, ChallengeMonth, DayState, MonthCalenda
  * ajouter — sur l'ordinateur, les trois lignes lues sans leur date ni leur
  * position ne voulaient pas dire grand-chose.
  *
- * Cliquer un jour ouvre sa grille dans une fenêtre, et c'est un bouton : ce que
- * l'on ouvre est un formulaire au-dessus de l'écran, pas une autre page.
+ * ## Une case est un lien, et le mois ne sait rien de plus
+ *
+ * Cliquer un jour ouvre **sa page** (`/admin/schedule/<date>`), qui porte le
+ * formulaire. C'est donc un `<Link>` et pas un bouton : le jour a une adresse,
+ * elle se partage, elle se recharge, et le bouton « précédent » du navigateur y
+ * répond. Le mois n'a plus d'état à lui — il montre, il ne programme pas — et
+ * cet écran est redevenu du serveur de bout en bout.
  */
 export function MonthCalendarView({
   calendar,
   today,
   previousMonth,
   nextMonth,
-  onPickDay,
 }: Readonly<{
   calendar: MonthCalendar
   today: ChallengeDate
   previousMonth: ChallengeMonth
   nextMonth: ChallengeMonth
-  onPickDay: (date: ChallengeDate) => void
 }>) {
   const first = calendar.days[0]
   // The empty squares before the 1st, so the columns line up with the weekdays.
@@ -98,7 +103,7 @@ export function MonthCalendarView({
         ))}
         {calendar.days.map((day) => (
           <li key={day.date}>
-            <DaySquare day={day} isToday={day.date === today} onPick={onPickDay} />
+            <DaySquare day={day} isToday={day.date === today} />
           </li>
         ))}
       </ol>
@@ -109,82 +114,48 @@ export function MonthCalendarView({
 /**
  * Le mois d'à côté : un bouton, et pas une flèche posée dans une phrase.
  *
- * C'est la seule commande de l'écran en dehors des jours eux-mêmes, et elle
- * était un caractère de 14 px souligné — invisible sur le vert, et intouchable
- * au doigt. Elle prend donc la pièce que le jeu pose déjà sur le vert pour ses
- * boutons d'en-tête (`ui/game/chrome.tsx`) : un contour blanc, un voile de
- * blanc derrière, un carré d'au moins 40 px.
+ * Il était un caractère de 14 px souligné — invisible sur le vert, et
+ * intouchable au doigt. C'est aujourd'hui la commande de navigation du
+ * calendrier (`calendar-nav-link.tsx`), la même que la page d'un jour prend
+ * pour ses voisins et pour son retour.
  *
- * Le nom du mois est écrit dedans, à toutes les largeurs : centrés sous le
- * mois courant les deux boutons ont la place, et un chevron seul ne dit ni
- * quel mois ni dans quel sens. `aria-label` le redit en phrase, parce que
- * « octobre 2026 » lu tout seul n'est pas une destination.
+ * Le nom du mois est écrit dedans, à toutes les largeurs : centrés sous le mois
+ * courant les deux boutons ont la place, et un chevron seul ne dit ni quel mois
+ * ni dans quel sens.
  */
 function MonthLink({
   month,
   direction,
 }: Readonly<{ month: ChallengeMonth; direction: 'previous' | 'next' }>) {
   const name = formatChallengeMonth(month)
-  const previous = direction === 'previous'
 
   return (
-    <Link
-      href={monthHref(month)}
-      aria-label={`Aller à ${name}`}
-      title={name}
-      className="rounded-icon font-display text-body focus-visible:ring-pitch flex h-10
-        min-w-10 shrink-0 cursor-pointer items-center justify-center gap-2 border-[1.5px]
-        border-white/60 bg-white/16 px-3 text-white hover:bg-white/25
-        focus-visible:ring-2 focus-visible:outline-none"
-    >
-      {previous ? <ChevronIcon direction="previous" /> : null}
-      {/* `aria-hidden` : le lien porte déjà son nom en entier. */}
-      <span aria-hidden>{name}</span>
-      {previous ? null : <ChevronIcon direction="next" />}
-    </Link>
-  )
-}
-
-/** Le chevron du mois d'avant ou d'après — le même trait que les autres icônes. */
-function ChevronIcon({ direction }: Readonly<{ direction: 'previous' | 'next' }>) {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      width="15"
-      height="15"
-      aria-hidden
-      focusable="false"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points={direction === 'previous' ? '12,4 6,10 12,16' : '8,4 14,10 8,16'} />
-    </svg>
+    <CalendarNavLink
+      href={scheduleMonthHref(month)}
+      label={name}
+      announce={`Aller à ${name}`}
+      direction={direction}
+    />
   )
 }
 
 /**
  * One day. Le téléphone en lit la pastille, l'ordinateur en lit les trois
- * positions, et les deux ouvrent la même fenêtre.
+ * positions, et les deux mènent à la même page.
  */
 function DaySquare({
   day,
   isToday,
-  onPick,
 }: Readonly<{
   day: CalendarDay
   isToday: boolean
-  onPick: (date: ChallengeDate) => void
 }>) {
   const grid = day.grid
   const state = dayState(grid)
 
   return (
-    <button
-      type="button"
-      onClick={() => { onPick(day.date) }}
+    <Link
+      href={scheduleDayHref(day.date)}
       aria-label={describeCalendarDay(day)}
       // `date` et non `true` : c'est le jour courant d'un calendrier, et c'est
       // la valeur que la norme réserve à ça.
@@ -213,8 +184,8 @@ function DaySquare({
 
       {/* L'ordinateur : les trois positions, ou le mot qui manque.
 
-          Des `span` et non une liste : le contenu d'un `<button>` est du
-          contenu de phrase, et un `<ol>` n'en est pas. Rien n'est perdu — la
+          Des `span` et non une liste : le contenu d'un lien est du contenu
+          de phrase, et un `<ol>` n'en est pas. Rien n'est perdu — la
           case entière est annoncée par `describeCalendarDay`, qui nomme bien
           les trois positions. */}
       {grid === null ? (
@@ -234,7 +205,7 @@ function DaySquare({
           })}
         </span>
       )}
-    </button>
+    </Link>
   )
 }
 
@@ -273,14 +244,3 @@ function gapsLabel(gaps: number): string {
   if (gaps === 0) return 'aucun trou'
   return `${gaps} jour${gaps > 1 ? 's' : ''} sans grille`
 }
-
-/**
- * Le seul état que l'écran garde dans son URL : le mois affiché.
- *
- * Le jour qu'on édite n'y est plus, et c'est une décision : c'est une fenêtre
- * modale, il n'y a rien à partager d'un formulaire à moitié rempli, et une
- * navigation par ouverture aurait mis un aller-retour serveur entre le doigt et
- * la fenêtre. `?date=` reste lu à l'arrivée (`SchedulingScreen.openDate`), pour
- * qu'un lien puisse amener sur un jour précis.
- */
-const monthHref = (month: ChallengeMonth) => `/admin/schedule?month=${month}`

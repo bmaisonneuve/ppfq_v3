@@ -71,15 +71,41 @@ export function archiveReach(date: ChallengeDate, today: ChallengeDate): Archive
  * compterait 23 heures le jour du changement d'heure, donc zéro jour d'écart
  * là où il y en a un. UTC n'a pas de tel jour, et l'arithmétique est exacte.
  *
- * Voisin de `previousDate` dans `server/domain/challenge-calendar.ts` et
- * délibérément pas le même : celui-là nomme le jour d'avant — ce sur quoi la
- * série compte — et celui-ci mesure une distance. Il est ici plutôt que là-bas
- * parce que l'écran s'en sert aussi, et que le calendrier de Paris est
- * `server-only`.
+ * Voisin de `shiftDate` juste en dessous et délibérément pas le même : celui-là
+ * nomme une journée, celui-ci mesure une distance. Tous deux sont ici plutôt
+ * que dans le calendrier de Paris parce que l'écran s'en sert aussi, et que
+ * `server/domain/challenge-calendar.ts` est `server-only`.
  */
 export function daysSince(date: ChallengeDate, today: ChallengeDate): number {
   return Math.round((midnightUtc(today) - midnightUtc(date)) / DAY_MS)
 }
+
+/**
+ * La journée à `delta` jours de celle-là — la veille, le lendemain.
+ *
+ * La même arithmétique d'UTC que `daysSince`, et pour la même raison : ce sont
+ * des dates de Paris écrites en texte, et ajouter 24 heures à un `new Date`
+ * local rendrait deux fois le même jour les deux dimanches de l'année où
+ * l'heure change. UTC n'a pas de tel jour.
+ *
+ * `Date.UTC` normalise seul les bords — le 0 d'un mois est le dernier jour du
+ * précédent, le 32 déborde sur le suivant — donc ni le 1er janvier ni le 29
+ * février ne sont des cas à écrire. C'est ce qui fait de ceci une fonction
+ * plutôt qu'une soustraction posée là où un voisin est demandé : l'en-tête
+ * d'une journée la lit, et la série aussi — par `previousDate`
+ * (`server/domain/challenge-calendar.ts`), qui la nomme sans la réécrire.
+ */
+export function shiftDate(date: ChallengeDate, delta: number): ChallengeDate {
+  const shifted = new Date(midnightUtc(date) + delta * DAY_MS)
+
+  return [
+    shifted.getUTCFullYear(),
+    pad(shifted.getUTCMonth() + 1),
+    pad(shifted.getUTCDate()),
+  ].join('-')
+}
+
+const pad = (value: number) => String(value).padStart(2, '0')
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -157,3 +183,64 @@ export function gridHome(base: GridBase): string {
 export function gridLevel(base: GridBase, position: Position): string {
   return `${base}/${position}`
 }
+
+/**
+ * Une journée voisine, telle qu'une flèche d'en-tête la propose : où elle mène,
+ * et quel jour c'est.
+ *
+ * Les deux, parce que la flèche a besoin des deux et qu'elles ne se déduisent
+ * pas l'une de l'autre sans réécrire l'adresse : un chevron seul ne dit pas où
+ * il va, donc son nom accessible nomme la date, et c'est `date` qui la porte.
+ */
+export type DayStep = { date: ChallengeDate; href: string }
+
+/**
+ * La veille et le lendemain de la journée à l'écran — la navigation de jour en
+ * jour de son en-tête.
+ *
+ * Elle part d'une **journée** et non d'une grille : un jour sans grille en a
+ * une veille et un lendemain comme les autres, et c'est précisément l'écran
+ * depuis lequel on veut continuer à avancer. Rien ici ne lit le calendrier.
+ *
+ * **En arrière, aucune borne.** Remonter tombe tôt ou tard sur un jour sans
+ * grille ou sur une journée qu'un compte ouvre : ce sont deux écrans qui
+ * existent déjà et qui expliquent (`archive-gate.tsx`), pas des cas à empêcher
+ * ici. La flèche du mois du back-office ne borne pas davantage, et c'est le
+ * même parti : la navigation propose le voisin, et c'est la destination qui dit
+ * ce qu'elle est.
+ *
+ * **En avant, la borne est aujourd'hui.** Un lendemain ne se propose que s'il
+ * est déjà arrivé : les grilles sont programmées à l'avance, donc une flèche
+ * vers demain aurait été le seul chemin par lequel l'énigme du lendemain
+ * pouvait fuir — et sur une journée à venir, elle n'aurait mené qu'à la même
+ * phrase, un jour plus loin. C'est `archiveReach` qui le dit, la même règle qui
+ * décide du droit d'y jouer, et non un second calcul qui pourrait s'en écarter.
+ *
+ * `today` vient du serveur et de nulle part ailleurs : la seule horloge est la
+ * sienne (ADR-0016), et c'est aussi ce qui permet à la flèche de pointer
+ * directement sur `/` quand le voisin *est* la grille du jour, au lieu de
+ * passer par la redirection de `/archive/<aujourd'hui>`.
+ */
+export function dayNeighbours(
+  date: ChallengeDate,
+  today: ChallengeDate,
+): { previous: DayStep; next: DayStep | null } {
+  // Le lendemain d'aujourd'hui est demain, celui d'une journée à venir l'est
+  // plus encore : ni l'un ni l'autre ne se propose.
+  const reach = archiveReach(date, today)
+  const arrived = reach === 'open' || reach === 'account'
+
+  return {
+    previous: dayStep(shiftDate(date, -1), today),
+    next: arrived ? dayStep(shiftDate(date, 1), today) : null,
+  }
+}
+
+/**
+ * Où mène une journée : `/` quand c'est celle du jour, son adresse d'archive
+ * sinon — les deux préfixes du jeu, et pas un troisième écrit ici.
+ */
+const dayStep = (date: ChallengeDate, today: ChallengeDate): DayStep => ({
+  date,
+  href: gridHome(date === today ? DAILY_BASE : archiveBase(date)),
+})

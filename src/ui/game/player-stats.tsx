@@ -3,6 +3,8 @@ import type { ReactNode } from 'react'
 import { distributionBars, successRatePercent } from '@/shared/stats'
 import type { PlayerStats } from '@/shared/stats'
 
+import { DistributionList } from './distribution'
+
 /**
  * Ce que le joueur a derrière lui — la série, les cartons pleins, ses chiffres.
  *
@@ -93,10 +95,9 @@ function Figure({ label, value }: Readonly<{ label: string; value: string }>) {
 /**
  * La répartition des réussites par nombre d'essais.
  *
- * Une barre par essai possible, creux compris : « je ne trouve jamais du
- * premier coup » est une information, et une barre absente ne la donne pas.
- * Leur longueur est relative à la plus grande (`distributionBars`), parce que
- * ce qu'on lit là-dedans est une forme et non des parts d'un total.
+ * Les barres elles-mêmes sont `distribution.tsx`, partagées avec le panneau
+ * d'une énigme : c'est la même forme, lue de la même façon. Ce qui reste ici
+ * est ce qui n'appartient qu'au joueur — son titre, et son taux.
  *
  * Le taux de réussite est posé à côté du titre et non parmi les chiffres
  * ci-dessus : c'est le même fait que cette répartition, résumé en un nombre.
@@ -116,25 +117,7 @@ function Distribution({
         )}
       </div>
 
-      <ol className="flex flex-col gap-1">
-        {distributionBars(stats).map((bar) => (
-          <li key={bar.tries} className="text-body flex items-center gap-2">
-            <span className="text-muted w-3 shrink-0 tabular-nums">{bar.tries}</span>
-            <span className="flex h-5 min-w-0 flex-1 items-center">
-              <span
-                // Une barre vide garde une amorce visible, sinon la ligne d'un
-                // nombre d'essais jamais atteint disparaît et la forme ment.
-                style={{ width: `${Math.max(bar.share * 100, 2)}%` }}
-                className={`rounded-bar text-cell flex h-full items-center justify-end px-1.5 tabular-nums ${
-                  bar.count === 0 ? 'bg-crest text-transparent' : 'bg-ink text-white'
-                }`}
-              >
-                {bar.count}
-              </span>
-            </span>
-          </li>
-        ))}
-      </ol>
+      <DistributionList bars={distributionBars(stats)} />
     </div>
   )
 }

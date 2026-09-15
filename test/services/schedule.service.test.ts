@@ -6,6 +6,7 @@ import { FootballerNotFoundError } from '@/server/services/curation.service'
 import {
   NotSchedulableError,
   getMonthCalendar,
+  getScheduleDayScreen,
   getSchedulingScreen,
   listThemes,
   scheduleGrid,
@@ -296,49 +297,27 @@ describe('listThemes', () => {
 })
 
 describe('getSchedulingScreen', () => {
-  it('shows the month of today, and opens on no day at all', async () => {
-    // The common arrival: `/admin/schedule` with an empty query string. The
-    // calendar is there, and nothing is open on top of it.
+  it('shows the month of today', async () => {
+    // The common arrival: `/admin/schedule` with an empty query string.
     const screen = await getSchedulingScreen({})
 
     expect(screen.calendar.month).toBe(screen.today.slice(0, 7))
-    expect(screen.openDate).toBeNull()
   })
 
-  it('opens on the day a link names, in the month that contains it', async () => {
-    await scheduleGrid(grid())
-
-    const screen = await getSchedulingScreen({ date: '2026-09-09' })
+  it('shows the month a link names', async () => {
+    const screen = await getSchedulingScreen({ month: '2026-09' })
 
     expect(screen.calendar.month).toBe('2026-09')
-    expect(screen.openDate).toBe('2026-09-09')
-    // The day's grid rides in the calendar: the window needs no read of its own.
-    const day = screen.calendar.days.find((d) => d.date === '2026-09-09')
-    expect(day?.grid?.enigmas.map((e) => e.position)).toEqual([1, 2, 3])
   })
 
-  it('opens on a day with no grid: the hole is what the admin came to fill', async () => {
-    const screen = await getSchedulingScreen({ date: '2026-09-09' })
-
-    expect(screen.openDate).toBe('2026-09-09')
-    expect(screen.calendar.days.find((d) => d.date === '2026-09-09')?.grid).toBeNull()
-  })
-
-  it('opens on nothing when the date is a typo, rather than on today', async () => {
-    // `?date=` comes from a query string. A fallback that opened a window on
-    // today would put the admin in front of a form he did not ask for.
-    for (const date of ['demain', '2026-09', '2026-02-30']) {
-      expect((await getSchedulingScreen({ date })).openDate).toBeNull()
+  it('falls back to today’s month when the month is a typo', async () => {
+    // `?month=` comes from a query string, where a typo is not an incident: a
+    // 404 on a calendar would be a strange answer to one.
+    for (const month of ['septembre', '2026-13', '2026-09-09']) {
+      expect((await getSchedulingScreen({ month })).calendar.month).toBe(
+        (await getSchedulingScreen({})).today.slice(0, 7),
+      )
     }
-  })
-
-  it('opens on nothing when the day is not in the month on screen', async () => {
-    // The window reads the day's grid from the calendar above it, so a day
-    // outside it has nothing to show.
-    const screen = await getSchedulingScreen({ month: '2026-10', date: '2026-09-09' })
-
-    expect(screen.calendar.month).toBe('2026-10')
-    expect(screen.openDate).toBeNull()
   })
 
   it('pages to the neighbouring months', async () => {
@@ -346,5 +325,54 @@ describe('getSchedulingScreen', () => {
 
     expect(screen.previousMonth).toBe('2025-12')
     expect(screen.nextMonth).toBe('2026-02')
+  })
+})
+
+describe('getScheduleDayScreen', () => {
+  it('carries the grid of the day, its theme and its three enigmas', async () => {
+    await scheduleGrid(grid({ theme: 'rétro' }))
+
+    const screen = await getScheduleDayScreen('2026-09-09')
+
+    expect(screen?.date).toBe('2026-09-09')
+    expect(screen?.grid?.theme).toBe('rétro')
+    expect(screen?.grid?.enigmas.map((e) => e.position)).toEqual([1, 2, 3])
+  })
+
+  it('is a day with no grid: the hole is what the admin came to fill', async () => {
+    const screen = await getScheduleDayScreen('2026-09-09')
+
+    expect(screen?.date).toBe('2026-09-09')
+    expect(screen?.grid).toBeNull()
+  })
+
+  it('names the day before, the day after, and the month to come back to', async () => {
+    // The week is programmed by walking it: without these, every day went back
+    // through the month view.
+    const screen = await getScheduleDayScreen('2026-09-01')
+
+    expect(screen?.previousDate).toBe('2026-08-31')
+    expect(screen?.nextDate).toBe('2026-09-02')
+    expect(screen?.month).toBe('2026-09')
+  })
+
+  it('offers the themes already used, as the form asks for them', async () => {
+    await scheduleGrid(grid({ date: '2026-09-08', theme: 'rétro' }))
+
+    expect((await getScheduleDayScreen('2026-09-09'))?.themes).toEqual(['rétro'])
+  })
+
+  it('is null for an address that does not name a day', async () => {
+    // `/admin/schedule/demain`, a 30th of February: a 404, and deliberately not
+    // a fallback on today — which would put the admin in front of a form for a
+    // day he did not ask for.
+    for (const date of ['demain', '2026-09', '2026-02-30', '2026-13-01']) {
+      expect(await getScheduleDayScreen(date)).toBeNull()
+    }
+  })
+
+  it('accepts any real day: the calendar has no edge', async () => {
+    expect((await getScheduleDayScreen('2028-02-29'))?.date).toBe('2028-02-29')
+    expect((await getScheduleDayScreen('2019-01-01'))?.date).toBe('2019-01-01')
   })
 })

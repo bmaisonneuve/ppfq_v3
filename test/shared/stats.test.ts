@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { MAX_TRIES } from '@/shared/play'
-import { distributionBars, successRatePercent } from '@/shared/stats'
+import { distributionBars, percent, successRatePercent } from '@/shared/stats'
 import type { PlayerStats } from '@/shared/stats'
 
 /**
@@ -26,6 +26,23 @@ const stats = (over: Partial<PlayerStats> = {}): PlayerStats => ({
   bestSerie: 0,
   solvedByTries: Array.from({ length: MAX_TRIES }, () => 0),
   ...over,
+})
+
+describe('le pourcentage, la division que tout le monde fait', () => {
+  it('n’existe pas sur une population vide', () => {
+    // Zéro sur zéro n'est pas zéro pour cent : c'est un pourcentage qu'on n'a
+    // pas, et ce qu'on en dit appartient à l'appelant.
+    expect(percent(0, 0)).toBeNull()
+  })
+
+  it('s’arrondit à l’entier', () => {
+    expect(percent(2, 3)).toBe(67)
+    expect(percent(1, 3)).toBe(33)
+  })
+
+  it('vaut zéro pour une part vide d’une population qui, elle, existe', () => {
+    expect(percent(0, 12)).toBe(0)
+  })
 })
 
 describe('le taux de réussite', () => {

@@ -256,8 +256,15 @@ export function describePlay(play: EnigmaPlay): string {
   }
 }
 
-/** French, so zero is singular: « 0 essai », « 1 essai », « 2 essais ». */
-const essais = (count: number) => `${count} essai${count > 1 ? 's' : ''}`
+/**
+ * French, so zero is singular: « 0 essai », « 1 essai », « 2 essais ».
+ *
+ * Exportée parce qu'un troisième écran la demande — le panneau d'une énigme
+ * dit « trouvée en 1 essai » comme les deux d'ici le disent. La règle du
+ * singulier français ne s'écrit qu'une fois, sinon c'est le troisième endroit
+ * qui écrira « 1 essais ».
+ */
+export const essais = (count: number): string => `${count} essai${count > 1 ? 's' : ''}`
 
 /** Ce qu'il reste à dépenser : jamais négatif, même si le serveur a compté 7. */
 export function triesLeft(play: EnigmaPlay): number {

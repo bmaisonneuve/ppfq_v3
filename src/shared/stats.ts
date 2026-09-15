@@ -74,6 +74,22 @@ export const NO_STATS: PlayerStats = {
 }
 
 /**
+ * Un pourcentage entier, ou `null` quand il n'y a rien à diviser.
+ *
+ * La même division est faite quatre fois dans l'application — le taux d'un
+ * joueur, celui d'une énigme, le rang du joueur dans cette énigme, la part de
+ * chaque barre — et chacune traitait le zéro à sa façon. Elle est ici une
+ * fois, avec sa seule décision : **zéro sur zéro n'est pas zéro pour cent**,
+ * c'est un pourcentage qui n'existe pas, et l'appelant décide de ce qu'il en
+ * dit.
+ */
+export function percent(part: number, whole: number): number | null {
+  if (whole === 0) return null
+
+  return Math.round((part / whole) * 100)
+}
+
+/**
  * Le taux de réussite en pourcentage entier, ou `null` quand il n'existe pas.
  *
  * Le dénominateur est **les parties jouées**, donc les abandons y sont : une
@@ -84,9 +100,7 @@ export const NO_STATS: PlayerStats = {
  * reproche, et zéro sur zéro n'est pas un taux.
  */
 export function successRatePercent(stats: PlayerStats): number | null {
-  if (stats.playedCount === 0) return null
-
-  return Math.round((stats.solvedCount / stats.playedCount) * 100)
+  return percent(stats.solvedCount, stats.playedCount)
 }
 
 /** Une barre de la répartition : son nombre d'essais, son compte, sa longueur. */
@@ -105,8 +119,17 @@ export type DistributionBar = {
  * qu'on lit là-dedans est une **forme** : quelqu'un qui trouve surtout au
  * quatrième essai doit le voir d'un coup d'œil, et des parts d'un total
  * écraseraient tout le monde à quelques pour cent de haut.
+ *
+ * Elle prend la répartition et non les statistiques entières, parce qu'il y en
+ * a maintenant deux à dessiner : celle d'un joueur sur toute son histoire et
+ * celle d'une énigme sur tous ses joueurs (`shared/enigma-stats.ts`). Les deux
+ * sont un tableau de `MAX_TRIES` entrées et se lisent de la même façon — c'est
+ * la seule chose que cette fonction a jamais regardée, et le dire dans le type
+ * est ce qui évite une seconde copie de la même division.
  */
-export function distributionBars(stats: PlayerStats): DistributionBar[] {
+export function distributionBars(stats: {
+  solvedByTries: readonly number[]
+}): DistributionBar[] {
   const largest = Math.max(0, ...stats.solvedByTries)
 
   return Array.from({ length: MAX_TRIES }, (_, index) => {

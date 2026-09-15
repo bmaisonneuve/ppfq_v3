@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   datesInMonth,
   monthOfDate,
+  nextDate,
   parseChallengeDate,
   parseChallengeMonth,
   previousDate,
@@ -102,6 +103,32 @@ describe('previousDate', () => {
     // fois — c'est la raison pour laquelle cette fonction existe.
     expect(previousDate('2026-03-29')).toBe('2026-03-28')
     expect(previousDate('2026-10-25')).toBe('2026-10-24')
+  })
+})
+
+describe('nextDate', () => {
+  it('avance d’un jour', () => {
+    expect(nextDate('2026-09-09')).toBe('2026-09-10')
+  })
+
+  it('passe au mois suivant', () => {
+    expect(nextDate('2026-08-31')).toBe('2026-09-01')
+  })
+
+  it('passe à l’année suivante', () => {
+    expect(nextDate('2025-12-31')).toBe('2026-01-01')
+  })
+
+  it('connaît les années bissextiles', () => {
+    expect(nextDate('2028-02-28')).toBe('2028-02-29')
+    expect(nextDate('2026-02-28')).toBe('2026-03-01')
+  })
+
+  it('traverse le changement d’heure sans perdre ni doubler un jour', () => {
+    // Les deux dimanches où une journée de Paris ne fait pas 24 heures — la
+    // raison pour laquelle le pas d'un jour est du texte et non des millisecondes.
+    expect(nextDate('2026-03-28')).toBe('2026-03-29')
+    expect(nextDate('2026-10-25')).toBe('2026-10-26')
   })
 })
 

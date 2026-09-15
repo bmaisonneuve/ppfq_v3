@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { eq } from 'drizzle-orm'
 
 import { clubCrests, clubs, dailyChallenges, footballers, playerClubs } from '@/server/db/schema'
-import { getDailyGrid, getGridOfDate } from '@/server/services/grid.service'
+import { getDailyScreen, getGridOfDate } from '@/server/services/grid.service'
 import { scheduleGrid } from '@/server/services/schedule.service'
 
 import { db } from '@test/setup/db'
@@ -235,13 +235,13 @@ describe('getGridOfDate', () => {
   })
 })
 
-describe('getDailyGrid', () => {
+describe('getDailyScreen', () => {
   it('reads the grid of today in Paris', async () => {
     await scheduleGrid(grid({ date: '2026-09-09', theme: 'rétro' }))
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-09-09T11:00:00Z'))
 
-    expect((await getDailyGrid())?.date).toBe('2026-09-09')
+    expect((await getDailyScreen()).grid?.date).toBe('2026-09-09')
   })
 
   it('turns the grid at Paris midnight, not at UTC midnight', async () => {
@@ -252,17 +252,19 @@ describe('getDailyGrid', () => {
 
     // 21:59 UTC is 23:59 in Paris in September: still yesterday's grid.
     vi.setSystemTime(new Date('2026-09-09T21:59:00Z'))
-    expect((await getDailyGrid())?.theme).toBe('rétro')
+    expect((await getDailyScreen()).grid?.theme).toBe('rétro')
 
     // One minute later Paris has turned the page, and UTC has not.
     vi.setSystemTime(new Date('2026-09-09T22:00:00Z'))
-    expect((await getDailyGrid())?.theme).toBe('mercato')
+    expect((await getDailyScreen()).grid?.theme).toBe('mercato')
   })
 
-  it('is null on a day nobody programmed', async () => {
+  it('is null on a day nobody programmed — but still says which day', async () => {
+    // La date sort du trou : c'est elle que l'écran d'attente titre, et dont il
+    // propose les journées voisines (`ui/game/grid-message.tsx`).
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-09-09T11:00:00Z'))
 
-    expect(await getDailyGrid()).toBeNull()
+    expect(await getDailyScreen()).toEqual({ date: '2026-09-09', grid: null })
   })
 })

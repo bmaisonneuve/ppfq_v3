@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 
 import { ARCHIVE_PATH, gridHome, gridLevel } from '@/shared/archive'
+import { flagUrl } from '@/shared/nationality'
 import { isOver } from '@/shared/play'
 import { positionObject, positionTitle } from '@/shared/schedule'
 import type { Enigma } from '@/shared/grid'
@@ -22,11 +23,13 @@ import {
 } from './chrome'
 import { AnswerCard } from './answer-card'
 import { ClubTable } from './club-table'
+import { EnigmaStatsPanel } from './enigma-stats'
 import { Confetti } from './confetti'
 import { DesktopRail } from './rail'
 import { EssaiBand } from './essai-band'
 import { useGame, useGrid } from './game-provider'
 import { StaleGridNotice, UnavailableNotice } from './notices'
+import { useEnigmaStats } from './use-enigma-stats'
 import { SegmentIcon } from './segment-icon'
 import { VerdictAnnounce, VerdictBand, closes, useLive, verdictAt } from './verdict'
 import type { Verdict } from './verdict'
@@ -91,6 +94,28 @@ export function ChallengeScreen({ position }: Readonly<{ position: Position }>) 
   const liveVerdict = useLive(ownVerdict)
   const hints = play?.hints ?? []
 
+  /**
+   * La partie une fois finie, et `undefined` tant qu'elle se joue.
+   *
+   * Nommée plutôt que testée trois fois : la carte réponse et le panneau des
+   * chiffres ne s'affichent qu'à ce moment-là, et ils sont désormais aux deux
+   * bouts de l'écran — l'un au-dessus du parcours, l'autre en dessous. Une
+   * condition écrite à chaque endroit aurait été deux occasions de les
+   * désynchroniser.
+   */
+  const finished = play !== undefined && isOver(play) ? play : undefined
+  const over = finished !== undefined
+
+  /**
+   * Ce que l'énigme a fait aux autres — demandé une fois la partie finie, et
+   * jamais avant. C'est un GET public qui ne crée aucun joueur, donc il est le
+   * seul du jeu à ne pas passer par la file (`use-enigma-stats.ts`).
+   *
+   * Appelé au-dessus du niveau qui n'existe pas : un écran qui rend `null` plus
+   * bas doit quand même avoir appelé ses hooks.
+   */
+  const enigmaStats = useEnigmaStats(grid.date, position, over)
+
   // Une grille à deux énigmes est une grille incomplète, pas un écran à
   // inventer : le back-office en programme toujours trois (specs §2).
   if (enigma === undefined) return <MissingEnigma />
@@ -122,13 +147,15 @@ export function ChallengeScreen({ position }: Readonly<{ position: Position }>) 
           <div className="flex flex-col gap-3 lg:gap-[14px]">
             {state.status === 'unavailable' ? <UnavailableNotice /> : null}
 
-            {play !== undefined && isOver(play) ? (
-              <AnswerCard play={play} clubs={enigma.passages.length} verdict={liveVerdict} />
-            ) : null}
+            <AnswerCard play={finished} clubs={enigma.passages.length} verdict={liveVerdict} />
 
-            <HintChips hints={hints} revealed={liveVerdict?.tier ?? null} />
+            <HintChips hints={hints} revealed={liveVerdict?.tier ?? null} over={over} />
 
             <ClubTable passages={enigma.passages} hints={hints} verdict={liveVerdict} />
+
+            {/* Après le parcours : c'est le tableau que la réponse invite à
+                relire, et les chiffres des autres sont un après-coup. */}
+            <EnigmaStatsPanel stats={enigmaStats} play={finished} verdict={liveVerdict} />
           </div>
         </ScrollBody>
 
@@ -240,13 +267,22 @@ function SegmentedBar({
  * joueur a payé un essai pour ce palier ; ne rien montrer lui laisserait croire
  * que l'écran est cassé, et « inconnue » est au moins une information sur le
  * catalogue.
+ *
+ * Le temps de la partie seulement. Une fois finie, l'écran montre toute
+ * l'échelle (`server/domain/reveal-ladder.ts`) et la carte de la réponse porte
+ * déjà la nationalité et la décennie : les redire en pastilles juste en dessous
+ * ferait lire deux fois la même chose, là où les trois autres paliers ont le
+ * tableau pour eux. D'où `over`, qui vide les pastilles au lieu de les
+ * filtrer — c'est le moment qui les retire, pas le palier.
  */
 function HintChips({
   hints,
   /** Le palier que le dernier essai vient de payer, s'il est de ceux-ci. */
   revealed,
-}: Readonly<{ hints: readonly RevealedHint[]; revealed: HintTier | null }>) {
-  const chips = hints.flatMap(chipOf)
+  /** La partie est finie : la carte de la réponse a pris le relais. */
+  over,
+}: Readonly<{ hints: readonly RevealedHint[]; revealed: HintTier | null; over: boolean }>) {
+  const chips = over ? [] : hints.flatMap(chipOf)
 
   const box = useRef<HTMLDivElement>(null)
   // Les pastilles sont en haut du corps qui défile, et un parcours de huit
@@ -267,10 +303,20 @@ function HintChips({
       {chips.map((chip) => (
         <span
           key={chip.tier}
-          className={`font-mono text-chip text-ink rounded-full bg-white px-[10px] py-[6px] uppercase ${
+          className={`font-mono text-chip text-ink inline-flex items-center gap-[6px] rounded-full bg-white px-[10px] py-[6px] uppercase ${
             chip.tier === revealed ? 'animate-chip' : ''
           }`}
         >
+          {/* Le drapeau porte l'indice aussi bien que le mot, et plus vite :
+              c'est la même image que la carte de la réponse montrera à la fin
+              (`answer-card.tsx`), au même endroit de la phrase. */}
+          {chip.flag === null ? null : (
+            <img
+              src={flagUrl(chip.flag)}
+              alt=""
+              className="h-[12px] w-[17px] shrink-0 rounded-[2px] object-cover"
+            />
+          )}
           {chip.text}
         </span>
       ))}
@@ -290,13 +336,14 @@ function HintChips({
  * Une liste et non un `RevealedHint | null`, pour que `flatMap` fasse le tri :
  * les trois paliers qui sont des colonnes du tableau rendent la liste vide.
  */
-function chipOf(hint: RevealedHint): { tier: HintTier; text: string }[] {
+function chipOf(hint: RevealedHint): { tier: HintTier; text: string; flag: string | null }[] {
   switch (hint.tier) {
     case 1:
       return [
         {
           tier: hint.tier,
           text: hint.decade === null ? 'décennie inconnue' : `années ${hint.decade}`,
+          flag: null,
         },
       ]
     case 3:
@@ -304,6 +351,10 @@ function chipOf(hint: RevealedHint): { tier: HintTier; text: string }[] {
         {
           tier: hint.tier,
           text: hint.nationality === null ? 'nationalité inconnue' : hint.nationality.frName,
+          // Nul deux fois pour deux raisons, et la pastille les traite pareil :
+          // le palier n'a pas de nationalité, ou elle n'a pas encore de
+          // drapeau. Dans les deux cas c'est le mot qui porte l'indice.
+          flag: hint.nationality?.flagKey ?? null,
         },
       ]
     // Les trois autres paliers sont des colonnes du tableau, pas des

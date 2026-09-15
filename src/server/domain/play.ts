@@ -56,8 +56,9 @@ export function readPlayStatus(
  * getting any of them right separately is worth nothing:
  *
  * - the **status** is read and not taken from the column (above);
- * - the **hints** are exactly the tiers the erreurs paid for, derived by the
- *   ladder and stored nowhere (`reveal-ladder.ts`);
+ * - the **hints** are the tiers the erreurs paid for while the partie is
+ *   playable, and the whole ladder once it is over, derived by the ladder and
+ *   stored nowhere (`reveal-ladder.ts`);
  * - the **answer** appears only once the partie is over — which is the whole of
  *   specs §10.1, and the reason it is computed from the status that was just
  *   read rather than from the one in the row. A partie the day took away is
@@ -89,7 +90,7 @@ export function readPlay(args: {
     triesUsed,
     status,
     hints: revealedHints({
-      errors: errorsMade({ triesUsed, status }),
+      play: { triesUsed, status },
       career: args.career,
       currentYear: yearOf(args.today),
     }),

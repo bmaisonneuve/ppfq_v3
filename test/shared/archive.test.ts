@@ -5,9 +5,11 @@ import {
   DAILY_BASE,
   archiveBase,
   archiveReach,
+  dayNeighbours,
   daysSince,
   gridHome,
   gridLevel,
+  shiftDate,
 } from '@/shared/archive'
 
 /**
@@ -85,5 +87,84 @@ describe('les adresses d’une grille', () => {
 
     expect(gridHome(base)).toBe('/archive/2026-09-08')
     expect(gridLevel(base, 3)).toBe('/archive/2026-09-08/3')
+  })
+})
+
+describe('la journée voisine', () => {
+  it('nomme la veille et le lendemain', () => {
+    expect(shiftDate('2026-09-15', -1)).toBe('2026-09-14')
+    expect(shiftDate('2026-09-15', 1)).toBe('2026-09-16')
+  })
+
+  it('traverse les mois et les années', () => {
+    expect(shiftDate('2026-09-01', -1)).toBe('2026-08-31')
+    expect(shiftDate('2026-01-01', -1)).toBe('2025-12-31')
+    expect(shiftDate('2026-12-31', 1)).toBe('2027-01-01')
+  })
+
+  it('compte le 29 février des années bissextiles, et pas des autres', () => {
+    expect(shiftDate('2028-03-01', -1)).toBe('2028-02-29')
+    expect(shiftDate('2026-03-01', -1)).toBe('2026-02-28')
+  })
+
+  it('reste sur un jour plein aux deux changements d’heure de Paris', () => {
+    // Le 29 mars 2026 fait 23 heures, le 25 octobre en fait 25 : une
+    // soustraction locale rendrait deux fois le même jour.
+    expect(shiftDate('2026-03-29', -1)).toBe('2026-03-28')
+    expect(shiftDate('2026-10-25', -1)).toBe('2026-10-24')
+    expect(shiftDate('2026-03-28', 1)).toBe('2026-03-29')
+    expect(shiftDate('2026-10-24', 1)).toBe('2026-10-25')
+  })
+
+  it('écrit les mois et les quantièmes sur deux chiffres', () => {
+    // Le format est celui de la colonne `date` et de toutes les comparaisons
+    // du dépôt : un `2026-9-1` passerait les tests d'égalité de travers.
+    expect(shiftDate('2026-09-09', 1)).toBe('2026-09-10')
+    expect(shiftDate('2026-02-01', -1)).toBe('2026-01-31')
+  })
+})
+
+describe('les deux flèches d’une journée', () => {
+  const TODAY = '2026-09-15'
+
+  it('mène en arrière à l’aperçu de la veille, en archive', () => {
+    expect(dayNeighbours(TODAY, TODAY).previous).toEqual({
+      date: '2026-09-14',
+      href: '/archive/2026-09-14',
+    })
+  })
+
+  it('ne propose pas de lendemain à la grille du jour', () => {
+    // Les grilles sont programmées à l'avance : une flèche vers demain serait
+    // le chemin par lequel l'énigme du lendemain fuit.
+    expect(dayNeighbours(TODAY, TODAY).next).toBeNull()
+  })
+
+  it('propose le lendemain d’une journée passée', () => {
+    expect(dayNeighbours('2026-09-08', TODAY).next).toEqual({
+      date: '2026-09-09',
+      href: '/archive/2026-09-09',
+    })
+  })
+
+  it('renvoie à la racine quand le voisin est la grille du jour', () => {
+    // `/` et non `/archive/<aujourd'hui>`, qui n'aurait été qu'une redirection
+    // de plus : la grille du jour a son adresse à elle.
+    expect(dayNeighbours('2026-09-14', TODAY).next?.href).toBe('/')
+  })
+
+  it('ne borne pas la remontée : un trou ou un cadenas reste un voisin', () => {
+    // La destination explique ce qu'elle est (`archive-gate.tsx`) ; la flèche
+    // ne décide pas à sa place, et ne lit donc pas le calendrier.
+    expect(dayNeighbours('2020-01-01', TODAY).previous.date).toBe('2019-12-31')
+  })
+
+  it('n’avance pas au-delà d’aujourd’hui depuis une journée à venir', () => {
+    // L'écran d'une journée à venir existe — l'adresse est valide — et la seule
+    // direction qu'il propose est le retour vers aujourd'hui.
+    const tomorrow = dayNeighbours('2026-09-16', TODAY)
+
+    expect(tomorrow.next).toBeNull()
+    expect(tomorrow.previous.href).toBe('/')
   })
 })
