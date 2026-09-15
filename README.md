@@ -115,7 +115,11 @@ serveur est prérempli sur `postgres` ; saisir `postgres-test` dans le champ
 ```
 src/
   app/        routage + rendu. Aucune logique métier.
-    (game)/   la grille du jour
+    (game)/   la grille du jour. Prérendue, servie depuis un cache partagé :
+              elle ne lit rien qui appartienne à une requête (ADR-0008)
+    (archive)/ les journées passées. Un groupe à part parce qu'il est
+              l'inverse : ce qu'il affiche dépend de qui regarde, donc il ne
+              doit pas tomber sous le layout de (game) (ADR-0016)
     (admin)/  le back-office. Bundle séparé : il ne pèse pas sur le jeu
     (account)/ la page où tombe le lien magique, et rien d'autre
     api/      ce qui a besoin d'un contrat HTTP : typeahead, état personnel,
@@ -130,7 +134,8 @@ src/
     services/ cas d'usage + transactions. LA SEULE PORTE D'ENTRÉE.
   ui/         composants présentationnels
     game/     ceux du jeu. La grille du jour, ses énigmes, les requêtes
-              personnelles de la page et la fenêtre du compte
+              personnelles de la page et la fenêtre du compte. Les mêmes
+              servent l'archive : seul le préfixe de leurs liens change
     account/  la confirmation du lien magique, hors du jeu
     admin/    ceux du back-office. Les Server Actions leur arrivent en props
   shared/     isomorphe : types, schémas Zod, formatters

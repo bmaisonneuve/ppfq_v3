@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { ARCHIVE_PATH } from '@/shared/archive'
 import { Wordmark } from '@/ui/wordmark'
 
 /**
@@ -12,9 +13,10 @@ import { Wordmark } from '@/ui/wordmark'
  * 16 px de gouttière, même en-tête, même bandeau vert sombre en bas. Le cadre
  * est donc écrit une fois ici, et un écran n'écrit que ce qui le distingue.
  *
- * Rien dans ce fichier ne sait ce qu'est une énigme. C'est la condition pour
- * que l'écran d'archive et celui des statistiques, le jour où ils existeront,
- * s'y posent sans le modifier.
+ * Rien dans ce fichier ne sait ce qu'est une énigme, ni quel jour il rend. Ce
+ * qui n'était qu'une intention est devenu la mesure du ticket de l'archive : le
+ * calendrier des jours passés et les grilles qu'on y rejoue se posent dans ce
+ * cadre-ci sans en changer une ligne, en-tête, rail et bandeau compris.
  *
  * ## Deux formats, un seul arbre
  *
@@ -117,12 +119,13 @@ export function BrandRow({
       <Wordmark />
 
       <div className="flex items-center gap-[6px]">
-        {/* L'archive attend son écran (#11) : le bouton est à sa place et ne
-            fait rien, plutôt que d'apparaître plus tard et de déplacer les
-            deux autres. */}
-        <IconButton label="Archive">
+        {/* Un lien et non un bouton : l'archive est une adresse — elle se
+            partage, se met en favori, et le bouton « précédent » en revient.
+            Depuis une grille passée, il ramène au calendrier, ce qui est le
+            seul chemin de retour dont ces écrans-là aient besoin. */}
+        <IconLink label="Archive" href={ARCHIVE_PATH}>
           <CalendarIcon />
-        </IconButton>
+        </IconLink>
 
         <IconButton label="Statistiques" onClick={onStats}>
           <BarsIcon />
@@ -297,12 +300,28 @@ function IconButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="rounded-icon flex size-[30px] shrink-0 cursor-pointer items-center justify-center border-[1.5px] border-white/60 bg-white/16 text-white"
+      className={ICON}
     >
       {children}
     </button>
   )
 }
+
+/** Le même bouton, quand le geste est d'aller ailleurs plutôt que d'agir ici. */
+function IconLink({
+  label,
+  href,
+  children,
+}: Readonly<{ label: string; href: string; children: ReactNode }>) {
+  return (
+    <Link aria-label={label} title={label} href={href} className={ICON}>
+      {children}
+    </Link>
+  )
+}
+
+const ICON =
+  'rounded-icon flex size-[30px] shrink-0 cursor-pointer items-center justify-center border-[1.5px] border-white/60 bg-white/16 text-white'
 
 function CalendarIcon() {
   return (

@@ -38,11 +38,16 @@ const ROOT = process.cwd()
  *
  * The list is deliberately *this* route and not the whole `(game)` group, nor
  * every module the page transitively imports. A sibling that legitimately needs
- * a request (the archive beyond seven days needs an account, #11) does not make
- * this page dynamic, and a guard that fires on innocent files is a guard people
- * switch off. Below the service, `server/domain` and `shared` carry their own
- * rule — "zéro import Next", README « Architecture » — and are shared with the
- * back-office, where reading a session is the whole point.
+ * a request does not make this page dynamic, and a guard that fires on innocent
+ * files is a guard people switch off. The archive is that neighbour, and it is
+ * why it lives in a route group of its own: what it shows depends on who is
+ * asking — seven days for everybody, the whole archive for whoever has an
+ * account — so it is dynamic end to end, and has no business under the layout
+ * that reads the grid of the day (ADR-0016).
+ *
+ * Below the service, `server/domain` and `shared` carry their own rule — "zéro
+ * import Next", README « Architecture » — and are shared with the back-office,
+ * where reading a session is the whole point.
  */
 const GUARDED = [
   'src/app/layout.tsx',

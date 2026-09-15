@@ -3,11 +3,13 @@
 import Link from 'next/link'
 import { useEffect, useRef } from 'react'
 
+import { ARCHIVE_PATH, gridHome, gridLevel } from '@/shared/archive'
 import { isOver } from '@/shared/play'
 import { positionObject, positionTitle } from '@/shared/schedule'
 import type { Enigma } from '@/shared/grid'
 import type { EnigmaPlay, HintTier, RevealedHint } from '@/shared/play'
 import type { FootballerSuggestion } from '@/shared/search'
+import type { GridBase } from '@/shared/archive'
 import type { Position } from '@/shared/schedule'
 
 import {
@@ -26,7 +28,6 @@ import { EssaiBand } from './essai-band'
 import { useGame, useGrid } from './game-provider'
 import { StaleGridNotice, UnavailableNotice } from './notices'
 import { SegmentIcon } from './segment-icon'
-import { isStaleGrid } from './use-day-plays'
 import { VerdictAnnounce, VerdictBand, closes, useLive, verdictAt } from './verdict'
 import type { Verdict } from './verdict'
 
@@ -45,11 +46,28 @@ import type { Verdict } from './verdict'
  * (ADR-0009). C'est simplement l'arrivée sur l'écran qui la demande, et non le
  * clic — sinon une URL collée dans une conversation ouvrirait une énigme sans
  * jamais créer de partie.
+ *
+ * C'est aussi l'écran d'un niveau d'archive, mot pour mot : « la mécanique de
+ * jeu en archive est identique à celle du quotidien » (specs §7). Tout ce qui
+ * change est d'où partent ses liens — `base` — et deux phrases qui n'ont pas
+ * cours sur une journée passée : la grille qui a tourné, et le retour à la
+ * grille du jour.
  */
 export function ChallengeScreen({ position }: Readonly<{ position: Position }>) {
   const grid = useGrid()
-  const { state, pending, playAt, open, submit, verdict, openStats, openAccount, account } =
-    useGame()
+  const {
+    state,
+    base,
+    stale,
+    pending,
+    playAt,
+    open,
+    submit,
+    verdict,
+    openStats,
+    openAccount,
+    account,
+  } = useGame()
 
   useEffect(() => {
     // Idempotent par position : revenir sur un niveau déjà ouvert ne redemande
@@ -93,6 +111,7 @@ export function ChallengeScreen({ position }: Readonly<{ position: Position }>) 
         >
           <SegmentedBar
             enigmas={grid.enigmas}
+            base={base}
             active={position}
             playAt={playAt}
             popAt={closes(liveVerdict) ? position : null}
@@ -118,7 +137,7 @@ export function ChallengeScreen({ position }: Readonly<{ position: Position }>) 
               pour qui ne la voit pas. Toujours montée, jamais visible. */}
           <VerdictAnnounce verdict={ownVerdict} />
 
-          {isStaleGrid(state, grid.date) ? (
+          {stale ? (
             <StaleGridNotice />
           ) : (
             <>
@@ -171,12 +190,14 @@ function Celebration({ verdict }: Readonly<{ verdict: Verdict | null }>) {
  */
 function SegmentedBar({
   enigmas,
+  base,
   active,
   playAt,
   /** Le niveau dont l'issue vient de tomber, s'il y en a un. */
   popAt,
 }: Readonly<{
   enigmas: readonly Enigma[]
+  base: GridBase
   active: Position
   playAt: (position: Position) => EnigmaPlay | undefined
   popAt: Position | null
@@ -189,7 +210,7 @@ function SegmentedBar({
         return (
           <Link
             key={enigma.position}
-            href={`/${enigma.position}`}
+            href={gridLevel(base, enigma.position)}
             aria-current={here ? 'page' : undefined}
             className="flex flex-1 flex-col items-stretch gap-[6px]"
           >
@@ -317,7 +338,7 @@ function Band({
   onSubmit: (proposal: FootballerSuggestion | null) => void
 }>) {
   const grid = useGrid()
-  const { playAt } = useGame()
+  const { base, archive, playAt } = useGame()
 
   if (play === undefined) {
     return (
@@ -345,17 +366,25 @@ function Band({
     // division n'en change aucun.
     <div className={`flex flex-col gap-2 lg:gap-[9px] ${closes(verdict) ? 'animate-rise' : ''}`}>
       {next === undefined ? (
-        <PrimaryLink label="Voir la grille du jour" href="/" />
+        // Les trois niveaux sont finis. En archive, ce qui reste à faire n'est
+        // pas de revoir cette journée-là mais d'en choisir une autre.
+        <PrimaryLink
+          label={archive ? 'Choisir une autre journée' : 'Voir la grille du jour'}
+          href={archive ? ARCHIVE_PATH : gridHome(base)}
+        />
       ) : (
-        <PrimaryLink label={`Ouvrir ${positionObject(next.position)} ›`} href={`/${next.position}`} />
+        <PrimaryLink
+          label={`Ouvrir ${positionObject(next.position)} ›`}
+          href={gridLevel(base, next.position)}
+        />
       )}
 
-      {/* Masqué sur grand écran : la grille du jour y est déjà en permanence
-          dans le rail, et `/` y rouvrirait le défi à reprendre. « Voir la
-          grille du jour » ci-dessus n'a pas ce problème — il n'apparaît que
-          lorsque les trois niveaux sont finis, donc qu'il n'y a plus rien à
-          reprendre. */}
-      <TextLink label="Revenir à la grille" href="/" hiddenOnDesktop />
+      {/* Masqué sur grand écran : la grille y est déjà en permanence dans le
+          rail, et son adresse d'aperçu y rouvrirait le défi à reprendre.
+          « Voir la grille du jour » ci-dessus n'a pas ce problème — il
+          n'apparaît que lorsque les trois niveaux sont finis, donc qu'il n'y a
+          plus rien à reprendre. */}
+      <TextLink label="Revenir à la grille" href={gridHome(base)} hiddenOnDesktop />
     </div>
   )
 }

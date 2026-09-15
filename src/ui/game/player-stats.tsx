@@ -29,7 +29,8 @@ import type { PlayerStats } from '@/shared/stats'
  */
 export function PlayerStatsPanel({
   stats,
-}: Readonly<{ stats: PlayerStats | null | undefined }>) {
+  archive = false,
+}: Readonly<{ stats: PlayerStats | null | undefined; archive?: boolean }>) {
   // Pas encore lues : la file des requêtes personnelles les met derrière l'état
   // de la grille (ADR-0009), donc un joueur rapide peut ouvrir la fenêtre avant
   // qu'elles n'arrivent.
@@ -44,7 +45,9 @@ export function PlayerStatsPanel({
   if (stats.playedCount === 0) {
     return (
       <Empty>
-        Vous n’avez encore joué aucune partie. Ouvrez une énigme pour commencer.
+        {archive
+          ? 'Vous n’avez encore rejoué aucune grille passée.'
+          : 'Vous n’avez encore joué aucune partie. Ouvrez une énigme pour commencer.'}
       </Empty>
     )
   }
@@ -56,8 +59,13 @@ export function PlayerStatsPanel({
       {/* Ce que les specs §5 énumèrent, et la série. La meilleure série est
           stockée parce que le modèle la demande, et n'est pas affichée : elle
           n'est dans aucune des deux listes. */}
-      <dl className="grid grid-cols-3 gap-x-4 gap-y-3">
-        <Figure label="Série" value={days(stats.serie)} />
+      {/* L'archive n'a pas de série et n'en aura jamais : elle n'alimente pas
+          les compteurs du quotidien (specs §7), donc la colonne ne reste pas à
+          zéro — elle disparaît, et les deux qui restent prennent la place. Un
+          « 0 jour » ici se lirait comme une série perdue, ce qui est exactement
+          le contresens que compter à part existe pour éviter. */}
+      <dl className={`grid gap-x-4 gap-y-3 ${archive ? 'grid-cols-2' : 'grid-cols-3'}`}>
+        {archive ? null : <Figure label="Série" value={days(stats.serie)} />}
         <Figure label="Cartons pleins" value={String(stats.perfectChallenges)} />
         <Figure label="Parties jouées" value={String(stats.playedCount)} />
       </dl>

@@ -74,7 +74,11 @@ export async function getDailyGrid(): Promise<DailyGrid | null> {
  *
  * Separate from `getDailyGrid` because "which day is it" and "read that day's
  * grid" are two rules, and only the first one has a clock in it: this half is
- * therefore assertable on a fixed date. The archive (#11) is the same read.
+ * therefore assertable on a fixed date. L'archive appelle littéralement
+ * celle-ci : une grille passée et la grille du jour sont la même valeur, et
+ * c'est la moitié de « la mécanique de jeu en archive est identique à celle du
+ * quotidien » (specs §7). Ce qui décide du **droit** d'y jouer est ailleurs —
+ * `archive.service.ts`, qui lit la requête là où ce fichier n'en lit aucune.
  */
 export async function getGridOfDate(date: ChallengeDate): Promise<DailyGrid | null> {
   const rows = await db

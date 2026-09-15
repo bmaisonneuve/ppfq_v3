@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 
+import { gridLevel } from '@/shared/archive'
+import type { GridBase } from '@/shared/archive'
 import { describePlay, describeTries } from '@/shared/play'
 import { formatGridDate, positionTitle } from '@/shared/schedule'
 import { successRatePercent } from '@/shared/stats'
@@ -40,7 +42,8 @@ import { useGame } from './game-provider'
  * lequel il montre.
  */
 export function DesktopRail({ active }: Readonly<{ active: Position | null }>) {
-  const { grid, state, stats, playAt, verdict, openStats, openAccount, account } = useGame()
+  const { grid, state, stats, base, archive, playAt, verdict, openStats, openAccount, account } =
+    useGame()
 
   // Le niveau dont l'issue vient de tomber. Sur un grand écran, la barre
   // segmentée n'existe pas : c'est ici, et nulle part ailleurs, que le joueur
@@ -63,13 +66,19 @@ export function DesktopRail({ active }: Readonly<{ active: Position | null }>) {
           <GridTitle date={formatGridDate(grid.date)} theme={grid.theme} stacked />
 
           <div className="flex flex-col gap-[7px]">
-            <h2 className="font-mono text-column text-ink">LA GRILLE DU JOUR</h2>
+            {/* Le rail nomme ce qu'il liste, et une grille d'archive n'est pas
+                « la grille du jour » : la date est juste au-dessus, donc ce
+                titre-ci n'a qu'à dire de quoi il s'agit. */}
+            <h2 className="font-mono text-column text-ink">
+              {archive ? 'UNE JOURNÉE PASSÉE' : 'LA GRILLE DU JOUR'}
+            </h2>
 
-            <nav aria-label="Les trois niveaux du jour" className="flex flex-col gap-[7px]">
+            <nav aria-label="Les trois niveaux de la grille" className="flex flex-col gap-[7px]">
               {grid.enigmas.map((enigma) => (
                 <RailLink
                   key={enigma.position}
                   position={enigma.position}
+                  base={base}
                   play={playAt(enigma.position)}
                   loading={state.status === 'loading'}
                   here={enigma.position === active}
@@ -81,7 +90,7 @@ export function DesktopRail({ active }: Readonly<{ active: Position | null }>) {
         </>
       )}
 
-      <RailStats stats={stats} />
+      <RailStats stats={stats} archive={archive} />
     </aside>
   )
 }
@@ -102,12 +111,14 @@ function closedBy(verdict: Verdict | null): Position | null {
  */
 function RailLink({
   position,
+  base,
   play,
   loading,
   here,
   pop,
 }: Readonly<{
   position: Position
+  base: GridBase
   play: EnigmaPlay | undefined
   loading: boolean
   here: boolean
@@ -115,7 +126,7 @@ function RailLink({
 }>) {
   return (
     <Link
-      href={`/${position}`}
+      href={gridLevel(base, position)}
       aria-current={here ? 'page' : undefined}
       className={`rounded-rail flex items-center gap-[10px] bg-white px-[12px] py-[11px] ${
         // Le contour, et jamais une ombre : les maquettes n'en portent aucune.
@@ -160,14 +171,21 @@ function railMeta(play: EnigmaPlay | undefined): string {
  * le temps d'une requête se lit comme une série perdue, et c'est le chiffre
  * auquel un joueur tient.
  */
-function RailStats({ stats }: Readonly<{ stats: PlayerStats | null | undefined }>) {
+function RailStats({
+  stats,
+  archive,
+}: Readonly<{ stats: PlayerStats | null | undefined; archive: boolean }>) {
   if (stats === undefined || stats === null) return null
 
   const rate = successRatePercent(stats)
 
   return (
     <dl className="font-mono text-meta text-ink mt-auto flex flex-col gap-[7px]">
-      <StatLine label="Série" value={days(stats.serie)} />
+      {/* Pas de série en archive : elle n'y est pas à zéro, elle n'y est pas
+          du tout (specs §7). Les deux autres chiffres sont ceux de la ligne
+          d'archive, comptée séparément — le titre de la fenêtre des
+          statistiques dit lequel des deux comptes on regarde. */}
+      {archive ? null : <StatLine label="Série" value={days(stats.serie)} />}
       <StatLine label="Cartons pleins" value={String(stats.perfectChallenges)} />
       {/* Zéro sur zéro n'est pas un taux : `successRatePercent` répond `null`
           pour un joueur qui n'a rien joué, et la ligne disparaît. */}

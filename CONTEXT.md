@@ -42,14 +42,24 @@ _Avoid_: session (le mot appartient à l'authentification), game_session, play_h
 **Mode** :
 Le cadre dans lequel une partie est jouée : quotidien ou archive. Seul le quotidien alimente la série et les cartons pleins.
 
+Il **se déduit de la date** de la grille, contre l'horloge du serveur, et ne voyage jamais dans une requête (ADR-0016) : un mode que le client nommerait serait un mode qu'il choisirait, et l'un des deux choix reconstruit la série. En base : `player_progress.mode`, écrit à l'ouverture de la partie et jamais relu d'ailleurs.
+_Avoid_: type de partie, contexte
+
 **Archive** :
-Les grilles des jours passés, rejouables sans compter pour le score. Les sept derniers jours sont ouverts à tous, au-delà il faut un compte.
+Les grilles des jours passés, rejouables sans compter pour le score. La grille du jour n'en fait pas partie : elle a son adresse à elle, et l'archive commence hier.
+
+**Fenêtre d'archive** :
+Les sept derniers jours passés, ouverts à tout le monde. Au-delà il faut un compte, et c'est la première raison concrète de s'en créer un. Une seule définition, `ARCHIVE_OPEN_DAYS` dans `src/shared/archive.ts`, lue par le serveur — qui refuse — et par l'écran — qui explique.
+_Avoid_: quota, limite d'archive
+
+**Journée à venir** :
+Une grille programmée dont le jour n'est pas arrivé. Ce n'est ni de l'archive ni un jour verrouillé : aucun compte ne l'ouvre, et rien n'en dit le thème. Les grilles étant programmées à l'avance, c'est le seul chemin par lequel l'énigme de demain pouvait fuir.
 
 **Carton plein** :
 Les trois énigmes d'une même grille trouvées. Se calcule au niveau de la grille, pas de l'énigme.
 
 **Série** :
-Le nombre de jours consécutifs où le titulaire (position 2) a été trouvé sur la grille du jour. L'échauffement, la légende et l'archive n'y entrent pas.
+Le nombre de jours consécutifs où le titulaire (position 2) a été trouvé sur la grille du jour. L'échauffement, la légende et l'archive n'y entrent pas — les écrans d'archive ne l'affichent donc pas du tout, plutôt que de la montrer à zéro.
 _Avoid_: streak (nom des colonnes `current_streak` / `best_streak`, et rien d'autre)
 
 **Résumé partagé** :

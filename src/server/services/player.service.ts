@@ -203,6 +203,57 @@ export async function playerIdOfCookie(presented: string | null): Promise<string
 }
 
 /**
+ * Ce joueur a-t-il un compte ? — ce qui ouvre l'archive complète (specs §7).
+ *
+ * La **colonne** et pas une session, et ce n'est pas la même question : ce qui
+ * porte un compte est `players.auth_user_id`, posé par la reprise de
+ * progression (ADR-0003), et c'est lui qui suit le joueur d'un appareil à
+ * l'autre. Une session ouverte désigne déjà ce joueur-là — `currentPlayerId`
+ * s'en charge en amont — donc la lire une seconde fois ici ne ferait que donner
+ * deux définitions à « avoir un compte ».
+ *
+ * Elle est appelée rarement, et c'est voulu : seule une grille d'archive
+ * au-delà des sept jours ouverts la demande (`server/domain/archive.ts`), donc
+ * ni la grille du jour ni le pic de minuit ne la paient.
+ */
+export async function playerHasAccount(playerId: string): Promise<boolean> {
+  const rows = await db
+    .select({ authUserId: players.authUserId })
+    .from(players)
+    .where(eq(players.id, playerId))
+    .limit(1)
+
+  const found = rows[0]
+
+  // Un joueur introuvable n'a pas de compte : la ligne a été purgée sous la
+  // requête, et refuser l'archive complète est la bonne réponse à ça.
+  return found !== undefined && found.authUserId !== null
+}
+
+/**
+ * Le joueur que ce navigateur présente a-t-il un compte ? — **sans rien créer**.
+ *
+ * La version que peut appeler un **rendu**, et c'est toute la raison de son
+ * existence : `currentPlayerId` pose un cookie, ce qu'une page ne sait pas
+ * faire une fois le flux commencé. Elle répond donc à partir de ce que la
+ * requête porte déjà, et laisse la table exactement comme elle l'a trouvée.
+ *
+ * La session passe devant, pour la même raison qu'elle passe devant dans
+ * `resolvePlayer` : quelqu'un qui vient de se connecter sur un navigateur neuf
+ * n'a pas encore de cookie de joueur, et lui montrer un cadenas serait lui
+ * refuser ce qu'il vient d'obtenir. Sans session, c'est la colonne qui répond —
+ * la même que lit la porte qui joue (`play.service.ts`), sans quoi l'écran
+ * montrerait un cadenas sur une grille que le serveur accepte (ADR-0016).
+ */
+export async function presentedPlayerHasAccount(): Promise<boolean> {
+  if ((await currentAccountIdentity()) !== null) return true
+
+  const playerId = await playerIdOfCookie(await presentedPlayerCookie())
+
+  return playerId !== null && (await playerHasAccount(playerId))
+}
+
+/**
  * Finds a joueur and marks him seen in the same statement.
  *
  * One `UPDATE ... RETURNING` rather than a select then an update: `last_seen_at`

@@ -1,8 +1,9 @@
 import { z } from 'zod'
 
 import { PERSONAL_HEADERS, jsonBody } from '../../personal-request'
+import { refusedGrid } from '../refused-grid'
 
-import { TryRefusedError, submitTry } from '@/server/services/play.service'
+import { GridRefusedError, TryRefusedError, submitTry } from '@/server/services/play.service'
 import { currentPlayerId } from '@/server/services/player.service'
 import { CHALLENGE_DATE_PATTERN, POSITIONS } from '@/shared/schedule'
 import type { EnigmaPlay } from '@/shared/play'
@@ -89,6 +90,11 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json(play satisfies EnigmaPlay, { headers: PERSONAL_HEADERS })
   } catch (error) {
+    // Une grille hors de portée : pas encore programmée pour aujourd'hui, ou
+    // au-delà des sept jours ouverts sans compte. Avant le refus d'essai, parce
+    // que c'est un refus de la grille entière et non de ce coup-ci.
+    if (error instanceof GridRefusedError) return refusedGrid(error)
+
     if (error instanceof TryRefusedError) {
       // 409: the essai is well-formed and the partie is not in a state to take
       // it — the seventh essai, an enigma never opened, a grid that has turned.

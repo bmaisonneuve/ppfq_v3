@@ -44,7 +44,8 @@ Next ne donne pas de frontière front/back de *déploiement*. Il donne une front
 ```
 src/
   app/                      # routage + rendu. Aucune logique métier.
-    (game)/                 #   grille du jour, archive
+    (game)/                 #   grille du jour — prérendue, cache partagé
+    (archive)/              #   journées passées — dynamique, dépend du compte
     (admin)/                #   back-office, layout + middleware propres
     api/                    #   webhooks, callbacks, typeahead
   server/                   # LE BACK. Chaque fichier : import 'server-only'

@@ -269,7 +269,9 @@ export const playerProgress = pgTable(
     playerId: uuid('player_id')
       .notNull()
       .references(() => players.id, { onDelete: 'cascade' }),
-    /** No default: the day the archive arrives (#14), nothing may forget to say. */
+    /** Pas de défaut : l'archive est arrivée, et rien ne doit pouvoir oublier
+     * de dire dans quel mode il joue. Écrit par `play.service.ts`, qui le
+     * déduit de la date contre l'horloge du serveur (ADR-0016). */
     mode: playMode('mode').notNull(),
     /** 0 to 6. Everything consumes one, skipping a turn included. */
     triesUsed: integer('tries_used').notNull().default(0),

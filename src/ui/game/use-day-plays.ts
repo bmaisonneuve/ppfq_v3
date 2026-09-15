@@ -76,6 +76,19 @@ import type { Verdict } from './verdict'
  * Trouver le titulaire fait donc avancer la série sous les yeux du joueur, sans
  * qu'une partie perdue ou un simple faux coûte une requête.
  *
+ * En archive, la requête porte la **date** de la journée, et c'est tout ce
+ * qu'elle a de différent : le serveur en déduit qu'il s'agit des agrégats
+ * d'archive, comptés séparément (specs §7). Sans date, c'est le quotidien —
+ * l'écran de la grille du jour, et celui des jours sans grille, viennent tous
+ * deux y lire la série. Ici comme aux deux portes qui jouent, **le mode ne
+ * s'envoie pas** (ADR-0016).
+ *
+ * C'est une date **à part** de celle de la grille, et les deux diffèrent
+ * exactement là où ça compte : une journée d'archive verrouillée ou sans grille
+ * n'a pas de grille à lire, donc pas de date de grille — et elle a quand même
+ * des statistiques d'archive à montrer. Une seule date pour les deux aurait
+ * fait dire « vos statistiques d'archive » au-dessus des chiffres du quotidien.
+ *
  * ## What a failure must not do
  *
  * It must not leave the personal zones spinning for ever, and it must not claim
@@ -121,7 +134,16 @@ const LOADING: PersonalState = { status: 'loading' }
  * grille. `state` reste donc `loading` et personne ne le lit : l'écran de ce
  * jour-là n'affiche aucune zone de partie (`no-grid.tsx`).
  */
-export function useDayPlays(date: ChallengeDate | null): {
+export function useDayPlays(
+  date: ChallengeDate | null,
+  /**
+   * La journée dont on lit les agrégats, ou `null` pour le quotidien.
+   *
+   * Renseignée sur les écrans de l'archive, y compris ceux qui n'ont pas de
+   * grille à jouer — voir l'en-tête.
+   */
+  statsOf: ChallengeDate | null,
+): {
   state: PersonalState
   open: (position: Position) => void
   /** One essai: a footballer proposed, or `null` for a tour passé. */
@@ -221,12 +243,16 @@ export function useDayPlays(date: ChallengeDate | null): {
   // fausse.
   const readStats = useCallback(async (): Promise<void> => {
     try {
-      setStats(await post<PlayerStats>(GAME_STATS_PATH))
+      // Un corps vide quand il n'y a pas de journée à nommer, et c'est la
+      // requête la plus fréquente : le quotidien ne dit rien, il lit la série.
+      const of = statsOf === null ? undefined : { date: statsOf }
+
+      setStats(await post<PlayerStats>(GAME_STATS_PATH, of))
     } catch {
       // Hors ligne, un 500, une réponse mal formée.
       setStats(null)
     }
-  }, [])
+  }, [statsOf])
 
   const load = useCallback(
     (open: Position | undefined): void => {

@@ -1,8 +1,9 @@
 import { z } from 'zod'
 
 import { PERSONAL_HEADERS, jsonBody } from '../../personal-request'
+import { refusedGrid } from '../refused-grid'
 
-import { getDayPlays } from '@/server/services/play.service'
+import { GridRefusedError, getDayPlays } from '@/server/services/play.service'
 import { currentPlayerId } from '@/server/services/player.service'
 import { CHALLENGE_DATE_PATTERN, POSITIONS } from '@/shared/schedule'
 import type { DayPlays } from '@/shared/play'
@@ -55,7 +56,9 @@ import type { DayPlays } from '@/shared/play'
  *
  * `date` comes from the page the client is holding, which is why it is sent at
  * all rather than assumed: that page may be up to a minute older than the day
- * (ADR-0008), and the server is the one that knows what day it is.
+ * (ADR-0008), and the server is the one that knows what day it is. C'est aussi
+ * tout ce que l'archive ajoute à cette porte : **le mode ne s'envoie pas**, il
+ * se déduit de cette date-là contre l'horloge du serveur (ADR-0016).
  *
  * `open` is optional, because reading is not opening. A page restoring three
  * folded enigmas must create no partie, and a position outside the three is a
@@ -84,7 +87,15 @@ export async function POST(request: Request): Promise<Response> {
   // which is the "glissant" of the 13 months it lasts.
   const playerId = await currentPlayerId()
 
-  const day = await getDayPlays({ playerId, date: parsed.data.date, open: parsed.data.open })
+  try {
+    const day = await getDayPlays({ playerId, date: parsed.data.date, open: parsed.data.open })
 
-  return Response.json(day satisfies DayPlays, { headers: PERSONAL_HEADERS })
+    return Response.json(day satisfies DayPlays, { headers: PERSONAL_HEADERS })
+  } catch (error) {
+    // Une grille que ce joueur n'a pas le droit de jouer : pas encore
+    // programmée pour aujourd'hui, ou au-delà des sept jours ouverts sans
+    // compte (specs §7). Le motif voyage avec le statut — voir `refused-grid`.
+    if (error instanceof GridRefusedError) return refusedGrid(error)
+    throw error
+  }
 }

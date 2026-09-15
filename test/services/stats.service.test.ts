@@ -100,7 +100,7 @@ async function fail(position: Position, date = TODAY): Promise<void> {
   }
 }
 
-const mine = async () => await getPlayerStats(PLAYER_IDS.mine)
+const mine = async () => await getPlayerStats(PLAYER_IDS.mine, 'daily')
 
 /** L'identité d'une énigme — ce qu'il faut pour en retirer une de la grille. */
 async function enigmaId(date: string, position: Position): Promise<string> {

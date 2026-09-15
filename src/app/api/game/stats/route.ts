@@ -1,7 +1,10 @@
-import { PERSONAL_HEADERS } from '../../personal-request'
+import { z } from 'zod'
+
+import { PERSONAL_HEADERS, jsonBody } from '../../personal-request'
 
 import { currentPlayerId } from '@/server/services/player.service'
-import { getPlayerStats } from '@/server/services/stats.service'
+import { getPlayerStatsOfGrid } from '@/server/services/stats.service'
+import { CHALLENGE_DATE_PATTERN } from '@/shared/schedule'
 import type { PlayerStats } from '@/shared/stats'
 
 /**
@@ -30,9 +33,18 @@ import type { PlayerStats } from '@/shared/stats'
  * le garde-fou le moins cher possible, et c'est aussi ce qui fait que les trois
  * portes personnelles du jeu se ressemblent.
  *
- * Aucun corps n'est lu : il n'y a rien à demander. Le joueur est dans le
- * cookie, et le mode est le quotidien tant que l'archive n'existe pas (#11) —
- * c'est le service qui en décide, pas l'appelant.
+ * ## Le corps ne porte qu'une date, et jamais un mode
+ *
+ * Le joueur est dans le cookie ; ce qui reste à dire est **de quelle grille on
+ * parle**, parce que l'archive est comptée séparément (specs §7). La date, donc,
+ * et le mode s'en déduit côté serveur comme aux deux portes qui jouent
+ * (ADR-0016) : un appelant qui pourrait nommer son mode aurait une deuxième
+ * définition de ce qu'est l'archive.
+ *
+ * Absente, c'est le quotidien — l'écran de la grille du jour et celui des jours
+ * sans grille viennent tous deux y lire la série et les cartons pleins. Un
+ * corps vide reste donc une requête valide, et c'est celle que le jeu envoie le
+ * plus souvent.
  *
  * Un adaptateur, comme toutes les portes du serveur : identité, service,
  * réponse. La remise à zéro de la série, la répartition par nombre d'essais et
@@ -45,13 +57,28 @@ import type { PlayerStats } from '@/shared/stats'
  * (`docs/stack-technique.md` §10, #16) : c'est la table `players` qui est
  * exposée, pas la triche, et cela se traite au bord.
  */
-export async function POST(): Promise<Response> {
+const StatsRequest = z.object({
+  date: z.string().regex(CHALLENGE_DATE_PATTERN).optional(),
+})
+
+export async function POST(request: Request): Promise<Response> {
+  // Un corps absent est le cas courant, pas une erreur : `jsonBody` répond
+  // `null` sur un corps vide, et le schéma n'a que des champs optionnels — ce
+  // qui est refusé ici est une date mal formée, jamais une requête muette.
+  const parsed = StatsRequest.safeParse((await jsonBody(request)) ?? {})
+  if (!parsed.success) {
+    return Response.json(
+      { error: 'Invalid stats request.' },
+      { status: 400, headers: PERSONAL_HEADERS },
+    )
+  }
+
   // Avant le service, et dans cet ordre, exactement comme les deux autres
   // portes : tout ce qui suit a besoin d'un joueur, et le cookie est réécrit en
   // sortie — c'est le « glissant » des 13 mois.
   const playerId = await currentPlayerId()
 
-  const stats = await getPlayerStats(playerId)
+  const stats = await getPlayerStatsOfGrid(playerId, parsed.data.date ?? null)
 
   return Response.json(stats satisfies PlayerStats, { headers: PERSONAL_HEADERS })
 }

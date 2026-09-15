@@ -5,6 +5,7 @@ import { and, count, eq, sql } from 'drizzle-orm'
 import { db } from '@/server/db/client'
 import type { Tx } from '@/server/db/client'
 import { challengeItems, dailyChallenges, playerProgress, playerStats } from '@/server/db/schema'
+import { modeOfDate } from '@/server/domain/archive'
 import { todayInParis } from '@/server/domain/challenge-calendar'
 import { displayedSerie, serieAfterTitulaire } from '@/server/domain/stats'
 import { MAX_TRIES } from '@/shared/play'
@@ -52,12 +53,38 @@ import type { PlayerStats } from '@/shared/stats'
  */
 
 /**
+ * La porte : une date, et le mode s'en déduit.
+ *
+ * L'appelant n'en nomme aucun, ici comme aux deux portes qui jouent
+ * (ADR-0016) : il dit de quelle grille il parle, et « l'archive est comptée
+ * séparément » (specs §7) devient une conséquence plutôt qu'un champ de
+ * requête. `null` est l'écran qui ne regarde aucune grille — un jour sans
+ * grille programmée, la fenêtre ouverte depuis la grille du jour — et c'est le
+ * quotidien : c'est la série et les cartons pleins qu'on vient y lire.
+ *
+ * Aucun droit n'est vérifié, et c'est exact : lire ses propres agrégats n'est
+ * pas jouer, donc un jour verrouillé faute de compte ne verrouille pas les
+ * chiffres du joueur.
+ */
+export async function getPlayerStatsOfGrid(
+  playerId: string,
+  date: ChallengeDate | null,
+): Promise<PlayerStats> {
+  return await getPlayerStats(
+    playerId,
+    date === null ? 'daily' : modeOfDate(date, todayInParis()),
+  )
+}
+
+/**
  * Ce qu'un joueur lit de son histoire, dans un mode.
  *
- * `mode` est un argument et pas une constante : l'archive est comptée
- * séparément (specs §7), et le jour où elle arrive (#11) c'est la seule chose
- * qui change ici. Rien n'additionne jamais les deux — il faudrait choisir
- * laquelle des deux séries afficher.
+ * `mode` est un argument et pas une constante, et il n'a **pas de défaut** :
+ * l'archive est comptée séparément (specs §7), et le seul endroit où « rien de
+ * dit vaut le quotidien » est vrai est la porte au-dessus. Le répéter ici aurait
+ * fait deux fois la même décision, donc deux endroits où la changer.
+ * Rien n'additionne jamais les deux — il faudrait choisir laquelle des deux
+ * séries afficher.
  *
  * La série sort **déjà remise à zéro** : la colonne n'est jamais servie telle
  * quelle, et `last_solved_challenge` ne sort pas du tout. Un client qui la
@@ -65,7 +92,7 @@ import type { PlayerStats } from '@/shared/stats'
  */
 export async function getPlayerStats(
   playerId: string,
-  mode: PlayMode = 'daily',
+  mode: PlayMode,
 ): Promise<PlayerStats> {
   const [stored, solvedByTries] = await Promise.all([
     readStatsRow(playerId, mode),

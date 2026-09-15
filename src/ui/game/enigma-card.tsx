@@ -1,5 +1,7 @@
 import Link from 'next/link'
 
+import { gridLevel } from '@/shared/archive'
+import type { GridBase } from '@/shared/archive'
 import { describeTries } from '@/shared/play'
 import { positionHeading } from '@/shared/schedule'
 import type { Enigma } from '@/shared/grid'
@@ -21,13 +23,18 @@ import { ClubCrest } from './club-crest'
  * prérendue. La partie, elle, naît à l'arrivée sur l'écran du niveau et non au
  * clic : c'est le même instant vu du bon côté, et c'est le seul qui survit à
  * quelqu'un qui colle l'URL dans une conversation.
+ *
+ * `base` est d'où part ce lien, et c'est tout ce que l'archive change à cette
+ * carte : la même carte, sous `/archive/<date>/2` au lieu de `/2`.
  */
 export function EnigmaCard({
   enigma,
+  base,
   play,
   loading,
 }: Readonly<{
   enigma: Enigma
+  base: GridBase
   play: EnigmaPlay | undefined
   loading: boolean
 }>) {
@@ -35,7 +42,7 @@ export function EnigmaCard({
 
   return (
     <Link
-      href={`/${enigma.position}`}
+      href={gridLevel(base, enigma.position)}
       className={`rounded-card flex w-full flex-col gap-[10px] bg-white px-[14px] py-[13px] text-left ${
         // Le contour, et jamais une ombre : les maquettes n'en portent aucune,
         // l'état sélectionné se dit par un trait de 2 px.

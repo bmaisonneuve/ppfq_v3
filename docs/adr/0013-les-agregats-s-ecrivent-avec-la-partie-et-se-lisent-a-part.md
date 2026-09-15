@@ -162,3 +162,11 @@ prend le mode en argument, mais tout écrit `daily` tant que l'archive n'existe
 pas (#11, #14). La série n'avance que dans le quotidien, et c'est la seule règle
 de mode déjà écrite : « sinon une série de 200 jours se reconstruit en une
 soirée » (specs §7).
+
+> **Traité par [ADR-0016](./0016-le-mode-se-deduit-de-la-date.md).** Le mode est
+> écrit pour de bon, et il n'est ni une constante ni un champ de requête : il se
+> déduit de la date de la grille contre l'horloge du serveur. Ce que ce
+> paragraphe appelait « la seule règle de mode déjà écrite » est resté la règle,
+> à l'endroit exact où il la laissait — le filtre `mode === 'daily'` de
+> `countFinish` — et l'index unique `(player_id, mode)` porte désormais deux
+> lignes par joueur au lieu d'une.

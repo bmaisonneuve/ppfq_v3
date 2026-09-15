@@ -4,12 +4,15 @@ import { and, asc, eq } from 'drizzle-orm'
 
 import { db } from '@/server/db/client'
 import { challengeItems, dailyChallenges, playerProgress } from '@/server/db/schema'
+import { gridAccess, needsAccountCheck } from '@/server/domain/archive'
+import type { GridAccess, GridRefusal } from '@/server/domain/archive'
 import { todayInParis } from '@/server/domain/challenge-calendar'
 import { needsCareer, readPlay, readPlayStatus } from '@/server/domain/play'
 import { isExhausted } from '@/server/domain/reveal-ladder'
 import { getFootballerCareer, getFootballerCareers } from '@/server/services/catalogue.service'
+import { playerHasAccount } from '@/server/services/player.service'
 import { countFinish, countOpening } from '@/server/services/stats.service'
-import { DOUBLE_SUBMIT_MS, MAX_TRIES, isGridOfDay } from '@/shared/play'
+import { DOUBLE_SUBMIT_MS, MAX_TRIES } from '@/shared/play'
 import { asPosition } from '@/shared/schedule'
 import type { ChallengeDate, Position } from '@/shared/schedule'
 import type { DayPlays, EnigmaPlay, PlayMode, PlayStatus } from '@/shared/play'
@@ -47,7 +50,63 @@ import type { DayPlays, EnigmaPlay, PlayMode, PlayStatus } from '@/shared/play'
  * Not here. This service takes a `playerId`, and turning a cookie into one is
  * `player.service.ts` — so everything below is a real row in a real database in
  * `test/services/play.service.test.ts`, with no request to fake.
+ *
+ * ## Le mode n'est pas un argument, c'est une conséquence
+ *
+ * Rien de ce qui entre ici ne nomme `daily` ni `archive` : le client envoie la
+ * **date** de la grille qu'il tient, et `server/domain/archive.ts` en déduit le
+ * mode contre l'horloge du serveur (ADR-0016). C'est ce qui fait tenir « une
+ * partie en mode archive n'affecte ni la série ni les cartons pleins » (specs
+ * §7) contre autre chose qu'un client bien élevé — sans quoi une grille de l'an
+ * dernier jouée en se disant quotidienne reconstruirait la série.
  */
+
+/**
+ * Une grille qu'on n'a pas le droit de jouer — pas encore, ou pas sans compte.
+ *
+ * Une exception et non une réponse vide, pour la raison qui vaut partout
+ * ailleurs dans ce fichier : « je n'ai rien joué » et « on ne me laisse pas
+ * jouer » se ressemblent dans une valeur et ne se disent pas pareil à l'écran.
+ * Le motif voyage avec, parce que l'un des deux est une invitation à s'inscrire
+ * et l'autre une porte qui n'ouvrira que demain.
+ */
+export class GridRefusedError extends Error {
+  constructor(readonly reason: GridRefusal) {
+    super(`Grille refusée : ${reason}.`)
+    this.name = 'GridRefusedError'
+  }
+}
+
+/**
+ * Le droit de ce joueur sur cette grille-ci, et le mode qui en découle.
+ *
+ * La lecture du compte est **conditionnelle** et c'est ce qui garde le chemin
+ * du pic intact : la grille du jour et les sept jours ouverts répondent sans
+ * lire une ligne de plus sur `players` (`needsAccountCheck`). Seule une grille
+ * du passé lointain paie cette requête, et elle n'est demandée que par
+ * quelqu'un qui est allé la chercher.
+ */
+async function resolveAccess(
+  playerId: string,
+  date: ChallengeDate,
+  today: ChallengeDate,
+): Promise<GridAccess> {
+  const hasAccount = needsAccountCheck(date, today) && (await playerHasAccount(playerId))
+
+  return gridAccess({ date, today, hasAccount })
+}
+
+/** Le droit, ou l'exception. La forme sous laquelle les deux portes le lisent. */
+async function requireAccess(
+  playerId: string,
+  date: ChallengeDate,
+  today: ChallengeDate,
+): Promise<PlayMode> {
+  const access = await resolveAccess(playerId, date, today)
+  if (!access.granted) throw new GridRefusedError(access.refusal)
+
+  return access.mode
+}
 
 /** What the personal-state door asks for. */
 export type DayPlaysQuery = {
@@ -67,18 +126,27 @@ export type DayPlaysQuery = {
  * from the open would mean two round trips at the minute of the peak for an
  * answer that is the same shape either way.
  *
- * **Opening is refused on any date but today's**, and that is not a validation:
- * the page is prerendered and served from a shared cache for up to a minute
- * (ADR-0008), so a joueur arriving at midnight can be holding a grid that has
- * just turned. Creating a partie for it would create one that the reading rule
- * fails on the spot, and would count somebody as exposed to yesterday's enigma.
- * The answer carries `today` for the same reason: the client cannot know.
+ * **Le mode est décidé ici et pas plus bas**, parce que c'est ici qu'on tient
+ * la date du client et l'horloge du serveur ensemble. Une grille du jour ouvre
+ * une partie `daily`, une grille passée une partie `archive`, une grille à
+ * venir n'ouvre rien du tout — et le refus remonte plutôt que de répondre une
+ * journée vide, sans quoi l'écran ne saurait pas s'il faut proposer de
+ * s'inscrire ou dire de revenir demain.
+ *
+ * Le cas que l'ancienne version traitait en refusant reste traité, autrement :
+ * la page est prérendue et servie depuis un cache partagé pendant une minute
+ * (ADR-0008), donc un joueur qui arrive à minuit peut tenir la grille de la
+ * veille. Elle est maintenant une grille d'archive comme une autre, donc ce
+ * qu'il joue compte — en archive, ce qui est exactement ce que cette grille-là
+ * est devenue. La réponse porte `today` pour que l'écran puisse lui dire que sa
+ * page a tourné ; le client n'a aucun moyen de le savoir.
  */
 export async function getDayPlays({ playerId, date, open }: DayPlaysQuery): Promise<DayPlays> {
   const today = todayInParis()
+  const mode = await requireAccess(playerId, date, today)
 
-  if (open !== undefined && isGridOfDay(date, today)) {
-    await openPlay({ playerId, date, position: open })
+  if (open !== undefined) {
+    await openPlay({ playerId, date, position: open, mode })
   }
 
   return { date, today, plays: await readPlays({ playerId, date, today }) }
@@ -111,6 +179,8 @@ async function openPlay(args: {
   playerId: string
   date: ChallengeDate
   position: Position
+  /** Décidé par la date, jamais reçu du client — voir l'en-tête du fichier. */
+  mode: PlayMode
 }): Promise<void> {
   const found = await db
     .select({ id: challengeItems.id })
@@ -124,15 +194,17 @@ async function openPlay(args: {
   await db.transaction(async (tx) => {
     const created = await tx
       .insert(playerProgress)
-      // `daily`, and stated rather than defaulted: the column has no default so
-      // that the archive (#14) cannot forget to say which mode it is playing in.
-      .values({ challengeItemId: enigma.id, playerId: args.playerId, mode: 'daily' })
+      // Le mode est écrit ici et n'est jamais relu d'ailleurs : c'est la
+      // colonne sans défaut du modèle, et ce que la partie dira d'elle-même
+      // pour le reste de sa vie. Une grille du jour rouverte demain est une
+      // autre partie — celle-ci garde `daily` et l'échec que le jour lui donne.
+      .values({ challengeItemId: enigma.id, playerId: args.playerId, mode: args.mode })
       .onConflictDoNothing()
       .returning({ id: playerProgress.id })
 
     if (created[0] === undefined) return
 
-    await countOpening(tx, { playerId: args.playerId, mode: 'daily' })
+    await countOpening(tx, { playerId: args.playerId, mode: args.mode })
   })
 }
 
@@ -285,6 +357,13 @@ export type TryCommand = {
  */
 export async function submitTry(command: TryCommand): Promise<EnigmaPlay> {
   const today = todayInParis()
+
+  // La même porte que l'ouverture, et pas seulement par symétrie : une partie
+  // d'archive n'a pas d'échéance (`server/domain/play.ts`), donc elle reste
+  // ouverte indéfiniment et le seul mur devant un essai sur une grille que le
+  // joueur n'a plus le droit de jouer — un compte fermé, par exemple — est
+  // celui-ci.
+  await requireAccess(command.playerId, command.date, today)
 
   // Bounded, and the bound *is* the game: every pass that loses lost to a write
   // on the same row, and a partie only has six essais to be written on before

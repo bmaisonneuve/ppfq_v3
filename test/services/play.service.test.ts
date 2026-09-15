@@ -31,6 +31,7 @@ import { PLAYER_IDS, seedPlayers } from '@test/fixtures/players'
  */
 const TODAY = '2026-09-09'
 const YESTERDAY = '2026-09-08'
+const TOMORROW = '2026-09-10'
 
 /** Three footballers the catalogue fixture leaves fully schedulable. */
 const SCHEDULABLE = [
@@ -157,18 +158,30 @@ describe('opening an enigma', () => {
     expect(day.plays).toMatchObject([{ position: 1, triesUsed: 3, status: 'in_progress' }])
   })
 
-  it('creates nothing on a date that is not the grid of the day', async () => {
+  it('ouvre une grille passée en archive, et jamais en quotidien', async () => {
     // The page is prerendered and served from a shared cache for up to a minute
     // (ADR-0008), so a joueur arriving at midnight can be holding a grid that
-    // has just turned. Opening an enigma of it would create a partie on
-    // yesterday's grid — one that the reading rule fails on the spot.
+    // has just turned. Depuis l'archive (#14), cette grille-là est jouable —
+    // et le mode dit exactement ce qu'elle est devenue.
     await schedule(YESTERDAY)
     await schedule(TODAY)
     paris(TODAY)
 
     const day = await getDayPlays(mine({ date: YESTERDAY, open: 1 }))
 
-    expect(day.plays).toEqual([])
+    expect(day.plays).toMatchObject([{ position: 1, triesUsed: 0, status: 'in_progress' }])
+    expect(await allParties()).toMatchObject([{ mode: 'archive' }])
+  })
+
+  it('n’ouvre rien sur une grille à venir', async () => {
+    // Les grilles sont programmées à l'avance, donc la ligne existe : sans ce
+    // refus, l'énigme de demain se lit à son adresse.
+    await schedule(TOMORROW)
+    paris(TODAY)
+
+    await expect(getDayPlays(mine({ date: TOMORROW, open: 1 }))).rejects.toMatchObject({
+      reason: 'not-yet',
+    })
     expect(await allParties()).toEqual([])
   })
 

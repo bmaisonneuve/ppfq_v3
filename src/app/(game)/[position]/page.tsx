@@ -10,8 +10,9 @@ import { ChallengeScreen } from '@/ui/game/challenge-screen'
  * titulaire d'aujourd'hui » se colle dans une conversation, se met en favori et
  * remonte dans l'historique du navigateur. Le rang suffit à la nommer parce
  * qu'une journée est déjà décidée par l'horloge : la grille du jour est celle
- * de la date parisienne, et l'archive, quand elle existera (#11), portera sa
- * date dans un segment à elle.
+ * de la date parisienne. L'archive, elle, porte sa date dans un segment à elle
+ * — `/archive/2026-09-08/2` — parce que sa journée est un choix et non une
+ * conséquence de l'heure qu'il est.
  *
  * `params` n'est pas une donnée de requête : c'est le segment de route, connu
  * à la construction. Les trois pages sont donc prérendues comme l'accueil et

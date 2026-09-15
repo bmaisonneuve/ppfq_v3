@@ -3,11 +3,13 @@
 import { createContext, useContext, useState } from 'react'
 import type { ReactNode } from 'react'
 
+import { DAILY_BASE, archiveBase } from '@/shared/archive'
+import type { GridBase } from '@/shared/archive'
 import type { DailyGrid } from '@/shared/grid'
 import type { EnigmaPlay } from '@/shared/play'
 import type { FootballerSuggestion } from '@/shared/search'
 import type { PlayerStats } from '@/shared/stats'
-import type { Position } from '@/shared/schedule'
+import type { ChallengeDate, Position } from '@/shared/schedule'
 import { Modal } from '@/ui/modal'
 
 import { AccountPanelView } from './account-panel'
@@ -15,7 +17,7 @@ import { GameShell } from './chrome'
 import { PlayerStatsPanel } from './player-stats'
 import { useAccount } from './use-account'
 import type { Account } from './use-account'
-import { useDayPlays } from './use-day-plays'
+import { isStaleGrid, useDayPlays } from './use-day-plays'
 import type { PersonalState } from './use-day-plays'
 import type { Verdict } from './verdict'
 
@@ -41,10 +43,54 @@ import type { Verdict } from './verdict'
  *
  * La grille, elle, vient du serveur : c'est le layout qui l'a lue, en statique,
  * et elle descend ici en prop. Rien de ce fichier ne lit de requête.
+ *
+ * ## Le même provider pour le quotidien et pour l'archive
+ *
+ * « La mécanique de jeu en archive est identique à celle du quotidien » (specs
+ * §7), et c'est ici que cette phrase coûte quelque chose : les deux moitiés
+ * partagent ce provider, les quatre écrans et la file de requêtes.
+ *
+ * Tout ce qui les sépare tient dans **une** prop, `archiveDate` — la journée
+ * dont ces écrans-là parlent, absente sur la grille du jour. Une seule, parce
+ * que deux qui disent la même chose finissent par se contredire : le préfixe
+ * des liens et le fait d'être en archive s'en déduisent tous les deux ici, une
+ * fois, et rien en dessous ne peut les désaccorder.
+ *
+ * Elle est renseignée **même quand il n'y a pas de grille** — une journée
+ * verrouillée, un jour sans grille — parce que ce que l'écran montre alors
+ * reste de l'archive : ses statistiques, et son en-tête.
+ *
+ * Le mode, lui, n'est pas ici et n'y sera jamais : il se déduit de la date côté
+ * serveur (ADR-0016). Ce que `archiveDate` dit est de quelle journée on parle,
+ * pas ce que la partie vaut.
  */
 type Game = {
-  /** La grille du jour, ou `null` le jour où rien n'est programmé. */
+  /** La grille affichée, ou `null` le jour où rien n'est programmé. */
   grid: DailyGrid | null
+  /**
+   * D'où partent les liens de ces écrans-là : rien pour le quotidien,
+   * `/archive/<date>` pour une grille passée (`shared/archive.ts`).
+   */
+  base: GridBase
+  /**
+   * Vrai quand ces écrans sont ceux de l'archive.
+   *
+   * Ce qu'il change à l'écran tient en trois retenues, et chacune est une règle
+   * plutôt qu'un goût : pas de série — l'archive n'en a pas (specs §7) —, pas
+   * de résumé partagé — il est celui de la grille du jour (specs §8) —, et pas
+   * de compte à rebours, puisque aucune nouvelle grille n'arrive ici.
+   */
+  archive: boolean
+  /**
+   * Vrai quand la grille à l'écran n'est plus celle du jour — la page est
+   * servie depuis un cache partagé pendant une minute (ADR-0008), donc un
+   * joueur qui arrive à minuit peut tenir celle de la veille.
+   *
+   * Lu ici et pas à chaque écran : c'est la même phrase à deux endroits, et
+   * elle porte une exception — une journée d'archive ne « tourne » jamais, elle
+   * est datée par son adresse.
+   */
+  stale: boolean
   state: PersonalState
   stats: PlayerStats | null | undefined
   pending: ReadonlySet<Position>
@@ -77,10 +123,19 @@ const GameContext = createContext<Game | null>(null)
 
 export function GameProvider({
   grid,
+  archiveDate,
   children,
-}: Readonly<{ grid: DailyGrid | null; children: ReactNode }>) {
+}: Readonly<{
+  grid: DailyGrid | null
+  /** La journée de l'archive dont ces écrans parlent. Absente : la grille du jour. */
+  archiveDate?: ChallengeDate
+  children: ReactNode
+}>) {
+  const archive = archiveDate !== undefined
+  const base: GridBase = archiveDate === undefined ? DAILY_BASE : archiveBase(archiveDate)
   const { state, open, submit, verdict, pending, stats, enqueue } = useDayPlays(
     grid?.date ?? null,
+    archiveDate ?? null,
   )
   const account = useAccount(enqueue)
   const [statsOpen, setStatsOpen] = useState(false)
@@ -88,6 +143,11 @@ export function GameProvider({
 
   const game: Game = {
     grid,
+    base,
+    archive,
+    // Une journée d'archive est datée par son adresse : elle ne peut pas avoir
+    // tourné, et proposer de recharger n'y changerait rien.
+    stale: !archive && grid !== null && isStaleGrid(state, grid.date),
     state,
     stats,
     pending,
@@ -110,12 +170,15 @@ export function GameProvider({
 
       <Modal
         open={statsOpen}
-        title="Vos statistiques"
+        // Le titre dit lequel des deux comptes on regarde : « l'archive est
+        // comptée séparément » (specs §7), et un panneau qui ne le dirait pas
+        // se lirait comme une série perdue.
+        title={archive ? 'Vos statistiques d’archive' : 'Vos statistiques'}
         onClose={() => {
           setStatsOpen(false)
         }}
       >
-        <PlayerStatsPanel stats={stats} />
+        <PlayerStatsPanel stats={stats} archive={archive} />
       </Modal>
 
       <Modal

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
+import { ARCHIVE_PATH, gridLevel } from '@/shared/archive'
 import { formatGridDate, positionObject } from '@/shared/schedule'
 import type { Enigma } from '@/shared/grid'
 import type { EnigmaPlay } from '@/shared/play'
@@ -24,7 +25,7 @@ import { StaleGridNotice, UnavailableNotice } from './notices'
 import { CopyResultButton } from './share-summary'
 import { useCountdown } from './use-countdown'
 import { useDesktop } from './use-desktop'
-import { isStaleGrid, playsOf } from './use-day-plays'
+import { playsOf } from './use-day-plays'
 
 /**
  * L'accueil du jour : les trois niveaux, leur état, et l'invitation à reprendre
@@ -61,10 +62,19 @@ import { isStaleGrid, playsOf } from './use-day-plays'
  * C'est la contrepartie de « tout en une page », et c'est pourquoi le téléphone
  * garde son sommaire : deux formats, deux compromis, et un seul endroit — ici —
  * où le choix est écrit.
+ *
+ * ## Le même écran sert l'archive
+ *
+ * « La mécanique de jeu en archive est identique à celle du quotidien » (specs
+ * §7), donc c'est cet écran-ci qui rend aussi l'aperçu d'une grille passée. Ce
+ * qu'il en retire tient en trois lignes, et chacune est une règle : pas de
+ * compte à rebours — aucune nouvelle grille n'arrive sur une journée
+ * terminée —, pas de résumé partagé — il est celui de la grille du jour (specs
+ * §8) —, et pas de série dans le bilan, l'archive n'en ayant pas.
  */
 export function HomeScreen() {
   const grid = useGrid()
-  const { state, playAt } = useGame()
+  const { state, base, playAt } = useGame()
   const desktop = useDesktop()
   const router = useRouter()
 
@@ -76,8 +86,8 @@ export function HomeScreen() {
   useEffect(() => {
     if (!desktop || resume === null) return
 
-    router.replace(`/${resume}`)
-  }, [desktop, resume, router])
+    router.replace(gridLevel(base, resume))
+  }, [base, desktop, resume, router])
 
   // La main est passée, ou elle est sur le point de l'être : le sommaire
   // disparaît du grand écran avant d'avoir été vu, plutôt que d'apparaître le
@@ -99,7 +109,8 @@ export function HomeScreen() {
 /** Le sommaire de la journée : l'écran du téléphone, et la grille finie. */
 function Overview({ hiddenOnDesktop }: Readonly<{ hiddenOnDesktop: boolean }>) {
   const grid = useGrid()
-  const { state, stats, playAt, openStats, openAccount, account } = useGame()
+  const { state, stats, base, archive, stale, playAt, openStats, openAccount, account } =
+    useGame()
 
   return (
     <ScreenColumn hiddenOnDesktop={hiddenOnDesktop}>
@@ -114,7 +125,7 @@ function Overview({ hiddenOnDesktop }: Readonly<{ hiddenOnDesktop: boolean }>) {
       <ScrollBody>
         <div className="flex flex-col gap-[9px]">
           {state.status === 'unavailable' ? <UnavailableNotice /> : null}
-          {isStaleGrid(state, grid.date) ? <StaleGridNotice /> : null}
+          {stale ? <StaleGridNotice /> : null}
 
           {/* Les trois cartes côte à côte dès qu'il y a la largeur : empilées
               sur 800 px, chacune serait un bandeau bien plus large que haut. */}
@@ -123,6 +134,7 @@ function Overview({ hiddenOnDesktop }: Readonly<{ hiddenOnDesktop: boolean }>) {
               <EnigmaCard
                 key={enigma.position}
                 enigma={enigma}
+                base={base}
                 play={playAt(enigma.position)}
                 loading={state.status === 'loading'}
               />
@@ -133,7 +145,7 @@ function Overview({ hiddenOnDesktop }: Readonly<{ hiddenOnDesktop: boolean }>) {
 
       <ActionBand>
         <DayAction />
-        <Ledger stats={stats} />
+        <Ledger stats={stats} archive={archive} />
       </ActionBand>
     </ScreenColumn>
   )
@@ -168,17 +180,29 @@ function Waiting() {
  */
 function DayAction() {
   const grid = useGrid()
-  const { state, playAt } = useGame()
+  const { state, base, archive, playAt } = useGame()
 
   // Tant que la progression n'est pas là, le libellé serait une supposition :
   // annoncer « Jouer l'échauffement » puis le remplacer par « Reprendre le
   // titulaire » ferait bouger le bouton sous le pouce.
-  if (state.status === 'loading') return <PrimaryLink label="Jouer la grille du jour" href="/1" />
+  if (state.status === 'loading') {
+    return (
+      <PrimaryLink
+        label={archive ? 'Jouer cette grille' : 'Jouer la grille du jour'}
+        href={gridLevel(base, 1)}
+      />
+    )
+  }
 
   const move = nextMove(grid.enigmas, playAt)
 
   if (move === null) {
-    return (
+    // Le résumé partagé est celui de la grille **du jour** (specs §8) : une
+    // grille d'archive finie propose de retourner au calendrier, qui est le
+    // geste suivant de quelqu'un qui rejoue le passé.
+    return archive ? (
+      <PrimaryLink label="Choisir une autre journée" href={ARCHIVE_PATH} />
+    ) : (
       <CopyResultButton
         source={{ date: grid.date, theme: grid.theme, plays: playsOf(state) }}
       />
@@ -188,7 +212,7 @@ function DayAction() {
   return (
     <PrimaryLink
       label={`${move.verb} ${positionObject(move.position)}`}
-      href={`/${move.position}`}
+      href={gridLevel(base, move.position)}
     />
   )
 }
@@ -214,20 +238,31 @@ function nextMove(
  * affichée à zéro le temps de la requête serait lue comme une série perdue, et
  * c'est précisément le chiffre auquel un joueur tient.
  */
-function Ledger({ stats }: Readonly<{ stats: PlayerStats | null | undefined }>) {
+function Ledger({
+  stats,
+  archive,
+}: Readonly<{ stats: PlayerStats | null | undefined; archive: boolean }>) {
   const countdown = useCountdown()
 
   return (
     <div className="flex flex-col gap-[3px]">
       {stats === undefined || stats === null ? null : (
         <span className="font-mono text-meta text-ink">
-          Série {stats.serie} · {stats.perfectChallenges} carton
+          {/* Pas de série en archive : elle ne s'y alimente pas (specs §7), et
+              un « Série 0 » posé sous une grille qu'on vient de gagner serait
+              lu comme une série perdue. Les cartons pleins, eux, existent des
+              deux côtés — chacun sur sa ligne d'agrégat. */}
+          {archive ? '' : `Série ${stats.serie} · `}
+          {stats.perfectChallenges} carton
           {stats.perfectChallenges > 1 ? 's' : ''} plein
           {stats.perfectChallenges > 1 ? 's' : ''}
+          {archive ? ' en archive' : ''}
         </span>
       )}
 
-      {countdown === null ? null : (
+      {/* Le compte à rebours annonce la prochaine grille du jour : sur une
+          journée passée, il n'annoncerait rien qui se passe sur cet écran. */}
+      {archive || countdown === null ? null : (
         <span className="font-mono text-meta text-ink/70">Nouvelle grille dans {countdown}</span>
       )}
     </div>
