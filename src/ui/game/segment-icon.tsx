@@ -15,7 +15,17 @@ import type { EnigmaPlay } from '@/shared/play'
  * Décoratif : chaque icône est doublée d'un titre lisible par un lecteur
  * d'écran, parce que la forme seule ne se lit pas à voix haute.
  */
-export function SegmentIcon({ play }: Readonly<{ play: EnigmaPlay | undefined }>) {
+export function SegmentIcon({
+  play,
+  /**
+   * Vrai quand c'est **cet** essai-ci qui vient de fermer le niveau : la forme
+   * change alors en éclatant, au lieu de se substituer à l'autre entre deux
+   * rendus. Le signe est à 11 px et il est en haut de l'écran — sans ce
+   * mouvement, le joueur qui regarde sa carte réponse ne le voit jamais
+   * changer.
+   */
+  pop = false,
+}: Readonly<{ play: EnigmaPlay | undefined; pop?: boolean }>) {
   if (play === undefined) return <Dot filled={false} label="à jouer" />
 
   switch (play.status) {
@@ -23,13 +33,13 @@ export function SegmentIcon({ play }: Readonly<{ play: EnigmaPlay | undefined }>
       return <Dot filled label="en cours" />
     case 'solved':
       return (
-        <Glyph label="trouvé" stroke="var(--color-found)">
+        <Glyph label="trouvé" stroke="var(--color-found)" pop={pop}>
           <polyline points="3,7.5 6,10.5 11,4.5" />
         </Glyph>
       )
     case 'failed':
       return (
-        <Glyph label="échoué" stroke="var(--color-missed)">
+        <Glyph label="échoué" stroke="var(--color-missed)" pop={pop}>
           <line x1="4" y1="4" x2="10" y2="10" />
           <line x1="10" y1="4" x2="4" y2="10" />
         </Glyph>
@@ -53,8 +63,9 @@ function Dot({ filled, label }: Readonly<{ filled: boolean; label: string }>) {
 function Glyph({
   label,
   stroke,
+  pop,
   children,
-}: Readonly<{ label: string; stroke: string; children: React.ReactNode }>) {
+}: Readonly<{ label: string; stroke: string; pop: boolean; children: React.ReactNode }>) {
   return (
     <svg
       viewBox="0 0 14 14"
@@ -62,7 +73,7 @@ function Glyph({
       height="11"
       role="img"
       aria-label={label}
-      className="shrink-0"
+      className={`shrink-0 ${pop ? 'animate-pop' : ''}`}
       fill="none"
       stroke={stroke}
       strokeWidth="2.4"

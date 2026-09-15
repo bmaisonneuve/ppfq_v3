@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import type { AnimationEvent } from 'react'
 
 import { MAX_TRIES, triesLeft } from '@/shared/play'
 import type { EnigmaPlay } from '@/shared/play'
@@ -8,6 +9,7 @@ import type { FootballerSuggestion } from '@/shared/search'
 import { FootballerTypeahead } from '@/ui/footballer-typeahead'
 
 import { useDesktop } from './use-desktop'
+import type { Verdict } from './verdict'
 
 /**
  * Le bandeau de l'écran de jeu : ce qui reste, ce qu'on propose, et le tour
@@ -36,11 +38,14 @@ import { useDesktop } from './use-desktop'
 export function EssaiBand({
   play,
   pending,
+  verdict,
   onSubmit,
 }: Readonly<{
   play: EnigmaPlay
   pending: boolean
-  onSubmit: (footballerId: string | null) => void
+  /** Le dernier essai, tant qu'il est un instant (`verdict.tsx`). */
+  verdict: Verdict | null
+  onSubmit: (proposal: FootballerSuggestion | null) => void
 }>) {
   /**
    * La suggestion surlignée dans la liste, et le geste qui la propose.
@@ -61,12 +66,13 @@ export function EssaiBand({
 
   const desktop = useDesktop()
   const left = triesLeft(play)
+  const shake = useShake(verdict)
 
   // Pas désactivé par `pending`, contrairement au bouton : choisir une
   // suggestion est un geste délibéré à chaque fois, et deux choix sont deux
   // essais.
   const propose = (suggestion: FootballerSuggestion) => {
-    onSubmit(suggestion.footballerId)
+    onSubmit(suggestion)
   }
 
   const pass = () => {
@@ -79,14 +85,19 @@ export function EssaiBand({
         <span className="font-mono text-state text-ink">
           {left} essai{left > 1 ? 's' : ''} restant{left > 1 ? 's' : ''}
         </span>
-        <Tokens spent={play.triesUsed} />
+        {/* Le jeton qui vient d'être dépensé se remplit sous les yeux : la
+            dépense se voit là où elle se compte, et pas dans un message. */}
+        <Tokens spent={play.triesUsed} filling={verdict === null ? null : verdict.triesUsed - 1} />
       </div>
 
       {desktop ? (
         <>
           {/* La rangée blanche est le champ : celui-ci n'a plus ni fond ni
               rembourrage, et « Valider » se range à son bord droit. */}
-          <div className="rounded-row flex items-center gap-[10px] bg-white px-[14px] py-[13px]">
+          <div
+            onAnimationEnd={shake.onAnimationEnd}
+            className={`rounded-row flex items-center gap-[10px] bg-white px-[14px] py-[13px] ${shake.className}`}
+          >
             <div className="min-w-0 flex-1">
               <FootballerTypeahead
                 label="Proposez un footballeur"
@@ -116,13 +127,15 @@ export function EssaiBand({
         </>
       ) : (
         <>
-          <FootballerTypeahead
-            label="Proposez un footballeur"
-            placeholder="Tapez un nom de footballeur…"
-            tone="game"
-            onHighlight={onHighlight}
-            onSelect={propose}
-          />
+          <div onAnimationEnd={shake.onAnimationEnd} className={shake.className}>
+            <FootballerTypeahead
+              label="Proposez un footballeur"
+              placeholder="Tapez un nom de footballeur…"
+              tone="game"
+              onHighlight={onHighlight}
+              onSelect={propose}
+            />
+          </div>
 
           <div className="flex gap-2">
             <SubmitButton
@@ -183,7 +196,11 @@ function PassButton({
 }
 
 /** Les six jetons : pleins ce qui est dépensé, cerclés ce qui reste. */
-function Tokens({ spent }: Readonly<{ spent: number }>) {
+function Tokens({
+  spent,
+  /** Le rang du jeton qui vient d'être dépensé, s'il vient de l'être. */
+  filling,
+}: Readonly<{ spent: number; filling: number | null }>) {
   return (
     <div aria-hidden className="flex gap-1">
       {Array.from({ length: MAX_TRIES }, (_, index) => (
@@ -191,9 +208,42 @@ function Tokens({ spent }: Readonly<{ spent: number }>) {
           key={index}
           className={`size-[12px] shrink-0 rounded-full border-2 ${
             index < spent ? 'bg-ink border-ink' : 'border-ink/35 bg-transparent'
-          }`}
+          } ${index === filling ? 'animate-token' : ''}`}
         />
       ))}
     </div>
   )
+}
+
+/**
+ * La secousse du champ quand un footballeur est refusé.
+ *
+ * Elle se retire d'elle-même à la fin de l'animation, et c'est ce qui la rend
+ * rejouable : une classe CSS déjà posée ne relance rien, donc deux mauvaises
+ * réponses de suite ne feraient trembler le champ qu'une fois. La retirer sur
+ * `animationend` la rend disponible pour l'essai suivant.
+ *
+ * Un tour passé ne tremble pas. Il coûte le même essai, mais c'est le joueur
+ * qui l'a choisi : l'écran n'a pas à le lui reprocher.
+ */
+function useShake(verdict: Verdict | null): {
+  className: string
+  onAnimationEnd: (event: AnimationEvent<HTMLDivElement>) => void
+} {
+  const serial = verdict?.kind === 'wrong' ? verdict.serial : null
+  // Le dernier essai déjà secoué, et non « est-ce que ça tremble » : une classe
+  // CSS déjà posée ne relance rien, donc deux mauvaises réponses de suite ne
+  // feraient trembler le champ qu'une fois. Retenir lequel a été secoué fait
+  // retomber la classe à la fin de l'animation, et la rend disponible pour
+  // l'essai suivant.
+  const [shaken, setShaken] = useState<number | null>(null)
+
+  return {
+    className: serial !== null && serial !== shaken ? 'animate-shake' : '',
+    // Les animations des enfants remontent aussi : seule celle de l'élément
+    // lui-même met fin à la secousse.
+    onAnimationEnd: (event) => {
+      if (event.target === event.currentTarget) setShaken(serial)
+    },
+  }
 }

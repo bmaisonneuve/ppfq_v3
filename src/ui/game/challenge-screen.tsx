@@ -1,12 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
-import { isOver, revealedDecade, revealedNationality } from '@/shared/play'
+import { isOver } from '@/shared/play'
 import { positionObject, positionTitle } from '@/shared/schedule'
 import type { Enigma } from '@/shared/grid'
-import type { EnigmaPlay, RevealedHint } from '@/shared/play'
+import type { EnigmaPlay, HintTier, RevealedHint } from '@/shared/play'
+import type { FootballerSuggestion } from '@/shared/search'
 import type { Position } from '@/shared/schedule'
 
 import {
@@ -19,12 +20,15 @@ import {
 } from './chrome'
 import { AnswerCard } from './answer-card'
 import { ClubTable } from './club-table'
+import { Confetti } from './confetti'
 import { DesktopRail } from './rail'
 import { EssaiBand } from './essai-band'
 import { useGame, useGrid } from './game-provider'
 import { StaleGridNotice, UnavailableNotice } from './notices'
 import { SegmentIcon } from './segment-icon'
 import { isStaleGrid } from './use-day-plays'
+import { VerdictAnnounce, VerdictBand, closes, useLive, verdictAt } from './verdict'
+import type { Verdict } from './verdict'
 
 /**
  * Le détail d'un niveau : le parcours à lire, les indices déjà dévoilés, et
@@ -44,7 +48,8 @@ import { isStaleGrid } from './use-day-plays'
  */
 export function ChallengeScreen({ position }: Readonly<{ position: Position }>) {
   const grid = useGrid()
-  const { state, pending, playAt, open, submit, openStats, openAccount, account } = useGame()
+  const { state, pending, playAt, open, submit, verdict, openStats, openAccount, account } =
+    useGame()
 
   useEffect(() => {
     // Idempotent par position : revenir sur un niveau déjà ouvert ne redemande
@@ -55,12 +60,27 @@ export function ChallengeScreen({ position }: Readonly<{ position: Position }>) 
   const enigma = grid.enigmas.find((candidate) => candidate.position === position)
   const play = enigma === undefined ? undefined : playAt(position)
 
+  /**
+   * Le verdict de cet écran-ci, et l'instant de cet écran-ci.
+   *
+   * Deux filtres et non un. La **position** d'abord : le verdict vit dans le
+   * layout, donc l'écran du titulaire le voit passer même quand il concerne
+   * l'échauffement. La **fraîcheur** ensuite : la bande qui nomme l'indice
+   * reste jusqu'à l'essai suivant — on peut y revenir — tandis que la secousse,
+   * la ola et la gerbe n'ont lieu qu'une fois (`verdict.tsx`).
+   */
+  const ownVerdict = verdictAt(verdict, position)
+  const liveVerdict = useLive(ownVerdict)
+  const hints = play?.hints ?? []
+
   // Une grille à deux énigmes est une grille incomplète, pas un écran à
   // inventer : le back-office en programme toujours trois (specs §2).
   if (enigma === undefined) return <MissingEnigma />
 
   return (
     <>
+      <Celebration verdict={liveVerdict} />
+
       {/* Le rail n'est pas un écran à part : c'est le même niveau, avec la
           place d'afficher la journée à côté. Il marque celui-ci. */}
       <DesktopRail active={position} />
@@ -71,7 +91,12 @@ export function ChallengeScreen({ position }: Readonly<{ position: Position }>) 
           onAccount={openAccount}
           accountInitial={account.initial}
         >
-          <SegmentedBar enigmas={grid.enigmas} active={position} playAt={playAt} />
+          <SegmentedBar
+            enigmas={grid.enigmas}
+            active={position}
+            playAt={playAt}
+            popAt={closes(liveVerdict) ? position : null}
+          />
         </GameHeader>
 
         <ScrollBody>
@@ -79,33 +104,56 @@ export function ChallengeScreen({ position }: Readonly<{ position: Position }>) 
             {state.status === 'unavailable' ? <UnavailableNotice /> : null}
 
             {play !== undefined && isOver(play) ? (
-              <AnswerCard play={play} clubs={enigma.passages.length} />
+              <AnswerCard play={play} clubs={enigma.passages.length} verdict={liveVerdict} />
             ) : null}
 
-            <HintChips hints={play?.hints ?? []} />
+            <HintChips hints={hints} revealed={liveVerdict?.tier ?? null} />
 
-            <ClubTable passages={enigma.passages} hints={play?.hints ?? []} />
+            <ClubTable passages={enigma.passages} hints={hints} verdict={liveVerdict} />
           </div>
         </ScrollBody>
 
         <ActionBand>
+          {/* L'animation *est* le message ; celle-ci le redit en une phrase,
+              pour qui ne la voit pas. Toujours montée, jamais visible. */}
+          <VerdictAnnounce verdict={ownVerdict} />
+
           {isStaleGrid(state, grid.date) ? (
             <StaleGridNotice />
           ) : (
-            <Band
-              enigma={enigma}
-              play={play}
-              loading={state.status === 'loading'}
-              pending={pending.has(position)}
-              onSubmit={(footballerId) => {
-                submit(position, footballerId)
-              }}
-            />
+            <>
+              <VerdictBand verdict={ownVerdict} />
+
+              <Band
+                enigma={enigma}
+                play={play}
+                loading={state.status === 'loading'}
+                pending={pending.has(position)}
+                verdict={liveVerdict}
+                onSubmit={(proposal) => {
+                  submit(position, proposal)
+                }}
+              />
+            </>
           )}
         </ActionBand>
       </ScreenColumn>
     </>
   )
+}
+
+/**
+ * La gerbe, quand c'est une réussite, et rien du tout sinon.
+ *
+ * Montée par l'écran et pas par la carte réponse : elle est posée sur la
+ * fenêtre entière, ce qu'un enfant de la zone qui défile ne peut pas être — et
+ * ce qu'un enfant de la carte ne pourrait pas être non plus, la carte étant
+ * justement en train de se poser (`verdict.tsx`).
+ */
+function Celebration({ verdict }: Readonly<{ verdict: Verdict | null }>) {
+  if (verdict?.kind !== 'solved') return null
+
+  return <Confetti double={verdict.triesUsed === 1} />
 }
 
 /**
@@ -125,10 +173,13 @@ function SegmentedBar({
   enigmas,
   active,
   playAt,
+  /** Le niveau dont l'issue vient de tomber, s'il y en a un. */
+  popAt,
 }: Readonly<{
   enigmas: readonly Enigma[]
   active: Position
   playAt: (position: Position) => EnigmaPlay | undefined
+  popAt: Position | null
 }>) {
   return (
     <nav className="flex gap-[5px]">
@@ -144,7 +195,7 @@ function SegmentedBar({
           >
             <span className={`rounded-bar h-[5px] ${here ? 'bg-ink' : 'bg-white/40'}`} />
             <span className="flex items-center gap-[5px]">
-              <SegmentIcon play={playAt(enigma.position)} />
+              <SegmentIcon play={playAt(enigma.position)} pop={enigma.position === popAt} />
               <span
                 className={`font-display text-segment truncate ${
                   here ? 'text-ink' : 'text-ink/65'
@@ -169,31 +220,80 @@ function SegmentedBar({
  * que l'écran est cassé, et « inconnue » est au moins une information sur le
  * catalogue.
  */
-function HintChips({ hints }: Readonly<{ hints: readonly RevealedHint[] }>) {
-  const decade = revealedDecade(hints)
-  const nationality = revealedNationality(hints)
+function HintChips({
+  hints,
+  /** Le palier que le dernier essai vient de payer, s'il est de ceux-ci. */
+  revealed,
+}: Readonly<{ hints: readonly RevealedHint[]; revealed: HintTier | null }>) {
+  const chips = hints.flatMap(chipOf)
 
-  const chips = [
-    ...(decade === undefined ? [] : [decade === null ? 'décennie inconnue' : `années ${decade}`]),
-    ...(nationality === undefined
-      ? []
-      : [nationality === null ? 'nationalité inconnue' : nationality.frName]),
-  ]
+  const box = useRef<HTMLDivElement>(null)
+  // Les pastilles sont en haut du corps qui défile, et un parcours de huit
+  // clubs les pousse hors de l'écran : une pastille qui apparaît là où le
+  // joueur ne regarde pas n'est pas un indice, c'est un indice perdu.
+  const arriving = chips.some((chip) => chip.tier === revealed)
+
+  useEffect(() => {
+    if (!arriving) return
+
+    box.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [arriving])
 
   if (chips.length === 0) return null
 
   return (
-    <div className="flex flex-wrap gap-[6px]">
+    <div ref={box} className="flex flex-wrap gap-[6px]">
       {chips.map((chip) => (
         <span
-          key={chip}
-          className="font-mono text-chip text-ink rounded-full bg-white px-[10px] py-[6px] uppercase"
+          key={chip.tier}
+          className={`font-mono text-chip text-ink rounded-full bg-white px-[10px] py-[6px] uppercase ${
+            chip.tier === revealed ? 'animate-chip' : ''
+          }`}
         >
-          {chip}
+          {chip.text}
         </span>
       ))}
     </div>
   )
+}
+
+/**
+ * L'indice qui tient dans une pastille, ou rien du tout.
+ *
+ * Le palier est lu **sur l'indice**, jamais réécrit à côté de lui : c'est
+ * `shared/play.ts` qui décide que la décennie est le palier 1 et la nationalité
+ * le palier 3, et un `tier: 1` recopié ici en aurait fait une paire libre de
+ * diverger — le jour où l'échelle bouge, l'animation se poserait sur la
+ * mauvaise pastille sans que rien ne le signale.
+ *
+ * Une liste et non un `RevealedHint | null`, pour que `flatMap` fasse le tri :
+ * les trois paliers qui sont des colonnes du tableau rendent la liste vide.
+ */
+function chipOf(hint: RevealedHint): { tier: HintTier; text: string }[] {
+  switch (hint.tier) {
+    case 1:
+      return [
+        {
+          tier: hint.tier,
+          text: hint.decade === null ? 'décennie inconnue' : `années ${hint.decade}`,
+        },
+      ]
+    case 3:
+      return [
+        {
+          tier: hint.tier,
+          text: hint.nationality === null ? 'nationalité inconnue' : hint.nationality.frName,
+        },
+      ]
+    // Les trois autres paliers sont des colonnes du tableau, pas des
+    // pastilles. Énumérés plutôt que laissés à un `default` : c'est
+    // l'exhaustivité qui ramènera ici le jour où l'échelle gagne un palier,
+    // au lieu de le faire disparaître en silence.
+    case 2:
+    case 4:
+    case 5:
+      return []
+  }
 }
 
 /**
@@ -205,13 +305,16 @@ function Band({
   play,
   loading,
   pending,
+  verdict,
   onSubmit,
 }: Readonly<{
   enigma: Enigma
   play: EnigmaPlay | undefined
   loading: boolean
   pending: boolean
-  onSubmit: (footballerId: string | null) => void
+  /** Le dernier essai, tant qu'il est un instant (`verdict.tsx`). */
+  verdict: Verdict | null
+  onSubmit: (proposal: FootballerSuggestion | null) => void
 }>) {
   const grid = useGrid()
   const { playAt } = useGame()
@@ -224,7 +327,9 @@ function Band({
     )
   }
 
-  if (!isOver(play)) return <EssaiBand play={play} pending={pending} onSubmit={onSubmit} />
+  if (!isOver(play)) {
+    return <EssaiBand play={play} pending={pending} verdict={verdict} onSubmit={onSubmit} />
+  }
 
   const next = grid.enigmas.find((candidate) => {
     if (candidate.position === enigma.position) return false
@@ -234,7 +339,11 @@ function Band({
   })
 
   return (
-    <>
+    // Le geste suivant arrive **après** la récompense, et pas pendant : un
+    // bouton présent pendant la fête transforme la fête en couloir. Le délai
+    // est dans `animate-rise` ; les écarts sont ceux du bandeau, pour que la
+    // division n'en change aucun.
+    <div className={`flex flex-col gap-2 lg:gap-[9px] ${closes(verdict) ? 'animate-rise' : ''}`}>
       {next === undefined ? (
         <PrimaryLink label="Voir la grille du jour" href="/" />
       ) : (
@@ -247,7 +356,7 @@ function Band({
           lorsque les trois niveaux sont finis, donc qu'il n'y a plus rien à
           reprendre. */}
       <TextLink label="Revenir à la grille" href="/" hiddenOnDesktop />
-    </>
+    </div>
   )
 }
 

@@ -29,6 +29,12 @@ Un footballeur proposé pour une énigme, choisi dans la liste de recherche. Six
 À ne pas confondre avec le **double-clic**, qui est son exact contraire : la même proposition arrivant deux fois en moins de deux secondes ne consomme rien. Le doublon est une règle de jeu, le double-clic une protection technique.
 _Avoid_: tentative, guess, réponse
 
+**Verdict** :
+Ce qu'un essai vient de *faire*, par opposition à ce que la partie est devenue : trouvé, raté, tour passé, ou la sixième erreur — et le palier que cet essai-là vient de dévoiler. Une partie dit qu'elle a trois essais dépensés et deux indices, jamais qu'elle vient de le devenir ; le verdict est exactement cette différence, et c'est la seule chose que les animations de l'écran de jeu consomment.
+
+Calculé à l'écran en comparant la partie d'avant à celle que le serveur renvoie, donc **ni transmis ni stocké**. Un double-clic n'en produit aucun : la partie revient inchangée, rien n'a été dépensé, il n'y a rien à annoncer. Il ne dure qu'un instant — passé deux secondes et demie, ce qu'il en reste à l'écran est une information et non plus un événement (`src/ui/game/verdict.tsx`).
+_Avoid_: résultat, feedback, animation
+
 **Partie** :
 L'état serveur d'un joueur sur une énigme : essais consommés, indices dévoilés, issue. Créée à l'ouverture de l'énigme, pas au premier essai. Une partie ouverte et non terminée avant le changement de grille compte comme un échec. En base : `player_progress` — une ligne mutable, jamais un journal d'événements.
 _Avoid_: session (le mot appartient à l'authentification), game_session, play_history

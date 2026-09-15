@@ -36,7 +36,7 @@ export function ClubNamesForm({
   return (
     <form action={rename} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="clubId" value={clubId} />
-      <label className="flex flex-col gap-1">
+      <label className="flex w-full flex-col gap-1 sm:w-auto">
         <span className="field-label">Nom français</span>
         <input
           type="text"
@@ -44,23 +44,23 @@ export function ClubNamesForm({
           required
           maxLength={120}
           defaultValue={frName}
-          className="field w-72"
+          className="field sm:w-72"
         />
       </label>
-      <label className="flex flex-col gap-1">
+      <label className="flex w-full flex-col gap-1 sm:w-auto">
         <span className="field-label">Nom anglais (facultatif)</span>
         <input
           type="text"
           name="enName"
           maxLength={120}
           defaultValue={enName ?? ''}
-          className="field w-64"
+          className="field sm:w-64"
         />
       </label>
       <button
         type="submit"
         disabled={pending}
-        className="btn"
+        className="btn w-full sm:w-auto"
       >
         {pending ? 'Enregistrement…' : 'Enregistrer'}
       </button>

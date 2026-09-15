@@ -348,6 +348,71 @@ export type CalendarDay = {
   grid: ScheduledGrid | null
 }
 
+/**
+ * Ce qu'un jour du calendrier annonce d'un coup d'œil.
+ *
+ * Trois états et pas deux, parce que `readGrids` joint les énigmes à gauche :
+ * une ligne `daily_challenges` sans ses trois `challenge_items` est un état que
+ * la base autorise, et la confondre avec un trou enverrait l'admin chercher au
+ * mauvais endroit. `scheduleGrid` n'en écrit jamais — c'est justement pourquoi
+ * celle qu'on trouverait mériterait d'être vue.
+ *
+ * C'est ici et non dans le composant : la pastille du téléphone, le carré de
+ * l'ordinateur et la phrase lue par un lecteur d'écran sont trois rendus du
+ * même verdict, et trois `grid === null` écrits à trois endroits auraient fini
+ * par ne plus dire la même chose.
+ */
+export type DayState = 'programmed' | 'incomplete' | 'hole'
+
+export function dayState(grid: ScheduledGrid | null): DayState {
+  if (grid === null) return 'hole'
+
+  return POSITIONS.every((position) => enigmaAt(grid, position) !== undefined)
+    ? 'programmed'
+    : 'incomplete'
+}
+
+/**
+ * L'énigme d'une position dans une grille, ou `undefined` — le palier vide.
+ *
+ * Une grille porte ses énigmes en liste et non en trois champs, parce que la
+ * base autorise la liste courte (`dayState`) ; c'est donc ici que « la position
+ * 2 de ce jour-là » se dit, et pas dans chaque écran qui la demande. Les deux
+ * qui la demandaient — la phrase du lecteur d'écran et le carré de
+ * l'ordinateur — écrivaient la même recherche à deux endroits.
+ */
+export function enigmaAt(
+  grid: ScheduledGrid,
+  position: Position,
+): ScheduledEnigma | undefined {
+  return grid.enigmas.find((enigma) => enigma.position === position)
+}
+
+/**
+ * Le jour tel qu'un lecteur d'écran l'entend : sa date, son thème, et les trois
+ * footballeurs nommés à leur position.
+ *
+ * C'est le **nom accessible** de la case du calendrier, et il remplace ce
+ * qu'elle affiche plutôt que de s'y ajouter : sur le téléphone la case n'a
+ * qu'un chiffre et une pastille, qui ne se lisent pas, et sur l'ordinateur les
+ * trois lignes se liraient sans leur date ni leur position. Une phrase écrite
+ * une fois vaut mieux que deux rendus qui se racontent à moitié.
+ */
+export function describeCalendarDay(day: CalendarDay): string {
+  const when = formatChallengeDate(day.date)
+  const grid = day.grid
+  if (grid === null) return `${when} — aucune grille`
+
+  const named = POSITIONS.map(
+    (position) =>
+      `${position}. ${POSITION_LABELS[position]} ${enigmaAt(grid, position)?.name ?? 'vide'}`,
+  )
+
+  const state = dayState(grid) === 'programmed' ? 'grille' : 'grille incomplète'
+
+  return `${when} — ${state} « ${grid.theme} » : ${named.join(', ')}`
+}
+
 /** A month of the programming calendar, every day of it, holes included. */
 export type MonthCalendar = {
   month: ChallengeMonth
@@ -368,10 +433,21 @@ export type SchedulingScreen = {
   calendar: MonthCalendar
   previousMonth: ChallengeMonth
   nextMonth: ChallengeMonth
-  /** The day the form is aimed at. Today, unless the admin picked another. */
-  selectedDate: ChallengeDate
-  /** What is already programmed there — the form corrects it rather than adding. */
-  selectedGrid: ScheduledGrid | null
+  /**
+   * Le jour sur lequel l'écran s'ouvre déjà, ou `null` — le cas courant.
+   *
+   * L'URL *amène* sur un jour, elle ne le suit pas : `?date=` est un lien
+   * d'arrivée, pour l'alerte hebdomadaire (#14) qui dira « il manque une grille
+   * le 12 » et voudra ouvrir ce jour-là directement. Une fois la page ouverte,
+   * le jour qu'on édite est l'état d'une fenêtre modale et rien de plus — il
+   * n'y a rien à partager d'un formulaire à moitié rempli, et une navigation
+   * par ouverture aurait mis un aller-retour serveur entre le doigt et la
+   * fenêtre.
+   *
+   * Toujours un jour du mois affiché, sinon `null` : la fenêtre lit la grille
+   * dans le calendrier déjà chargé, et un jour d'un autre mois n'y serait pas.
+   */
+  openDate: ChallengeDate | null
   /** The themes already used, offered to the free-text field. */
   themes: string[]
 }

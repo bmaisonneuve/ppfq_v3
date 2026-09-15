@@ -5,8 +5,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { GAME_STATE_PATH, GAME_TRY_PATH, isGridOfDay } from '@/shared/play'
 import type { DayPlays, EnigmaPlay } from '@/shared/play'
 import type { ChallengeDate, Position } from '@/shared/schedule'
+import type { FootballerSuggestion } from '@/shared/search'
 import { GAME_STATS_PATH } from '@/shared/stats'
 import type { PlayerStats } from '@/shared/stats'
+
+import { verdictOf } from './verdict'
+import type { Verdict } from './verdict'
 
 /**
  * L'état personnel of the grid on screen, fetched after hydration.
@@ -121,7 +125,22 @@ export function useDayPlays(date: ChallengeDate | null): {
   state: PersonalState
   open: (position: Position) => void
   /** One essai: a footballer proposed, or `null` for a tour passé. */
-  submit: (position: Position, footballerId: string | null) => void
+  submit: (position: Position, proposal: FootballerSuggestion | null) => void
+  /**
+   * Ce que le dernier essai vient de faire — et non ce que la partie est
+   * devenue.
+   *
+   * Les deux ne se déduisent pas l'un de l'autre : une partie dit qu'elle a
+   * trois essais dépensés et deux indices, jamais qu'elle vient de le devenir.
+   * Il est calculé ici parce que c'est ici, et nulle part ailleurs, qu'on tient
+   * encore la partie **d'avant** (`verdict.tsx`) — une fois l'état remplacé,
+   * elle n'existe plus.
+   *
+   * Il vaut `null` tant qu'aucun essai n'a été joué de la visite, et il n'est
+   * jamais remis à `null` ensuite : c'est un écran qui décide combien de temps
+   * un verdict est un instant, pas cette file.
+   */
+  verdict: Verdict | null
   /** The enigmas with an essai in flight — what disables a form. */
   pending: ReadonlySet<Position>
   /**
@@ -152,6 +171,7 @@ export function useDayPlays(date: ChallengeDate | null): {
   // first one finishing while the second is still in flight, re-enabling a
   // button that should stay down.
   const [inFlight, setInFlight] = useState<ReadonlyMap<Position, number>>(() => new Map())
+  const [verdict, setVerdict] = useState<Verdict | null>(null)
 
   // One request at a time, in the order they were asked for. See above: this
   // is what keeps a first visitor from becoming two joueurs.
@@ -162,6 +182,20 @@ export function useDayPlays(date: ChallengeDate | null): {
   const asked = useRef(new Set<Position>())
   // The hydration request, once. React runs an effect twice in development.
   const started = useRef(false)
+  /**
+   * Les parties telles qu'elles viennent d'être posées, pour la seule question
+   * qu'un `setState` ne sait pas répondre : **qu'y avait-il avant ?**
+   *
+   * Un doublon de l'état, donc, et assumé comme tel : le calcul du verdict
+   * arrive après la réponse du serveur et hors du rendu, là où `state` n'est
+   * qu'une variable capturée à la création du callback. La copie est écrite aux
+   * deux seuls endroits qui posent des parties, juste à côté du `setState`
+   * correspondant, ce qui est ce qui l'empêche de dériver.
+   */
+  const posed = useRef<ReadonlyMap<Position, EnigmaPlay>>(new Map())
+  // Le rang de l'essai dans la visite : deux verdicts identiques doivent rester
+  // deux verdicts (`verdict.tsx`).
+  const serial = useRef(0)
 
   const readState = useCallback(
     async (open: Position | undefined): Promise<void> => {
@@ -171,12 +205,10 @@ export function useDayPlays(date: ChallengeDate | null): {
       if (date === null) return
 
       const day = await post<DayPlays>(GAME_STATE_PATH, { date, open })
+      const plays = new Map(day.plays.map((play) => [play.position, play]))
 
-      setState({
-        status: 'ready',
-        plays: new Map(day.plays.map((play) => [play.position, play])),
-        today: day.today,
-      })
+      posed.current = plays
+      setState({ status: 'ready', plays, today: day.today })
     },
     [date],
   )
@@ -238,20 +270,43 @@ export function useDayPlays(date: ChallengeDate | null): {
   )
 
   const submit = useCallback(
-    (position: Position, footballerId: string | null): void => {
+    (position: Position, proposal: FootballerSuggestion | null): void => {
       setInFlight((current) => counted(current, position, 1))
 
       queue.current = queue.current.then(async () => {
         try {
-          const play = await post<EnigmaPlay>(GAME_TRY_PATH, { date, position, footballerId })
+          const before = posed.current.get(position)
+          const play = await post<EnigmaPlay>(GAME_TRY_PATH, {
+            date,
+            position,
+            // « Passer » est une proposition de personne, et c'est la même
+            // porte (`shared/play.ts`). Le nom ne voyage pas : le serveur a
+            // l'identifiant, l'écran garde le nom pour le dire.
+            footballerId: proposal?.footballerId ?? null,
+          })
 
           // A whole partie replaces a whole partie. Nothing is incremented here
           // and no hint is appended: the server said what the partie is.
+          posed.current = new Map(posed.current).set(play.position, play)
           setState((current) =>
             current.status === 'ready'
               ? { ...current, plays: new Map(current.plays).set(play.position, play) }
               : current,
           )
+
+          // Null quand rien n'a été dépensé : le double-clic renvoie la partie
+          // inchangée, et il ne se fête ni ne se pleure.
+          const said = verdictOf({
+            serial: serial.current + 1,
+            before,
+            after: play,
+            proposed: proposal?.name ?? null,
+          })
+
+          if (said !== null) {
+            serial.current = said.serial
+            setVerdict(said)
+          }
 
           // Une partie qui se termine est le seul essai qui bouge un agrégat.
           // On est déjà dans la file, donc c'est un `await` et non un appel qui
@@ -282,6 +337,7 @@ export function useDayPlays(date: ChallengeDate | null): {
     state,
     open,
     submit,
+    verdict,
     pending: new Set([...inFlight.keys()]),
     stats,
     enqueue,

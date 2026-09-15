@@ -43,7 +43,7 @@ export default async function ClubFichePage({
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-3">
-        <Link href="/admin/clubs" className="link text-body text-white/80">
+        <Link href="/admin" className="link text-body text-white/80">
           ← Chercher un autre club
         </Link>
         <h1 className="text-title text-white">{club.frName}</h1>

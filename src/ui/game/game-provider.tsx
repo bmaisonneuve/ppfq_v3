@@ -5,17 +5,19 @@ import type { ReactNode } from 'react'
 
 import type { DailyGrid } from '@/shared/grid'
 import type { EnigmaPlay } from '@/shared/play'
+import type { FootballerSuggestion } from '@/shared/search'
 import type { PlayerStats } from '@/shared/stats'
 import type { Position } from '@/shared/schedule'
+import { Modal } from '@/ui/modal'
 
 import { AccountPanelView } from './account-panel'
 import { GameShell } from './chrome'
-import { Modal } from './modal'
 import { PlayerStatsPanel } from './player-stats'
 import { useAccount } from './use-account'
 import type { Account } from './use-account'
 import { useDayPlays } from './use-day-plays'
 import type { PersonalState } from './use-day-plays'
+import type { Verdict } from './verdict'
 
 /**
  * Ce que tous les écrans du jeu partagent, monté une seule fois au-dessus
@@ -48,7 +50,16 @@ type Game = {
   pending: ReadonlySet<Position>
   playAt: (position: Position) => EnigmaPlay | undefined
   open: (position: Position) => void
-  submit: (position: Position, footballerId: string | null) => void
+  submit: (position: Position, proposal: FootballerSuggestion | null) => void
+  /**
+   * Le dernier essai joué, quel que soit le niveau sur lequel il l'a été.
+   *
+   * Il est ici parce qu'il survit à la navigation, comme la progression : le
+   * layout ne se remonte pas d'un niveau à l'autre. Un écran le filtre par sa
+   * position et lit lui-même s'il est encore un instant — `verdictAt` et
+   * `isLive`, dans `verdict.tsx`.
+   */
+  verdict: Verdict | null
   openStats: () => void
   /**
    * Le compte (#13). Il est ici et pas dans chaque écran pour la même raison
@@ -68,7 +79,9 @@ export function GameProvider({
   grid,
   children,
 }: Readonly<{ grid: DailyGrid | null; children: ReactNode }>) {
-  const { state, open, submit, pending, stats, enqueue } = useDayPlays(grid?.date ?? null)
+  const { state, open, submit, verdict, pending, stats, enqueue } = useDayPlays(
+    grid?.date ?? null,
+  )
   const account = useAccount(enqueue)
   const [statsOpen, setStatsOpen] = useState(false)
   const [accountOpen, setAccountOpen] = useState(false)
@@ -81,6 +94,7 @@ export function GameProvider({
     playAt: (position) => (state.status === 'ready' ? state.plays.get(position) : undefined),
     open,
     submit,
+    verdict,
     openStats: () => {
       setStatsOpen(true)
     },

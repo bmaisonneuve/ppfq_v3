@@ -98,31 +98,41 @@ export class NotSchedulableError extends Error {
  * where `?month=septembre` is a typo and not an incident, and a 404 on the
  * calendar would be a strange answer to one.
  *
- * The month defaults to the month of the selected day, so following a link to a
- * day lands on the month that contains it, and paging to another month keeps
- * the form pointed where the admin left it.
+ * The month defaults to the month of the day asked for, so a link to a day
+ * lands on the month that contains it.
+ *
+ * ## One read, and the day's grid is already in it
+ *
+ * There is no second query for the day the screen opens on: the month read
+ * carries every day's grid, holes included, which is exactly what the window
+ * over it needs. A `getScheduledGrid(openDate)` beside it would have asked the
+ * database for a row it had just been handed.
  */
 export async function getSchedulingScreen(params: {
   month?: string
   date?: string
 }): Promise<SchedulingScreen> {
   const today = todayInParis()
-  const selectedDate = parseChallengeDate(params.date, today)
-  const month = parseChallengeMonth(params.month, monthOfDate(selectedDate))
 
-  const [calendar, selectedGrid, themes] = await Promise.all([
-    getMonthCalendar(month),
-    getScheduledGrid(selectedDate),
-    listThemes(),
-  ])
+  // `parseChallengeDate` falls back rather than throwing, so a typo comes back
+  // as today. Comparing its answer to what was asked is what tells a day
+  // someone named from a day nobody did — `?date=demain` must not open a
+  // window on today.
+  const parsed = parseChallengeDate(params.date, today)
+  const asked = parsed === params.date ? parsed : null
+
+  const month = parseChallengeMonth(params.month, monthOfDate(asked ?? today))
+
+  const [calendar, themes] = await Promise.all([getMonthCalendar(month), listThemes()])
 
   return {
     today,
     calendar,
     previousMonth: shiftMonth(month, -1),
     nextMonth: shiftMonth(month, 1),
-    selectedDate,
-    selectedGrid,
+    // Only ever a day of the month on screen: the window reads its grid from
+    // the calendar above it, and a day of another month is not in there.
+    openDate: asked !== null && monthOfDate(asked) === month ? asked : null,
     themes,
   }
 }
@@ -147,13 +157,6 @@ export async function getMonthCalendar(month: ChallengeMonth): Promise<MonthCale
     month,
     days: days.map((date): CalendarDay => ({ date, grid: grids.get(date) ?? null })),
   }
-}
-
-/** One programmed day, or null — which is the hole. */
-export async function getScheduledGrid(date: ChallengeDate): Promise<ScheduledGrid | null> {
-  const grids = await readGrids(eq(dailyChallenges.date, date))
-
-  return grids.get(date) ?? null
 }
 
 /**

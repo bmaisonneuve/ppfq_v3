@@ -34,6 +34,11 @@ import { EnigmaPicker } from './enigma-picker'
  * grid. A date box next to the theme would let him submit a day the screen is
  * not showing, and replacement would then destroy three enigmas nobody looked
  * at. One way to choose a day, and it is the one that shows what is there.
+ *
+ * Il n'a pas de surface à lui (`.panel`) : il est monté dans la fenêtre du
+ * calendrier, qui est déjà blanche, et qui le titre du jour qu'il programme
+ * (`schedule-screen.tsx`). Un panneau dans un panneau aurait fait deux bords
+ * blancs l'un dans l'autre.
  */
 export function ScheduleForm({
   date,
@@ -52,30 +57,39 @@ export function ScheduleForm({
   const themeListId = useId()
 
   return (
-    <form action={submit} className="panel flex flex-col gap-4">
+    <form action={submit} className="flex flex-col gap-4 p-5">
       <input type="hidden" name="date" value={date} />
 
-      <div className="flex flex-wrap items-end gap-4">
-        <label className="flex flex-col gap-1">
-          <span className="field-label">Thème</span>
-          <input
-            type="text"
-            name="theme"
-            list={themeListId}
-            defaultValue={grid?.theme ?? DEFAULT_THEME}
-            maxLength={MAX_THEME_LENGTH}
-            required
-            className="field w-72"
-          />
-          <datalist id={themeListId}>
-            {themes.map((theme) => (
-              <option key={theme} value={theme} />
-            ))}
-          </datalist>
-        </label>
-      </div>
+      {/* Pleine largeur sur un téléphone, et sa largeur de champ au-delà : un
+          `w-72` posé en dur déborde la gouttière d'un écran de 360 px. */}
+      <label className="flex w-full flex-col gap-1 sm:w-auto">
+        <span className="field-label">Thème</span>
+        <input
+          type="text"
+          name="theme"
+          list={themeListId}
+          defaultValue={grid?.theme ?? DEFAULT_THEME}
+          maxLength={MAX_THEME_LENGTH}
+          required
+          className="field sm:w-72"
+        />
+        <datalist id={themeListId}>
+          {themes.map((theme) => (
+            <option key={theme} value={theme} />
+          ))}
+        </datalist>
+      </label>
 
-      <div className="flex flex-wrap gap-4">
+      {/* Une grille, et non un `flex-wrap` : les trois positions sont trois
+          colonnes de même largeur tant qu'il y a la place, et **une seule**
+          dès qu'il n'y en a plus. Enroulées, elles tombaient deux sur une
+          ligne et la légende toute seule dessous — ce qui casse l'ordre de
+          difficulté que la position *est* (CONTEXT.md), et qui donne deux
+          largeurs de champ de recherche dans le même formulaire.
+
+          La bascule est en `lg:` et pas en `sm:` : la fenêtre plafonne à
+          768 px, donc trois colonnes ne respirent qu'à partir de là. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {POSITIONS.map((position) => (
           <EnigmaPicker
             key={position}
@@ -89,15 +103,15 @@ export function ScheduleForm({
         <button
           type="submit"
           disabled={pending}
-          className="btn"
+          className="btn w-full sm:w-auto"
         >
           {submitLabel(pending, grid !== null)}
         </button>
-        <p className="hint">
-          {grid === null
-            ? 'Choisissez le jour dans le calendrier ci-dessus.'
-            : 'Ce jour a déjà une grille. Enregistrer la remplace entièrement.'}
-        </p>
+        {grid === null ? null : (
+          <p className="hint">
+            Ce jour a déjà une grille. Enregistrer la remplace entièrement.
+          </p>
+        )}
       </div>
 
       <ActionStatus state={state} />

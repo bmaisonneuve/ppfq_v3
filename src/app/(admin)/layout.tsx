@@ -2,6 +2,7 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 import { isAdmin } from '@/server/services/admin-auth.service'
+import { Wordmark } from '@/ui/wordmark'
 
 import { signOutAction } from './session-actions'
 
@@ -22,6 +23,11 @@ import { signOutAction } from './session-actions'
  * product, and the theme is configured in `globals.css` for both at once. What
  * is admin-specific here is the width and the header — a five-column page for a
  * desktop tool, where the game is a 430 px column.
+ *
+ * La gouttière se resserre sur un téléphone (16 px, celle du jeu) et reprend
+ * ses 24 px au-delà : le back-office se consulte aussi debout dans un couloir,
+ * et 48 px mangés des deux côtés d'un écran de 360 px, c'est une semaine de
+ * calendrier qui ne tient plus.
  */
 export default async function AdminLayout({ children }: Readonly<{ children: ReactNode }>) {
   const signedIn = await isAdmin()
@@ -29,14 +35,11 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
   return (
     <div className="min-h-dvh">
       <header className="border-b border-white/15">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <nav className="flex flex-wrap items-baseline gap-4 text-white">
-            <span className="text-wordmark">PPFQ</span>
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-4 sm:px-6">
+          <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 text-white">
+            <Wordmark />
             <Link href="/admin" className="link text-body text-white/80">
               Curation
-            </Link>
-            <Link href="/admin/clubs" className="link text-body text-white/80">
-              Clubs
             </Link>
             <Link href="/admin/schedule" className="link text-body text-white/80">
               Calendrier
@@ -51,7 +54,7 @@ export default async function AdminLayout({ children }: Readonly<{ children: Rea
           ) : null}
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-6 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">{children}</main>
     </div>
   )
 }

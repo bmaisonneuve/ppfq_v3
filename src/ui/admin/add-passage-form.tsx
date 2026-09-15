@@ -22,6 +22,12 @@ import { ClubPicker } from './club-picker'
  * leaves three loans attached to nothing and a 1988-1991 hole no query can see.
  * Typing the missing club in is the only repair there is — and at least 21,5 %
  * of otherwise complete careers have a hole like it.
+ *
+ * Its line copies the geometry of a passage line above it — the empty slot where
+ * a crest will be, the same club column, the same field widths, the action at
+ * the right end. Not for symmetry: it is the last line of the list, read as one
+ * more row of the same table, and a column that starts 52 px to the left of the
+ * eight above it is read as a different field.
  */
 export function AddPassageForm({
   footballerId,
@@ -39,7 +45,15 @@ export function AddPassageForm({
       <input type="hidden" name="footballerId" value={footballerId} />
 
       <div className="flex flex-wrap items-end gap-3">
-        <div className="flex min-w-56 flex-col gap-1">
+        {/* La place du blason. Vide, parce que le club n'est pas encore choisi
+            et qu'un blason appartient à un club — mais tenue, sinon la colonne
+            des clubs de cette ligne commence avant celle des lignes du dessus. */}
+        <div
+          aria-hidden
+          className="rounded-icon border-line size-10 shrink-0 self-center border border-dashed"
+        />
+
+        <div className="flex min-w-72 flex-col gap-1">
           <span className="field-label">Club</span>
           <ClubPicker searchClubsAction={searchClubsAction} />
         </div>
@@ -80,10 +94,12 @@ export function AddPassageForm({
           prêt
         </label>
 
+        {/* Au bout de la ligne, comme les deux icônes d'un passage : c'est le
+            même bord, et c'est là que le regard va chercher l'action. */}
         <button
           type="submit"
           disabled={pending}
-          className="btn"
+          className="btn ml-auto"
         >
           {pending ? 'Ajout…' : 'Ajouter le passage'}
         </button>

@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
+import { Wordmark } from '@/ui/wordmark'
+
 /**
  * Le châssis commun à tous les écrans du jeu : la colonne, la barre d'en-tête,
  * la zone qui défile, le bandeau d'action du bas.
@@ -110,11 +112,9 @@ export function BrandRow({
     <div className="flex items-center justify-between gap-[10px]">
       {/* Le mot-marque ramène à la grille du jour, comme le logo de n'importe
           quel site : l'écran d'un niveau n'a pas d'autre chemin de retour, sa
-          barre segmentée n'allant que d'un niveau à l'autre. */}
-      <Link href="/" className="flex items-center gap-2">
-        <Logo />
-        <span className="font-display text-wordmark text-white">Footguessr</span>
-      </Link>
+          barre segmentée n'allant que d'un niveau à l'autre. Il est partagé
+          avec l'en-tête du back-office (`ui/wordmark.tsx`). */}
+      <Wordmark />
 
       <div className="flex items-center gap-[6px]">
         {/* L'archive attend son écran (#11) : le bouton est à sa place et ne
@@ -301,16 +301,6 @@ function IconButton({
     >
       {children}
     </button>
-  )
-}
-
-/** Le ballon de la marque : un cercle blanc, un pentagone à l'encre. */
-function Logo() {
-  return (
-    <svg viewBox="0 0 32 32" width="24" height="24" aria-hidden focusable="false">
-      <circle cx="16" cy="16" r="14.5" fill="#fff" />
-      <polygon points="16,8 22,12.4 19.7,19.4 12.3,19.4 10,12.4" fill="#0B2E22" />
-    </svg>
   )
 }
 

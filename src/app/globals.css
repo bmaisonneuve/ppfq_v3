@@ -244,6 +244,281 @@
   --radius-rail: 11px;
   --radius-row: 12px;
   --radius-card: 14px;
+
+  /* Le verdict d'un essai, en mouvements nommés par leur rôle — exactement
+     comme les tailles de texte le sont plus haut.
+
+     La célébration est **plus lente que le reproche**, et c'est délibéré :
+     l'échec doit rendre la main tout de suite — il reste des essais à jouer —
+     là où la réussite est la fin de quelque chose et se regarde. La secousse
+     dure moins de trois dixièmes de seconde, la carte réponse et sa gerbe
+     s'étalent sur deux secondes. `animate-shake` dit « un
+     essai vient d'être refusé » et emporte la durée, la courbe et l'amplitude ;
+     un composant qui écrirait `animation: shake .28s` en dur serait le premier
+     endroit où la secousse de l'échec cesserait de ressembler à celle du jeu.
+
+     Les durées tiennent toutes sous une seconde et aucune ne bloque : le champ
+     reste utilisable pendant que la table ondule, et un joueur pressé ne doit
+     jamais attendre la fin d'une animation pour rejouer. */
+  --animate-shake: shake 280ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  --animate-dim: dim 460ms ease-out both;
+  --animate-token: token 300ms cubic-bezier(0.2, 0.9, 0.25, 1.4) both;
+  --animate-band: band 260ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  --animate-chip: chip 620ms cubic-bezier(0.2, 0.9, 0.25, 1.4) both;
+  --animate-cell: cell 260ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  --animate-column: column 300ms ease-out both;
+  --animate-ola: ola 520ms ease-out both;
+  --animate-card: card 620ms cubic-bezier(0.2, 0.9, 0.25, 1.2) both;
+  --animate-pop: pop 520ms cubic-bezier(0.2, 0.9, 0.25, 1.4) both;
+  --animate-trace: trace 480ms ease-out 240ms both;
+  --animate-unmask: unmask 620ms cubic-bezier(0.2, 0.8, 0.3, 1) 280ms both;
+  --animate-rise: rise 360ms ease-out 1500ms both;
+  --animate-drift-x: drift-x 1700ms linear both;
+  --animate-drift-y: drift-y 1700ms both;
+}
+
+/**
+ * Les mouvements eux-mêmes.
+ *
+ * Tous en `transform` et `opacity`, à deux exceptions près qui peignent un fond
+ * le temps d'un éclair (`ola`, `chip`) : ce sont les deux propriétés que le
+ * navigateur anime sans refaire la mise en page, et une table de sept clubs qui
+ * ondule n'a pas le droit de coûter sept calculs de mise en page.
+ *
+ * `chip` porte une ombre alors que le thème dit n'en avoir aucune. Les deux
+ * tiennent ensemble : l'ombre ici ne se repose jamais — c'est un anneau qui
+ * s'évase et disparaît en six dixièmes de seconde, pour dire « regarde ici » à
+ * un indice qui vient d'apparaître. Rien n'en reste à la fin.
+ */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  15% {
+    transform: translateX(-5px);
+  }
+  35% {
+    transform: translateX(4px);
+  }
+  55% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(2px);
+  }
+}
+
+/* La sixième erreur : le parcours pâlit une fois. Le champ ne tremble pas —
+   il n'est déjà plus là, la partie est finie et le bandeau montre la suite. */
+@keyframes dim {
+  0% {
+    opacity: 1;
+  }
+  35% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes token {
+  0% {
+    transform: scale(0.2);
+  }
+  60% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes band {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes chip {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateY(6px);
+    box-shadow: 0 0 0 0 rgb(11 46 34 / 0.45);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1.06) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    box-shadow: 0 0 0 12px rgb(11 46 34 / 0);
+  }
+}
+
+@keyframes cell {
+  0% {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes column {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+/* La ola : chaque ligne du parcours prend la couleur de la réussite et la
+   rend, décalée sur celle d'au-dessus. Le décalage est posé ligne par ligne en
+   style (`club-table.tsx`) — c'est la seule valeur qui dépend du rang, et c'est
+   lui qui fait la vague : trop serré, les huit lignes s'allument ensemble. */
+@keyframes ola {
+  0% {
+    background-color: #fff;
+    transform: translateY(0);
+  }
+  40% {
+    background-color: var(--color-found-soft);
+    transform: translateY(-3px);
+  }
+  100% {
+    background-color: #fff;
+    transform: translateY(0);
+  }
+}
+
+@keyframes card {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* La coche qui se trace. `pathLength="1"` sur le tracé : la longueur réelle du
+   chemin n'a plus à être connue ici, donc la coche et la croix se dessinent
+   avec la même règle. */
+@keyframes trace {
+  0% {
+    stroke-dashoffset: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Le nom du footballeur, qui monte sous son propre masque. Le seul mot que
+   l'écran cachait : il arrive comme un titre et non comme un texte qui
+   apparaît. */
+@keyframes unmask {
+  0% {
+    transform: translateY(105%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+/* Le geste suivant, offert **après** la récompense : un bouton présent pendant
+   la fête transforme la fête en couloir. */
+@keyframes rise {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Un éclat de la gerbe, en deux moitiés : l'horizontale est linéaire, la
+   verticale monte puis retombe. Une seule animation interpolerait en ligne
+   droite, et un confetti en ligne droite est un rayon de soleil. */
+@keyframes drift-x {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(var(--dx, 0));
+  }
+}
+
+@keyframes drift-y {
+  0% {
+    opacity: 1;
+    transform: translateY(0) rotate(0deg);
+    animation-timing-function: ease-out;
+  }
+  38% {
+    transform: translateY(var(--lift, -60px)) rotate(calc(var(--spin, 360deg) * 0.4));
+    animation-timing-function: ease-in;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(var(--fall, 180px)) rotate(var(--spin, 360deg));
+  }
+}
+
+/**
+ * Le jeu sans le mouvement.
+ *
+ * Rien de ce qui précède ne porte d'information à lui seul : la bande nomme
+ * l'indice, la carte réponse dit l'issue, la colonne est là qu'elle se soit
+ * dépliée ou non. Tout peut donc être coupé d'un bloc, et c'est ce que fait
+ * cette règle — les états d'arrivée restent (`both` partout), seul le trajet
+ * disparaît. La gerbe, elle, ne se dégrade pas : elle ne se rend pas du tout
+ * (`confetti.tsx`), parce qu'un confetti immobile est un carré posé sur l'écran.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }
 
 /**
@@ -323,13 +598,20 @@
 
      L'icône ne dit rien à qui ne la voit pas : un `aria-label` (et un `title`,
      pour qui la voit sans la reconnaître) n'est pas facultatif ici. */
-  :is(.btn-icon, .btn-icon-danger) {
+  :is(.btn-icon, .btn-icon-quiet, .btn-icon-danger) {
     @apply rounded-field flex size-[38px] shrink-0 cursor-pointer items-center
       justify-center border disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .btn-icon {
     @apply bg-ink border-ink text-white;
+  }
+
+  /* Le contour de `.btn-quiet`, à la taille d'une icône : l'annulation posée
+     contre un champ, qui ne doit peser ni autant que l'aplat de
+     l'enregistrement ni autant que le rouge de la suppression. */
+  .btn-icon-quiet {
+    @apply border-line bg-white text-ink;
   }
 
   .btn-icon-danger {

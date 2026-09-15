@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 
 import type { FootballerSuggestion } from '@/shared/search'
@@ -19,6 +20,12 @@ import { FootballerTypeahead } from '@/ui/footballer-typeahead'
  * The chosen id travels in a hidden field, in position order, so the form
  * submits three identifiers and nothing else — an enigma designates a
  * footballer and copies nothing from him (ADR-0001).
+ *
+ * Once chosen, the name is a door to his dossier: programming a day is the
+ * moment one wants to check a career before committing it. It opens in another
+ * tab, and that is not a detail — the form holds up to three choices and a
+ * theme that no draft survives, so following the link in place would throw away
+ * the work of the person who clicked it.
  */
 export function EnigmaPicker({
   position,
@@ -33,7 +40,11 @@ export function EnigmaPicker({
   )
 
   return (
-    <div className="flex min-w-56 flex-1 flex-col gap-1">
+    // `min-w-0` : la colonne fait `1fr`, et un nom de footballeur à rallonge
+    // l'élargirait sinon au lieu de passer à la ligne — les trois colonnes
+    // cesseraient d'avoir la même largeur. La largeur elle-même est décidée
+    // par la grille du formulaire, pas ici.
+    <div className="flex min-w-0 flex-col gap-1">
       <span className="field-label">
         {position}. {POSITION_LABELS[position]}
       </span>
@@ -49,7 +60,14 @@ export function EnigmaPicker({
         />
       ) : (
         <p className="text-body">
-          <span className="font-bold">{chosen.name}</span>{' '}
+          <Link
+            href={`/admin/footballers/${chosen.footballerId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="link font-bold"
+          >
+            {chosen.name}
+          </Link>{' '}
           <button
             type="button"
             onClick={() => { setChosen(null) }}

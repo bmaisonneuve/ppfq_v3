@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState } from 'react'
+import { useActionState, useId } from 'react'
 import type { ReactNode } from 'react'
 
 import {
@@ -28,6 +28,15 @@ import { PassageFlags } from './passage-flags'
  * Saving and deleting are two sibling forms rather than one form with two
  * buttons: a delete that shares a form with the edit fields would carry them,
  * and a half-typed year has no business travelling with a deletion.
+ *
+ * The two buttons nonetheless travel together, and that costs one `form`
+ * attribute: « Enregistrer » sits *outside* the form it submits, next to
+ * « Supprimer » in a row that does not wrap. Left inside, it was the last item
+ * of the wrapping field line while the delete form was the next item of the
+ * line above it — so at the widths where the fields fold, the phone's above
+ * all, the save button dropped alone and the pair broke in two. A button may
+ * name its form from anywhere in the document; the pair is what must stay
+ * whole.
  */
 export function PassageRow({
   passage,
@@ -43,6 +52,11 @@ export function PassageRow({
   const [saveState, save, saving] = useActionState(updateAction, IDLE_CURATION_ACTION)
   const [deleteState, remove, deleting] = useActionState(deleteAction, IDLE_CURATION_ACTION)
 
+  // What the detached save button points at. Generated rather than derived from
+  // the passage id: the parcours draws one of these rows per passage, and an id
+  // has to be unique in the whole document.
+  const saveFormId = useId()
+
   // The club as the picker shows it, straight from the dossier.
   const club: ClubOption = {
     id: passage.clubId,
@@ -55,13 +69,16 @@ export function PassageRow({
       <PassageFlags flags={passage.flags} />
 
       <div className="flex flex-wrap items-end gap-3">
-        <form action={save} className="flex flex-wrap items-end gap-3">
+        <form id={saveFormId} action={save} className="flex flex-wrap items-end gap-3">
           <input type="hidden" name="passageId" value={passage.id} />
 
           <ClubCrest clubId={passage.clubId} crestKey={passage.crestKey} />
 
-          <div className="flex min-w-56 flex-col gap-1">
-            <span className="field-label">Club</span>
+          {/* Sans intitulé, et centré sur le blason : le blason dit déjà que
+              cette colonne est le club, et « Club » au-dessus du nom poussait
+              le bloc plus haut que l'écusson posé à sa gauche. Les champs de
+              la ligne s'alignent par le bas, ce couple-là par son milieu. */}
+          <div className="flex min-w-72 flex-col gap-1 self-center">
             <ClubPicker searchClubsAction={searchClubsAction} defaultClub={club} />
           </div>
 
@@ -86,26 +103,34 @@ export function PassageRow({
             <input type="checkbox" name="isLoan" defaultChecked={passage.isLoan} />
             prêt
           </label>
+        </form>
 
+        {/* Les deux gestes, dans une rangée qui ne se replie pas : ils tombent
+            à la ligne ensemble ou pas du tout. `ml-auto` mange l'espace qui
+            reste à leur gauche : sur un écran large ils se rangent au bord
+            droit du panneau plutôt que de flotter contre la case « prêt », et
+            quand la ligne se replie ils gardent ce même bord. */}
+        <div className="ml-auto flex items-end gap-3">
           <IconSubmit
+            form={saveFormId}
             label={saving ? 'Enregistrement…' : 'Enregistrer le passage'}
             pending={saving}
             className="btn-icon"
           >
-            <CheckIcon />
+            <FloppyIcon />
           </IconSubmit>
-        </form>
 
-        <form action={remove}>
-          <input type="hidden" name="passageId" value={passage.id} />
-          <IconSubmit
-            label={deleting ? 'Suppression…' : 'Supprimer le passage'}
-            pending={deleting}
-            className="btn-icon-danger"
-          >
-            <TrashIcon />
-          </IconSubmit>
-        </form>
+          <form action={remove}>
+            <input type="hidden" name="passageId" value={passage.id} />
+            <IconSubmit
+              label={deleting ? 'Suppression…' : 'Supprimer le passage'}
+              pending={deleting}
+              className="btn-icon-danger"
+            >
+              <TrashIcon />
+            </IconSubmit>
+          </form>
+        </div>
       </div>
 
       <ActionStatus state={saveState} />
@@ -128,11 +153,14 @@ export function PassageRow({
  * for both kinds of reader.
  */
 function IconSubmit({
+  form,
   label,
   pending,
   className,
   children,
 }: Readonly<{
+  /** The form this button submits, when it does not stand inside it. */
+  form?: string
   label: string
   pending: boolean
   className: string
@@ -141,6 +169,7 @@ function IconSubmit({
   return (
     <button
       type="submit"
+      form={form}
       disabled={pending}
       aria-label={label}
       title={label}
@@ -151,8 +180,17 @@ function IconSubmit({
   )
 }
 
-/** Enregistrer. */
-function CheckIcon() {
+/**
+ * Enregistrer : la disquette.
+ *
+ * The object has been out of production longer than some of the footballers in
+ * the catalogue have been alive, and it is still the one drawing everybody
+ * reads as "save" without a word next to it — which is the whole job here,
+ * since the label is only in `title` and `aria-label`. A checkmark, which this
+ * was, says "done" rather than "record", and sat one icon away from a delete
+ * that also acts on the row.
+ */
+function FloppyIcon() {
   return (
     <svg
       viewBox="0 0 20 20"
@@ -162,11 +200,16 @@ function CheckIcon() {
       focusable="false"
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <polyline points="4,10.5 8,14.5 16,6" />
+      {/* Le boîtier, coin coupé en haut à droite — l'encoche du détrompeur. */}
+      <path d="M4.5 3.5h8.2l3.8 3.8v8.2a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1z" />
+      {/* Le volet métallique. */}
+      <path d="M6.75 3.5v4h5v-4" />
+      {/* L'étiquette. */}
+      <path d="M6.75 16.5v-4.75h6.5v4.75" />
     </svg>
   )
 }

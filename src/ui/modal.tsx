@@ -4,8 +4,13 @@ import { useEffect, useId, useRef } from 'react'
 import type { ReactNode } from 'react'
 
 /**
- * La fenêtre dans laquelle la grille ouvre ce qu'on lui demande : une énigme,
- * les statistiques.
+ * La fenêtre dans laquelle un écran ouvre ce qu'on lui demande : les
+ * statistiques du joueur, son compte, la grille d'un jour au back-office.
+ *
+ * Elle est à la racine de `src/ui` et non dans `game/` parce que les deux
+ * moitiés de l'application s'en servent, comme du champ de recherche
+ * (`footballer-typeahead.tsx`). Une seconde fenêtre écrite pour le back-office
+ * aurait été une seconde façon de perdre le focus.
  *
  * C'est le `<dialog>` natif et pas une `div` posée par-dessus la page, pour
  * trois choses qu'il fait seul et qu'on écrirait mal : le fond de la page
@@ -29,12 +34,20 @@ import type { ReactNode } from 'react'
 export function Modal({
   open,
   title,
+  wide = false,
   onClose,
   children,
 }: Readonly<{
   open: boolean
   /** Le titre visible, qui est aussi le nom accessible de la fenêtre. */
   title: string
+  /**
+   * La fenêtre large, pour le seul contenu qui ne soit pas une colonne : les
+   * trois positions d'une grille, qui se rangent côte à côte dès qu'il y a la
+   * place. Les deux panneaux du jeu n'empilent que des lignes et une fenêtre
+   * large les étirerait sans rien y ajouter.
+   */
+  wide?: boolean
   onClose: () => void
   children: ReactNode
 }>) {
@@ -65,7 +78,9 @@ export function Modal({
       }}
       // `m-auto` parce que le reset de Tailwind met toutes les marges à zéro et
       // qu'un `<dialog>` modal se centre précisément par `margin: auto`.
-      className="rounded-card text-ink m-auto w-[calc(100%-2rem)] max-w-lg bg-white p-0 backdrop:bg-[#0b2e22]/55"
+      className={`rounded-card text-ink m-auto w-[calc(100%-2rem)] bg-white p-0 backdrop:bg-[#0b2e22]/55 ${
+        wide ? 'max-w-3xl' : 'max-w-lg'
+      }`}
     >
       <div className="flex max-h-[85dvh] flex-col">
         <header className="border-line flex shrink-0 items-center justify-between gap-3 border-b px-5 py-3">
@@ -76,7 +91,9 @@ export function Modal({
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="rounded-field text-muted hover:bg-crest cursor-pointer px-2 py-1 text-lg leading-none"
+            // Une croix fait 10 px de large et se vise au doigt : la cible est
+            // le carré autour d'elle, pas le glyphe.
+            className="rounded-field text-muted hover:bg-crest -mr-2 flex size-9 shrink-0 cursor-pointer items-center justify-center text-lg leading-none"
           >
             ×
           </button>

@@ -1,24 +1,22 @@
 import { requireAdmin } from '@/server/services/admin-auth.service'
 import { getSchedulingScreen } from '@/server/services/schedule.service'
-import { formatChallengeDate } from '@/shared/schedule'
-import { MonthCalendarView } from '@/ui/admin/month-calendar'
-import { ScheduleForm } from '@/ui/admin/schedule-form'
+import { ScheduleScreen } from '@/ui/admin/schedule-screen'
 
 import { scheduleGridAction } from './actions'
 
 /**
- * Le calendrier de programmation : un mois, trois positions par date, et les
- * trous.
+ * Le calendrier de programmation : un mois, et la grille d'un jour ouverte
+ * au-dessus de lui.
  *
  * The screen has one read and no arithmetic of its own: routing may only reach
  * the server through a service, and the Europe/Paris calendar is a domain rule.
- * `getSchedulingScreen` resolves the month, the day and today, on the other
- * side of that door.
+ * `getSchedulingScreen` resolves the month, the day a link may have named, and
+ * today, on the other side of that door.
  *
- * Its state lives in the URL — `?month=` and `?date=` — so a day can be linked
- * to, reloaded, and navigated back to. The form is keyed on the selected day so
- * that moving to another date starts from that date's grid rather than from the
- * previous one's leftovers.
+ * Its URL carries the month — `?month=` — so a month can be linked to and
+ * navigated back to. `?date=` is read on arrival and opens that day's window;
+ * what happens to the window afterwards belongs to the screen and not to the
+ * address bar (`ui/admin/schedule-screen.tsx`).
  */
 export default async function SchedulePage({
   searchParams,
@@ -31,36 +29,10 @@ export default async function SchedulePage({
   const screen = await getSchedulingScreen({ month, date })
 
   return (
-    <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-title text-white">Calendrier de programmation</h1>
-        <p className="text-body text-white/80">
-          Une grille par date : trois footballeurs et un thème. Les jours sans grille sont
-          signalés — c’est leur absence en base qui les signale, rien d’autre.
-        </p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <h1 className="text-title text-white">Calendrier de programmation</h1>
 
-      <MonthCalendarView
-        calendar={screen.calendar}
-        today={screen.today}
-        selectedDate={screen.selectedDate}
-        previousMonth={screen.previousMonth}
-        nextMonth={screen.nextMonth}
-      />
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-heading text-white">
-          {screen.selectedGrid === null ? 'Programmer le' : 'Modifier la grille du'}{' '}
-          {formatChallengeDate(screen.selectedDate)}
-        </h2>
-        <ScheduleForm
-          key={screen.selectedDate}
-          date={screen.selectedDate}
-          grid={screen.selectedGrid}
-          themes={screen.themes}
-          scheduleAction={scheduleGridAction}
-        />
-      </section>
+      <ScheduleScreen screen={screen} scheduleAction={scheduleGridAction} />
     </div>
   )
 }

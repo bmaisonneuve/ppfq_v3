@@ -10,6 +10,8 @@ import type { PlayerStats } from '@/shared/stats'
 import type { Position } from '@/shared/schedule'
 
 import { BrandRow, GridTitle } from './chrome'
+import { closes, useLive } from './verdict'
+import type { Verdict } from './verdict'
 import { SegmentIcon } from './segment-icon'
 import { useGame } from './game-provider'
 
@@ -38,7 +40,12 @@ import { useGame } from './game-provider'
  * lequel il montre.
  */
 export function DesktopRail({ active }: Readonly<{ active: Position | null }>) {
-  const { grid, state, stats, playAt, openStats, openAccount, account } = useGame()
+  const { grid, state, stats, playAt, verdict, openStats, openAccount, account } = useGame()
+
+  // Le niveau dont l'issue vient de tomber. Sur un grand écran, la barre
+  // segmentée n'existe pas : c'est ici, et nulle part ailleurs, que le joueur
+  // voit un niveau se fermer pendant qu'il lit sa carte réponse.
+  const closing = closedBy(useLive(verdict))
 
   return (
     <aside className="bg-band hidden flex-col gap-[18px] overflow-y-auto px-[18px] pt-[18px] pb-[20px] lg:flex">
@@ -66,6 +73,7 @@ export function DesktopRail({ active }: Readonly<{ active: Position | null }>) {
                   play={playAt(enigma.position)}
                   loading={state.status === 'loading'}
                   here={enigma.position === active}
+                  pop={enigma.position === closing}
                 />
               ))}
             </nav>
@@ -76,6 +84,11 @@ export function DesktopRail({ active }: Readonly<{ active: Position | null }>) {
       <RailStats stats={stats} />
     </aside>
   )
+}
+
+/** Le niveau que cet essai vient de fermer, s'il en a fermé un. */
+function closedBy(verdict: Verdict | null): Position | null {
+  return verdict !== null && closes(verdict) ? verdict.position : null
 }
 
 /**
@@ -92,11 +105,13 @@ function RailLink({
   play,
   loading,
   here,
+  pop,
 }: Readonly<{
   position: Position
   play: EnigmaPlay | undefined
   loading: boolean
   here: boolean
+  pop: boolean
 }>) {
   return (
     <Link
@@ -107,7 +122,7 @@ function RailLink({
         here ? 'ring-ink ring-2' : ''
       }`}
     >
-      <SegmentIcon play={play} />
+      <SegmentIcon play={play} pop={pop} />
 
       <span className="flex min-w-0 flex-col items-start gap-[3px]">
         <span className="font-display text-rail text-ink">{positionTitle(position)}</span>

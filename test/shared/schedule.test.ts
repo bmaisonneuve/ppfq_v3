@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { MAX_THEME_LENGTH, ScheduleInput, asPosition, weekdayIndex } from '@/shared/schedule'
+import {
+  MAX_THEME_LENGTH,
+  ScheduleInput,
+  asPosition,
+  dayState,
+  describeCalendarDay,
+  weekdayIndex,
+} from '@/shared/schedule'
+import type { CalendarDay, ScheduledEnigma } from '@/shared/schedule'
 
 /**
  * The scheduling rules that need neither a career nor a database.
@@ -98,5 +106,61 @@ describe('asPosition', () => {
 
   it('refuses a missing position, which is what a left join gives', () => {
     expect(asPosition(null)).toBeNull()
+  })
+})
+
+const enigma = (position: 1 | 2 | 3, name: string): ScheduledEnigma => ({
+  position,
+  footballerId: uuid(String(position)),
+  name,
+})
+
+const day = (enigmas: ScheduledEnigma[], theme = 'rétro'): CalendarDay => ({
+  date: '2026-09-09',
+  grid: { date: '2026-09-09', theme, enigmas },
+})
+
+const THREE = [enigma(1, 'Zidane'), enigma(2, 'Papin'), enigma(3, 'Pelé')]
+
+describe('dayState', () => {
+  it('reads a day with no grid as the hole it is', () => {
+    expect(dayState(null)).toBe('hole')
+  })
+
+  it('reads a grid with its three positions as programmed', () => {
+    expect(dayState(day(THREE).grid)).toBe('programmed')
+  })
+
+  it('tells a half-written grid from a hole', () => {
+    // `scheduleGrid` never writes one, and that is exactly why the one found
+    // deserves its own indicator: a row with no items is a state the database
+    // allows, and showing it as a hole would send the admin looking in the
+    // wrong place.
+    expect(dayState(day([]).grid)).toBe('incomplete')
+    expect(dayState(day([enigma(1, 'Zidane'), enigma(3, 'Pelé')]).grid)).toBe('incomplete')
+  })
+})
+
+describe('describeCalendarDay', () => {
+  it('names the date, the theme and the three footballers at their position', () => {
+    // The whole square, in one sentence: a day number and a coloured dot are
+    // not a date and not a state for anyone who cannot see them.
+    expect(describeCalendarDay(day(THREE))).toBe(
+      'mercredi 9 septembre 2026 — grille « rétro » : 1. échauffement Zidane, ' +
+        '2. titulaire Papin, 3. légende Pelé',
+    )
+  })
+
+  it('says a hole is a hole', () => {
+    expect(describeCalendarDay({ date: '2026-09-09', grid: null })).toBe(
+      'mercredi 9 septembre 2026 — aucune grille',
+    )
+  })
+
+  it('names the position that is empty rather than skipping it', () => {
+    const sentence = describeCalendarDay(day([enigma(1, 'Zidane'), enigma(3, 'Pelé')]))
+
+    expect(sentence).toContain('grille incomplète')
+    expect(sentence).toContain('2. titulaire vide')
   })
 })

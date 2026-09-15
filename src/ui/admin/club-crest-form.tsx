@@ -52,7 +52,7 @@ export function ClubCrestForm({
       <div className="flex flex-wrap items-end gap-3">
         <form action={upload} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="clubId" value={clubId} />
-          <label className="flex flex-col gap-1">
+          <label className="flex w-full flex-col gap-1 sm:w-auto">
             <span className="field-label">
               {crest === null ? 'Téléverser un blason' : 'Remplacer le blason'}
             </span>
@@ -61,7 +61,7 @@ export function ClubCrestForm({
               name="crest"
               required
               accept={ALLOWED_CREST_TYPES.join(',')}
-              className="field-file w-80"
+              className="field-file w-full sm:w-80"
             />
           </label>
           <button
